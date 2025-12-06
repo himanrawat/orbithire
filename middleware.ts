@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { serverEnv } from "./lib/config";
 
-const cookieDomain = process.env.NODE_ENV === "production" ? ".himanshurawat.in" : undefined;
+const PROTECTED_PATHS = ["/dashboard", "/onboarding", "/profile"];
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    serverEnv.supabaseUrl,
+    serverEnv.supabaseAnonKey,
     {
       cookies: {
         get(name: string) {
@@ -22,7 +23,7 @@ export async function middleware(req: NextRequest) {
             httpOnly: true,
             secure: true,
             sameSite: "lax",
-            domain: cookieDomain,
+            domain: serverEnv.authCookieDomain,
             path: "/",
             ...options
           });
@@ -35,7 +36,7 @@ export async function middleware(req: NextRequest) {
             httpOnly: true,
             secure: true,
             sameSite: "lax",
-            domain: cookieDomain,
+            domain: serverEnv.authCookieDomain,
             path: "/",
             ...options
           });
@@ -50,12 +51,17 @@ export async function middleware(req: NextRequest) {
 
   const hostname = req.nextUrl.hostname.toLowerCase();
   const path = req.nextUrl.pathname;
+  const pathWithQuery = `${path}${req.nextUrl.search}`;
+  const isProtectedRoute = PROTECTED_PATHS.some(
+    (protectedPath) => path === protectedPath || path.startsWith(`${protectedPath}/`)
+  );
 
   // Protect dashboard host
   if (hostname === "dashboard.himanshurawat.in") {
     if (!session) {
       const redirectUrl = new URL("https://resume.himanshurawat.in");
       redirectUrl.searchParams.set("auth", "required");
+      redirectUrl.searchParams.set("redirect", req.nextUrl.href);
       return NextResponse.redirect(redirectUrl, { headers: res.headers });
     }
     return res;
@@ -73,6 +79,13 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL("https://dashboard.himanshurawat.in"), { headers: res.headers });
     }
     return res;
+  }
+
+  // Local/protected routes: bounce unauthenticated users with redirect param
+  if (!session && isProtectedRoute) {
+    const redirectUrl = new URL("/signin", req.nextUrl.origin);
+    redirectUrl.searchParams.set("redirect", pathWithQuery);
+    return NextResponse.redirect(redirectUrl, { headers: res.headers });
   }
 
   // Default: continue

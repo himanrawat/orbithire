@@ -1,7 +1,6 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
-
-const cookieDomain = process.env.NODE_ENV === "production" ? ".himanshurawat.in" : undefined;
+import { serverEnv } from "./config";
 
 /**
  * Server-side Supabase client that reads/writes the auth cookie shared across subdomains.
@@ -10,8 +9,8 @@ export function createServerSupabase() {
   const cookieStore = cookies();
 
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    serverEnv.supabaseUrl,
+    serverEnv.supabaseAnonKey,
     {
       cookies: {
         get(name: string) {
@@ -25,7 +24,7 @@ export function createServerSupabase() {
             httpOnly: true,
             secure: true,
             sameSite: "lax",
-            domain: cookieDomain,
+            domain: serverEnv.authCookieDomain,
             path: "/",
             ...options
           });
@@ -37,7 +36,7 @@ export function createServerSupabase() {
             httpOnly: true,
             secure: true,
             sameSite: "lax",
-            domain: cookieDomain,
+            domain: serverEnv.authCookieDomain,
             path: "/",
             expires: new Date(0),
             ...options

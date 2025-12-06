@@ -1,14 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-
-const cookieDomain = process.env.NODE_ENV === "production" ? ".himanshurawat.in" : undefined;
+import { serverEnv } from "@/lib/config";
 
 export async function POST(req: NextRequest) {
   const response = NextResponse.redirect("https://himanshurawat.in");
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    serverEnv.supabaseUrl,
+    serverEnv.supabaseAnonKey,
     {
       cookies: {
         get(name: string) {
@@ -21,7 +20,7 @@ export async function POST(req: NextRequest) {
             httpOnly: true,
             secure: true,
             sameSite: "lax",
-            domain: cookieDomain,
+            domain: serverEnv.authCookieDomain,
             path: "/",
             ...options
           });
@@ -34,7 +33,7 @@ export async function POST(req: NextRequest) {
             httpOnly: true,
             secure: true,
             sameSite: "lax",
-            domain: cookieDomain,
+            domain: serverEnv.authCookieDomain,
             path: "/",
             ...options
           });
