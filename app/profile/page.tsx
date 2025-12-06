@@ -33,6 +33,10 @@ import {
 	Camera,
 	Trash2,
 	ChevronLeft,
+	Upload,
+	Sparkles,
+	PlusCircle,
+	Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -56,6 +60,10 @@ type Education = {
 	end_date: string;
 };
 
+type CustomField = { id: string; label: string; value: string };
+type CustomEntry = { id: string; title: string; value: string };
+type CustomSection = { id: string; title: string; entries: CustomEntry[] };
+
 type ProfileData = {
 	id: string;
 	full_name: string;
@@ -70,6 +78,7 @@ type ProfileData = {
 	skills: string[];
 	work_experience: WorkExperience[];
 	education: Education[];
+	custom_fields: CustomField[];
 };
 
 // Empty initial state - will be populated from Supabase
@@ -87,9 +96,17 @@ const emptyProfile: ProfileData = {
 	skills: [],
 	work_experience: [],
 	education: [],
+	custom_fields: [],
 };
 
-type Tab = "personal" | "experience" | "education" | "skills";
+type Tab = string;
+const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
+const ALLOWED_IMPORT_EXTS = [".pdf", ".docx", ".txt"];
+
+const createId = () =>
+	typeof crypto !== "undefined" && "randomUUID" in crypto
+		? crypto.randomUUID()
+		: Math.random().toString(36).slice(2);
 
 export default function ProfilePage() {
 	const user = { name: "User", avatarUrl: undefined };
@@ -98,8 +115,15 @@ export default function ProfilePage() {
 	const [isSaving, setIsSaving] = useState(false);
 	const [newSkill, setNewSkill] = useState("");
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const importInputRef = useRef<HTMLInputElement>(null);
+	const [customSections, setCustomSections] = useState<CustomSection[]>([]);
+	const [newSectionTitle, setNewSectionTitle] = useState("");
+	const [importing, setImporting] = useState(false);
+	const [importError, setImportError] = useState<string | null>(null);
+	const [importNotice, setImportNotice] = useState<string | null>(null);
+	const [importedFileName, setImportedFileName] = useState<string | null>(null);
 
-	const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+	const baseTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
 		{
 			id: "personal",
 			label: "Personal Info",
@@ -118,12 +142,24 @@ export default function ProfilePage() {
 		{ id: "skills", label: "Skills", icon: <FileText className="h-4 w-4" /> },
 	];
 
+	const tabs = [
+		...baseTabs,
+		...customSections.map((section) => ({
+			id: `custom-${section.id}`,
+			label: section.title,
+			icon: <Sparkles className="h-4 w-4" />,
+		})),
+	];
+
 	const handleSave = async () => {
 		setIsSaving(true);
-		// TODO: Call API to save profile
+		// TODO: Call API to persist profile changes
 		await new Promise((resolve) => setTimeout(resolve, 1000));
 		setIsSaving(false);
 	};
+
+	const mergeSkills = (incoming: string[]) =>
+		Array.from(new Set([...profile.skills, ...incoming.filter(Boolean)]));
 
 	const handleAddSkill = () => {
 		if (newSkill && !profile.skills.includes(newSkill)) {
@@ -141,6 +177,319 @@ export default function ProfilePage() {
 
 	const handlePhotoClick = () => {
 		fileInputRef.current?.click();
+	};
+
+	const handleAddExperience = () => {
+		setProfile((prev) => ({
+			...prev,
+			work_experience: [
+				...prev.work_experience,
+				{
+					id: createId(),
+					company: "",
+					role: "",
+					location: "",
+					start_date: "",
+					end_date: "",
+					description: "",
+				},
+			],
+		}));
+	};
+
+	const handleUpdateExperience = (
+		id: string,
+		patch: Partial<WorkExperience>
+	) => {
+		setProfile((prev) => ({
+			...prev,
+			work_experience: prev.work_experience.map((exp) =>
+				exp.id === id ? { ...exp, ...patch } : exp
+			),
+		}));
+	};
+
+	const handleRemoveExperience = (id: string) => {
+		setProfile((prev) => ({
+			...prev,
+			work_experience: prev.work_experience.filter((exp) => exp.id !== id),
+		}));
+	};
+
+	const handleAddEducation = () => {
+		setProfile((prev) => ({
+			...prev,
+			education: [
+				...prev.education,
+				{
+					id: createId(),
+					institution: "",
+					degree: "",
+					location: "",
+					start_date: "",
+					end_date: "",
+				},
+			],
+		}));
+	};
+
+	const handleUpdateEducation = (id: string, patch: Partial<Education>) => {
+		setProfile((prev) => ({
+			...prev,
+			education: prev.education.map((edu) =>
+				edu.id === id ? { ...edu, ...patch } : edu
+			),
+		}));
+	};
+
+	const handleRemoveEducation = (id: string) => {
+		setProfile((prev) => ({
+			...prev,
+			education: prev.education.filter((edu) => edu.id !== id),
+		}));
+	};
+
+	const handleAddField = () => {
+		setProfile((prev) => ({
+			...prev,
+			custom_fields: [
+				...prev.custom_fields,
+				{ id: createId(), label: "Label", value: "" },
+			],
+		}));
+	};
+
+	const handleUpdateField = (id: string, patch: Partial<CustomField>) => {
+		setProfile((prev) => ({
+			...prev,
+			custom_fields: prev.custom_fields.map((field) =>
+				field.id === id ? { ...field, ...patch } : field
+			),
+		}));
+	};
+
+	const handleRemoveField = (id: string) => {
+		setProfile((prev) => ({
+			...prev,
+			custom_fields: prev.custom_fields.filter((field) => field.id !== id),
+		}));
+	};
+
+	const handleAddCustomSection = (
+		title?: string,
+		entries: CustomEntry[] = []
+	) => {
+		const normalizedTitle = (title || newSectionTitle).trim();
+		if (!normalizedTitle) return;
+
+		const newSection: CustomSection = {
+			id: createId(),
+			title: normalizedTitle,
+			entries: entries.length
+				? entries
+				: [{ id: createId(), title: "", value: "" }],
+		};
+
+		setCustomSections((prev) => [...prev, newSection]);
+		setActiveTab(`custom-${newSection.id}`);
+		setNewSectionTitle("");
+	};
+
+	const handleRemoveCustomSection = (sectionId: string) => {
+		setCustomSections((prev) =>
+			prev.filter((section) => section.id !== sectionId)
+		);
+		if (activeTab === `custom-${sectionId}`) {
+			setActiveTab("personal");
+		}
+	};
+
+	const handleUpdateCustomEntry = (
+		sectionId: string,
+		entryId: string,
+		patch: Partial<CustomEntry>
+	) => {
+		setCustomSections((prev) =>
+			prev.map((section) =>
+				section.id === sectionId
+					? {
+							...section,
+							entries: section.entries.map((entry) =>
+								entry.id === entryId ? { ...entry, ...patch } : entry
+							),
+					  }
+					: section
+			)
+		);
+	};
+
+	const handleAddCustomEntry = (sectionId: string) => {
+		setCustomSections((prev) =>
+			prev.map((section) =>
+				section.id === sectionId
+					? {
+							...section,
+							entries: [
+								...section.entries,
+								{ id: createId(), title: "", value: "" },
+							],
+					  }
+					: section
+			)
+		);
+	};
+
+	const handleRemoveCustomEntry = (sectionId: string, index: number) => {
+		setCustomSections((prev) =>
+			prev.map((section) =>
+				section.id === sectionId
+					? {
+							...section,
+							entries: section.entries.filter((_, i) => i !== index),
+					  }
+					: section
+			)
+		);
+	};
+
+	const handleImportFile = async (file: File) => {
+		setImportError(null);
+		setImportNotice(null);
+		setImportedFileName(null);
+
+		const lowerName = file.name.toLowerCase();
+		const hasValidExtension = ALLOWED_IMPORT_EXTS.some((ext) =>
+			lowerName.endsWith(ext)
+		);
+		if (!hasValidExtension) {
+			setImportError("Use PDF, DOCX, or TXT files up to 5MB.");
+			return;
+		}
+		if (file.size > MAX_IMPORT_BYTES) {
+			setImportError("File must be 5MB or smaller.");
+			return;
+		}
+
+		setImporting(true);
+		try {
+			const formData = new FormData();
+			formData.append("file", file);
+
+			const response = await fetch("/api/profile/extract", {
+				method: "POST",
+				body: formData,
+			});
+
+			const body = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				setImportError(
+					body.error ||
+						"Unable to extract data from the file. Please try again."
+				);
+				return;
+			}
+
+			const normalizedExperience: WorkExperience[] = (
+				body.work_experience || []
+			).map((exp: WorkExperience) => ({
+				id: exp.id || createId(),
+				company: exp.company || "",
+				role: exp.role || "",
+				location: exp.location || "",
+				start_date: exp.start_date || "",
+				end_date: exp.end_date || "",
+				description: exp.description || "",
+			}));
+
+			const normalizedEducation: Education[] = (body.education || []).map(
+				(edu: Education) => ({
+					id: edu.id || createId(),
+					institution: edu.institution || "",
+					degree: edu.degree || "",
+					location: edu.location || "",
+					start_date: edu.start_date || "",
+					end_date: edu.end_date || "",
+				})
+			);
+
+			const normalizedCustomSections: CustomSection[] = (
+				body.customSections || []
+			).map((section: CustomSection) => ({
+				id: section.id || createId(),
+				title: section.title || "Imported Section",
+				entries: section.entries?.length
+					? section.entries.map((entry: any) =>
+							typeof entry === "string"
+								? { id: createId(), title: "", value: entry }
+								: {
+										id: entry.id || createId(),
+										title: entry.title || "",
+										value: entry.value || "",
+								  }
+					  )
+					: [
+							{
+								id: createId(),
+								title: "",
+								value: "Review and fill this section",
+							},
+					  ],
+			}));
+
+			setProfile((prev) => ({
+				...prev,
+				full_name: body.profile?.full_name || prev.full_name,
+				email: body.profile?.email || prev.email,
+				phone: body.profile?.phone || prev.phone,
+				bio: body.profile?.summary || prev.bio,
+				skills: mergeSkills(body.skills || []),
+				work_experience:
+					normalizedExperience.length > 0
+						? normalizedExperience
+						: prev.work_experience,
+				education:
+					normalizedEducation.length > 0 ? normalizedEducation : prev.education,
+			}));
+
+			if (normalizedCustomSections.length > 0) {
+				setCustomSections((prev) => {
+					const merged = [...prev];
+					normalizedCustomSections.forEach((section) => {
+						const existingIndex = merged.findIndex(
+							(s) => s.title.toLowerCase() === section.title.toLowerCase()
+						);
+						if (existingIndex >= 0) {
+							const seen = new Set<string>();
+							const mergedEntries: CustomEntry[] = [];
+							[...merged[existingIndex].entries, ...section.entries].forEach(
+								(entry) => {
+									const key = `${entry.title}|${entry.value}`;
+									if (seen.has(key)) return;
+									seen.add(key);
+									mergedEntries.push(entry);
+								}
+							);
+							merged[existingIndex] = {
+								...merged[existingIndex],
+								entries: mergedEntries,
+							};
+						} else {
+							merged.push(section);
+						}
+					});
+					return merged;
+				});
+			}
+
+			setImportedFileName(body.fileName || file.name);
+			setImportNotice(
+				"Imported details from your resume. Review and edit as needed."
+			);
+		} catch (error) {
+			setImportError("Unable to extract data right now. Please try again.");
+		} finally {
+			setImporting(false);
+		}
 	};
 
 	return (
@@ -177,22 +526,48 @@ export default function ProfilePage() {
 					transition={{ delay: 0.1 }}
 					className="mb-6"
 				>
-					<div className="flex flex-wrap gap-2 rounded-lg border bg-card/80 p-2 backdrop-blur">
-						{tabs.map((tab) => (
-							<button
-								key={tab.id}
-								onClick={() => setActiveTab(tab.id)}
-								className={cn(
-									"flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors",
-									activeTab === tab.id
-										? "bg-primary text-primary-foreground"
-										: "text-muted-foreground hover:bg-muted hover:text-foreground"
-								)}
+					<div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card/80 p-2 backdrop-blur">
+						<div className="flex flex-wrap gap-2">
+							{tabs.map((tab) => (
+								<button
+									key={tab.id}
+									onClick={() => setActiveTab(tab.id)}
+									className={cn(
+										"flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors",
+										activeTab === tab.id
+											? "bg-primary text-primary-foreground"
+											: "text-muted-foreground hover:bg-muted hover:text-foreground"
+									)}
+								>
+									{tab.icon}
+									{tab.label}
+								</button>
+							))}
+						</div>
+
+						<div className="ml-auto flex flex-1 flex-wrap items-center gap-2 sm:flex-none">
+							<Input
+								placeholder="Add custom section (e.g., Projects)"
+								value={newSectionTitle}
+								onChange={(e) => setNewSectionTitle(e.target.value)}
+								onKeyDown={(e) => {
+									if (e.key === "Enter") {
+										e.preventDefault();
+										handleAddCustomSection();
+									}
+								}}
+								className="min-w-[180px] flex-1"
+							/>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => handleAddCustomSection()}
+								disabled={!newSectionTitle.trim()}
 							>
-								{tab.icon}
-								{tab.label}
-							</button>
-						))}
+								<PlusCircle className="mr-2 h-4 w-4" />
+								Add Section
+							</Button>
+						</div>
 					</div>
 				</motion.div>
 
@@ -213,6 +588,65 @@ export default function ProfilePage() {
 								</CardDescription>
 							</CardHeader>
 							<CardContent className="space-y-6">
+								<div className="rounded-lg border border-dashed bg-muted/40 p-4">
+									<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+										<div>
+											<p className="flex items-center gap-2 text-sm font-medium">
+												<Upload className="h-4 w-4" />
+												Extract from resume
+											</p>
+											<p className="text-xs text-muted-foreground">
+												Upload a PDF, DOCX, or TXT to prefill fields and
+												auto-create sections like Projects or Certifications.
+											</p>
+										</div>
+										<div className="flex flex-wrap gap-2">
+											<Button
+												variant="outline"
+												size="sm"
+												onClick={() => importInputRef.current?.click()}
+												disabled={importing}
+											>
+												{importing ? (
+													<>
+														<span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+														Extracting...
+													</>
+												) : (
+													<>
+														<Wand2 className="mr-2 h-4 w-4" />
+														Upload & extract
+													</>
+												)}
+											</Button>
+										</div>
+									</div>
+									<input
+										ref={importInputRef}
+										type="file"
+										accept=".pdf,.docx,.txt"
+										className="hidden"
+										onChange={(e) => {
+											const file = e.target.files?.[0];
+											if (file) {
+												void handleImportFile(file);
+												e.target.value = "";
+											}
+										}}
+									/>
+									{importError && (
+										<div className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+											{importError}
+										</div>
+									)}
+									{importNotice && (
+										<div className="mt-3 rounded-md border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-700 dark:text-green-300">
+											{importNotice}
+											{importedFileName ? ` (${importedFileName})` : ""}
+										</div>
+									)}
+								</div>
+
 								{/* Profile Photo */}
 								<div className="flex items-center gap-6">
 									<div className="relative">
@@ -379,6 +813,62 @@ export default function ProfilePage() {
 										/>
 									</div>
 								</div>
+
+								<div className="rounded-lg border bg-muted/40 p-4">
+									<div className="flex items-center justify-between gap-2">
+										<p className="text-sm font-medium">Additional fields</p>
+										<Button
+											variant="outline"
+											size="sm"
+											onClick={handleAddField}
+										>
+											<Plus className="mr-2 h-4 w-4" />
+											Add field
+										</Button>
+									</div>
+									{profile.custom_fields.length > 0 ? (
+										<div className="mt-3 space-y-2">
+											{profile.custom_fields.map((field) => (
+												<div
+													key={field.id}
+													className="grid gap-2 sm:grid-cols-[1fr,2fr,auto]"
+												>
+													<Input
+														placeholder="Label"
+														value={field.label}
+														onChange={(e) =>
+															handleUpdateField(field.id, {
+																label: e.target.value,
+															})
+														}
+													/>
+													<Input
+														placeholder="Value"
+														value={field.value}
+														onChange={(e) =>
+															handleUpdateField(field.id, {
+																value: e.target.value,
+															})
+														}
+													/>
+													<Button
+														variant="ghost"
+														size="icon"
+														className="h-9 w-9 text-destructive"
+														onClick={() => handleRemoveField(field.id)}
+													>
+														<Trash2 className="h-4 w-4" />
+													</Button>
+												</div>
+											))}
+										</div>
+									) : (
+										<p className="mt-2 text-xs text-muted-foreground">
+											Need visa status, portfolio password, or other custom
+											info? Add a field above.
+										</p>
+									)}
+								</div>
 							</CardContent>
 						</Card>
 					)}
@@ -393,7 +883,7 @@ export default function ProfilePage() {
 										Your professional work history.
 									</CardDescription>
 								</div>
-								<Button>
+								<Button onClick={handleAddExperience} variant="outline">
 									<Plus className="mr-2 h-4 w-4" />
 									Add Experience
 								</Button>
@@ -407,26 +897,24 @@ export default function ProfilePage() {
 										>
 											<div className="mb-4 flex items-start justify-between">
 												<div>
-													<h4 className="font-medium">{exp.role}</h4>
+													<h4 className="font-medium">
+														{exp.role || "Role / Title"}
+													</h4>
 													<p className="text-sm text-muted-foreground">
-														{exp.company} · {exp.location}
+														{exp.company || "Company"} ·{" "}
+														{exp.location || "Location"}
 													</p>
 													<p className="text-xs text-muted-foreground">
-														{exp.start_date} - {exp.end_date || "Present"}
+														{exp.start_date || "Start"} -{" "}
+														{exp.end_date || "Present"}
 													</p>
 												</div>
 												<div className="flex gap-1">
 													<Button
 														variant="ghost"
 														size="icon"
-														className="h-8 w-8"
-													>
-														<FileText className="h-4 w-4" />
-													</Button>
-													<Button
-														variant="ghost"
-														size="icon"
 														className="h-8 w-8 text-destructive"
+														onClick={() => handleRemoveExperience(exp.id)}
 													>
 														<Trash2 className="h-4 w-4" />
 													</Button>
@@ -436,30 +924,61 @@ export default function ProfilePage() {
 												<div className="grid gap-4 sm:grid-cols-2">
 													<div className="space-y-2">
 														<Label>Job Title</Label>
-														<Input defaultValue={exp.role} />
+														<Input
+															value={exp.role}
+															onChange={(e) =>
+																handleUpdateExperience(exp.id, {
+																	role: e.target.value,
+																})
+															}
+														/>
 													</div>
 													<div className="space-y-2">
 														<Label>Company</Label>
-														<Input defaultValue={exp.company} />
+														<Input
+															value={exp.company}
+															onChange={(e) =>
+																handleUpdateExperience(exp.id, {
+																	company: e.target.value,
+																})
+															}
+														/>
 													</div>
 													<div className="space-y-2">
 														<Label>Location</Label>
-														<Input defaultValue={exp.location} />
+														<Input
+															value={exp.location}
+															onChange={(e) =>
+																handleUpdateExperience(exp.id, {
+																	location: e.target.value,
+																})
+															}
+														/>
 													</div>
 													<div className="grid grid-cols-2 gap-2">
 														<div className="space-y-2">
 															<Label>Start</Label>
 															<Input
-																type="month"
-																defaultValue={exp.start_date}
+																type="text"
+																value={exp.start_date || ""}
+																onChange={(e) =>
+																	handleUpdateExperience(exp.id, {
+																		start_date: e.target.value,
+																	})
+																}
 															/>
 														</div>
 														<div className="space-y-2">
 															<Label>End</Label>
 															<Input
-																type="month"
-																defaultValue={exp.end_date || ""}
+																type="text"
+																value={exp.end_date || ""}
 																placeholder="Present"
+																onChange={(e) =>
+																	handleUpdateExperience(exp.id, {
+																		end_date: e.target.value,
+																	})
+																}
 															/>
 														</div>
 													</div>
@@ -468,7 +987,12 @@ export default function ProfilePage() {
 													<Label>Description</Label>
 													<Textarea
 														rows={3}
-														defaultValue={exp.description}
+														value={exp.description}
+														onChange={(e) =>
+															handleUpdateExperience(exp.id, {
+																description: e.target.value,
+															})
+														}
 														placeholder="Key responsibilities and achievements..."
 													/>
 												</div>
@@ -500,7 +1024,7 @@ export default function ProfilePage() {
 									<CardTitle>Education</CardTitle>
 									<CardDescription>Your academic background.</CardDescription>
 								</div>
-								<Button>
+								<Button onClick={handleAddEducation} variant="outline">
 									<Plus className="mr-2 h-4 w-4" />
 									Add Education
 								</Button>
@@ -514,18 +1038,23 @@ export default function ProfilePage() {
 										>
 											<div className="mb-4 flex items-start justify-between">
 												<div>
-													<h4 className="font-medium">{edu.degree}</h4>
+													<h4 className="font-medium">
+														{edu.degree || "Degree"}
+													</h4>
 													<p className="text-sm text-muted-foreground">
-														{edu.institution} · {edu.location}
+														{edu.institution || "Institution"} ·{" "}
+														{edu.location || "Location"}
 													</p>
 													<p className="text-xs text-muted-foreground">
-														{edu.start_date} - {edu.end_date}
+														{edu.start_date || "Start"} -{" "}
+														{edu.end_date || "End"}
 													</p>
 												</div>
 												<Button
 													variant="ghost"
 													size="icon"
 													className="h-8 w-8 text-destructive"
+													onClick={() => handleRemoveEducation(edu.id)}
 												>
 													<Trash2 className="h-4 w-4" />
 												</Button>
@@ -533,24 +1062,61 @@ export default function ProfilePage() {
 											<div className="grid gap-4 sm:grid-cols-2">
 												<div className="space-y-2">
 													<Label>Degree</Label>
-													<Input defaultValue={edu.degree} />
+													<Input
+														value={edu.degree}
+														onChange={(e) =>
+															handleUpdateEducation(edu.id, {
+																degree: e.target.value,
+															})
+														}
+													/>
 												</div>
 												<div className="space-y-2">
 													<Label>Institution</Label>
-													<Input defaultValue={edu.institution} />
+													<Input
+														value={edu.institution}
+														onChange={(e) =>
+															handleUpdateEducation(edu.id, {
+																institution: e.target.value,
+															})
+														}
+													/>
 												</div>
 												<div className="space-y-2">
 													<Label>Location</Label>
-													<Input defaultValue={edu.location} />
+													<Input
+														value={edu.location}
+														onChange={(e) =>
+															handleUpdateEducation(edu.id, {
+																location: e.target.value,
+															})
+														}
+													/>
 												</div>
 												<div className="grid grid-cols-2 gap-2">
 													<div className="space-y-2">
 														<Label>Start</Label>
-														<Input defaultValue={edu.start_date} />
+														<Input
+															type="text"
+															value={edu.start_date}
+															onChange={(e) =>
+																handleUpdateEducation(edu.id, {
+																	start_date: e.target.value,
+																})
+															}
+														/>
 													</div>
 													<div className="space-y-2">
 														<Label>End</Label>
-														<Input defaultValue={edu.end_date} />
+														<Input
+															type="text"
+															value={edu.end_date}
+															onChange={(e) =>
+																handleUpdateEducation(edu.id, {
+																	end_date: e.target.value,
+																})
+															}
+														/>
 													</div>
 												</div>
 											</div>
@@ -563,7 +1129,7 @@ export default function ProfilePage() {
 										<p className="mb-4 text-sm text-muted-foreground">
 											Add your academic background to strengthen your profile
 										</p>
-										<Button>
+										<Button onClick={handleAddEducation}>
 											<Plus className="mr-2 h-4 w-4" />
 											Add Your First Education
 										</Button>
@@ -665,6 +1231,93 @@ export default function ProfilePage() {
 							</CardContent>
 						</Card>
 					)}
+
+					{/* Custom / Imported Sections */}
+					{activeTab.startsWith("custom-") &&
+						(() => {
+							const section = customSections.find(
+								(s) => `custom-${s.id}` === activeTab
+							);
+							if (!section) return null;
+
+							return (
+								<Card className="border-border/50 bg-card/80 backdrop-blur">
+									<CardHeader className="flex flex-row items-center justify-between">
+										<div>
+											<CardTitle>{section.title}</CardTitle>
+											<CardDescription>
+												Imported from your resume or added manually. Edit or
+												remove entries to keep your profile tidy.
+											</CardDescription>
+										</div>
+										<Button
+											variant="ghost"
+											className="text-destructive"
+											onClick={() => handleRemoveCustomSection(section.id)}
+										>
+											<Trash2 className="mr-2 h-4 w-4" />
+											Remove section
+										</Button>
+									</CardHeader>
+									<CardContent className="space-y-3">
+										{section.entries.map((entry, index) => (
+											<div
+												key={`${section.id}-${entry.id}`}
+												className="space-y-2 rounded-lg border bg-background/50 p-3"
+											>
+												<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+													<div className="flex-1">
+														{/* <Label className="text-sm font-medium">
+															Entry heading
+														</Label> */}
+														<Input
+															className="mt-1"
+															placeholder="e.g., Project title, Award name, Publication"
+															value={entry.title}
+															onChange={(e) =>
+																handleUpdateCustomEntry(section.id, entry.id, {
+																	title: e.target.value,
+																})
+															}
+														/>
+													</div>
+													<Button
+														variant="ghost"
+														size="icon"
+														className="h-8 w-8 text-destructive"
+														onClick={() =>
+															handleRemoveCustomEntry(section.id, index)
+														}
+														aria-label="Remove entry"
+													>
+														<Trash2 className="h-4 w-4" />
+													</Button>
+												</div>
+												<Textarea
+													value={entry.value}
+													onChange={(e) =>
+														handleUpdateCustomEntry(section.id, entry.id, {
+															value: e.target.value,
+														})
+													}
+													placeholder="Details, bullet points, or notes for this section..."
+													rows={3}
+												/>
+											</div>
+										))}
+
+										<Button
+											variant="outline"
+											onClick={() => handleAddCustomEntry(section.id)}
+											className="w-full sm:w-auto"
+										>
+											<Plus className="mr-2 h-4 w-4" />
+											Add entry
+										</Button>
+									</CardContent>
+								</Card>
+							);
+						})()}
 				</motion.div>
 
 				{/* Save Button */}

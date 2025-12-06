@@ -170,6 +170,9 @@ export default function OnboardingPage() {
 				fullName: profileData.fullName.trim(),
 				headline: profileData.headline.trim(),
 				location: profileData.location.trim(),
+				phone: profileData.phone.trim(),
+				linkedIn: profileData.linkedIn.trim(),
+				portfolio: profileData.portfolio.trim(),
 			},
 			resume: {
 				skills: resumeData.skills,

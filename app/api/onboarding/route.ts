@@ -7,6 +7,9 @@ type ProfilePayload = {
 	fullName: string;
 	headline?: string;
 	location?: string;
+	phone?: string;
+	linkedIn?: string;
+	portfolio?: string;
 };
 
 type ResumePayload = {
@@ -32,6 +35,13 @@ const allowedResumeTypes = new Set([
 	"application/pdf",
 	"application/msword",
 	"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]);
+const allowedWorkTypes = new Set(["remote", "hybrid", "onsite"]);
+const allowedStartDates = new Set([
+	"immediately",
+	"2weeks",
+	"1month",
+	"flexible",
 ]);
 
 function splitList(value?: string) {
@@ -161,6 +171,13 @@ export async function POST(req: NextRequest) {
 	const skills = splitList(resume.skills);
 	const jobTitles = splitList(preferences.jobTitles);
 	const preferredLocations = splitList(preferences.locations);
+	const workType = preferences.workType && allowedWorkTypes.has(preferences.workType)
+		? preferences.workType
+		: null;
+	const startAvailability =
+		preferences.startDate && allowedStartDates.has(preferences.startDate)
+			? preferences.startDate
+			: null;
 
 	const admin = createClient(
 		serverEnv.supabaseUrl,
@@ -171,11 +188,22 @@ export async function POST(req: NextRequest) {
 		.from("profiles")
 		.upsert({
 			id: session.user.id,
-			name: profile.fullName.trim(),
+			full_name: profile.fullName.trim(),
 			headline: profile.headline?.trim() || null,
+			phone: profile.phone?.trim() || null,
 			location: profile.location?.trim() || null,
-			summary: resume.experience?.trim() || null,
+			linkedin_url: profile.linkedIn?.trim() || null,
+			portfolio_url: profile.portfolio?.trim() || null,
+			experience_summary: resume.experience?.trim() || null,
+			education_summary: resume.education?.trim() || null,
 			skills: skills.length ? skills : null,
+			target_job_titles: jobTitles.length ? jobTitles : null,
+			preferred_locations: preferredLocations.length ? preferredLocations : null,
+			work_type: workType,
+			salary_range: preferences.salaryRange?.trim() || null,
+			start_availability: startAvailability,
+			onboarding_completed: true,
+			onboarding_step: 3,
 			updated_at: new Date().toISOString(),
 		})
 		.select("id")
@@ -196,8 +224,8 @@ export async function POST(req: NextRequest) {
 				skills,
 				jobTitles,
 				preferredLocations,
-				workType: preferences.workType || null,
-				startDate: preferences.startDate || null,
+				workType,
+				startAvailability,
 				resumeFileAccepted: Boolean(resume.file?.name),
 			},
 		},
