@@ -18,6 +18,8 @@
     "incremental": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
+    // TS 5.x only accepts "5.0"; bump to "6.0" if upgrading to TS 6+ and you need to silence deprecation notices.
+    "ignoreDeprecations": "5.0",
     "baseUrl": ".",
     "paths": {
       "@/*": [

@@ -441,6 +441,10 @@ export default function ProfilePage() {
 				full_name: body.profile?.full_name || prev.full_name,
 				email: body.profile?.email || prev.email,
 				phone: body.profile?.phone || prev.phone,
+				location: body.profile?.location || prev.location,
+				website: body.profile?.portfolio || prev.website,
+				linkedin_url: body.profile?.linkedin_url || prev.linkedin_url,
+				github_url: body.profile?.github_url || prev.github_url,
 				bio: body.profile?.summary || prev.bio,
 				skills: mergeSkills(body.skills || []),
 				work_experience:

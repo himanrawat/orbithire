@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { NavBar } from "@/components/NavBar";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -21,7 +20,6 @@ import {
 	Sparkles,
 	Upload,
 	Building2,
-	Settings,
 	User,
 	CheckCircle2,
 	AlertCircle,
@@ -96,10 +94,9 @@ export default function DashboardPage() {
 
 	return (
 		<div className="min-h-screen">
-			<NavBar user={user} />
 			<GridBackground />
 
-			<div className="container relative px-4 py-8">
+			<div className="relative px-6 py-8">
 				{/* Header */}
 				<motion.div
 					initial={{ opacity: 0, y: 20 }}
@@ -140,17 +137,6 @@ export default function DashboardPage() {
 								<Link href="/upload">
 									<Upload className="mr-2 h-4 w-4" />
 									Upload Resume
-								</Link>
-							</Button>
-							<div className="flex-1" />
-							<Button variant="ghost" size="icon" asChild>
-								<Link href="/profile">
-									<User className="h-4 w-4" />
-								</Link>
-							</Button>
-							<Button variant="ghost" size="icon" asChild>
-								<Link href="/settings">
-									<Settings className="h-4 w-4" />
 								</Link>
 							</Button>
 						</CardContent>
@@ -335,7 +321,7 @@ export default function DashboardPage() {
 										</CardDescription>
 									</div>
 									<Button variant="outline" size="sm" asChild>
-										<Link href="/documents">
+										<Link href="/resumes">
 											View all
 											<ChevronRight className="ml-1 h-4 w-4" />
 										</Link>

@@ -33,8 +33,21 @@ import {
 	AlertCircle,
 	CheckCircle2,
 	Wand2,
+	User,
+	ShieldAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// Profile completion check type
+type ProfileCompletion = {
+	hasBasicInfo: boolean;
+	hasSkills: boolean;
+	hasExperience: boolean;
+	hasEducation: boolean;
+	isComplete: boolean;
+	percentage: number;
+	missingFields: string[];
+};
 
 const countries = [
 	{ code: "US", name: "United States", flag: "🇺🇸", requiresPhoto: false },
@@ -76,11 +89,60 @@ const templates = [
 
 type Step = 1 | 2 | 3 | 4;
 
+// Helper function to check profile completion
+function checkProfileCompletion(): ProfileCompletion {
+	// TODO: Replace with actual profile data from Supabase
+	// This is a placeholder - in production, fetch from API or context
+	const profile = {
+		full_name: "", // Will be populated from Supabase
+		email: "",
+		skills: [] as string[],
+		work_experience: [] as unknown[],
+		education: [] as unknown[],
+	};
+
+	const missingFields: string[] = [];
+
+	const hasBasicInfo = !!(profile.full_name && profile.email);
+	if (!hasBasicInfo) missingFields.push("Basic Information (Name, Email)");
+
+	const hasSkills = profile.skills.length > 0;
+	if (!hasSkills) missingFields.push("Skills");
+
+	const hasExperience = profile.work_experience.length > 0;
+	if (!hasExperience) missingFields.push("Work Experience");
+
+	const hasEducation = profile.education.length > 0;
+	if (!hasEducation) missingFields.push("Education");
+
+	const completedItems = [
+		hasBasicInfo,
+		hasSkills,
+		hasExperience,
+		hasEducation,
+	].filter(Boolean).length;
+	const percentage = Math.round((completedItems / 4) * 100);
+	const isComplete = percentage >= 75; // Require at least 75% completion
+
+	return {
+		hasBasicInfo,
+		hasSkills,
+		hasExperience,
+		hasEducation,
+		isComplete,
+		percentage,
+		missingFields,
+	};
+}
+
 export default function GeneratePage() {
 	const user = { name: "Himanshu", avatarUrl: undefined };
 	const [step, setStep] = useState<Step>(1);
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [isGenerated, setIsGenerated] = useState(false);
+
+	// Profile completion check
+	const profileCompletion = checkProfileCompletion();
 
 	// Form state
 	const [formData, setFormData] = useState({
@@ -156,6 +218,46 @@ export default function GeneratePage() {
 			<GridBackground />
 
 			<div className="container relative max-w-4xl px-4 py-8">
+				{/* Profile Incomplete Warning */}
+				{!profileCompletion.isComplete && (
+					<motion.div
+						initial={{ opacity: 0, y: 20 }}
+						animate={{ opacity: 1, y: 0 }}
+						className="mb-8"
+					>
+						<Card className="border-amber-500/50 bg-amber-500/10">
+							<CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
+								<div className="flex items-start gap-4">
+									<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-500/20">
+										<ShieldAlert className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+									</div>
+									<div>
+										<h3 className="font-semibold text-amber-600 dark:text-amber-400">
+											Complete Your Profile to Generate Resumes
+										</h3>
+										<p className="mt-1 text-sm text-muted-foreground">
+											Your profile is {profileCompletion.percentage}% complete.
+											You need at least 75% completion to generate resumes.
+										</p>
+										{profileCompletion.missingFields.length > 0 && (
+											<div className="mt-2 text-sm text-muted-foreground">
+												<span className="font-medium">Missing: </span>
+												{profileCompletion.missingFields.join(", ")}
+											</div>
+										)}
+									</div>
+								</div>
+								<Button asChild className="shrink-0">
+									<Link href="/profile">
+										<User className="mr-2 h-4 w-4" />
+										Complete Profile
+									</Link>
+								</Button>
+							</CardContent>
+						</Card>
+					</motion.div>
+				)}
+
 				{/* Header */}
 				<motion.div
 					initial={{ opacity: 0, y: 20 }}
@@ -552,7 +654,7 @@ export default function GeneratePage() {
 										size="lg"
 										className="w-full"
 										onClick={handleGenerate}
-										disabled={isGenerating}
+										disabled={isGenerating || !profileCompletion.isComplete}
 									>
 										{isGenerating ? (
 											<>
@@ -732,7 +834,9 @@ export default function GeneratePage() {
 						</Button>
 						<Button
 							onClick={() => setStep((s) => (s < 3 ? ((s + 1) as Step) : s))}
-							disabled={!canProceed() || step === 3}
+							disabled={
+								!canProceed() || step === 3 || !profileCompletion.isComplete
+							}
 						>
 							Continue
 							<ChevronRight className="ml-2 h-4 w-4" />
