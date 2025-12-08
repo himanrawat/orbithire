@@ -14,6 +14,11 @@ export const serverEnv = {
 	supabaseUrl: requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
 	supabaseAnonKey: requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
 	supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+	r2Endpoint: process.env.R2_ENDPOINT || process.env.R2_PUBLIC_BASE_URL,
+	r2Bucket: process.env.R2_BUCKET,
+	r2AccessKeyId: process.env.R2_ACCESS_KEY_ID,
+	r2SecretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+	r2PublicBaseUrl: process.env.R2_PUBLIC_BASE_URL || process.env.R2_ENDPOINT,
 	siteUrl:
 		process.env.SITE_URL ||
 		process.env.NEXT_PUBLIC_APP_URL ||

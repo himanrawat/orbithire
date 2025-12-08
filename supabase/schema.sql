@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS profiles (
   location TEXT,
   linkedin_url TEXT,
   portfolio_url TEXT,
-  photo_url TEXT,
-  photo_key TEXT,
+  avatar_url TEXT,
+  avatar_key TEXT,
   
   -- Parsed resume data
   skills TEXT[] DEFAULT '{}',

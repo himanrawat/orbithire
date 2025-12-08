@@ -1175,22 +1175,22 @@ export async function POST(req: NextRequest) {
 			  }
 			: draft;
 
-		console.log(
-			"PDF extraction result",
-			JSON.stringify(
-				{
-					fileName,
-					mimeType,
-					rawTextLength: text.length,
-					rawTextPreview: text.slice(0, 1000),
-					draft,
-					llmApplied: Boolean(llmResult),
-					result: merged,
-				},
-				null,
-				2
-			)
-		);
+		// console.log(
+		// 	"PDF extraction result",
+		// 	JSON.stringify(
+		// 		{
+		// 			fileName,
+		// 			mimeType,
+		// 			rawTextLength: text.length,
+		// 			rawTextPreview: text.slice(0, 1000),
+		// 			draft,
+		// 			llmApplied: Boolean(llmResult),
+		// 			result: merged,
+		// 		},
+		// 		null,
+		// 		2
+		// 	)
+		// );
 
 		return NextResponse.json({
 			ok: true,

@@ -1,9 +1,14 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, type ChangeEvent } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { NavBar } from "@/components/NavBar";
+import {
+	SidebarProvider,
+	SidebarLayout,
+	MobileMenuButton,
+} from "@/components/Sidebar";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,8 +42,12 @@ import {
 	Sparkles,
 	PlusCircle,
 	Wand2,
+	Bell,
+	LogOut,
+	Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 
 // Profile type definition
 type WorkExperience = {
@@ -61,7 +70,13 @@ type Education = {
 };
 
 type CustomField = { id: string; label: string; value: string };
-type CustomEntry = { id: string; title: string; value: string };
+type CustomEntry = {
+	id: string;
+	title: string;
+	value: string;
+	description?: string;
+	link?: string;
+};
 type CustomSection = { id: string; title: string; entries: CustomEntry[] };
 
 type ProfileData = {
@@ -74,7 +89,7 @@ type ProfileData = {
 	website: string;
 	linkedin_url: string;
 	github_url: string;
-	avatar_url: string | undefined;
+	avatar_url: string | null;
 	skills: string[];
 	work_experience: WorkExperience[];
 	education: Education[];
@@ -92,7 +107,7 @@ const emptyProfile: ProfileData = {
 	website: "",
 	linkedin_url: "",
 	github_url: "",
-	avatar_url: undefined,
+	avatar_url: null,
 	skills: [],
 	work_experience: [],
 	education: [],
@@ -102,6 +117,8 @@ const emptyProfile: ProfileData = {
 type Tab = string;
 const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMPORT_EXTS = [".pdf", ".docx", ".txt"];
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 const createId = () =>
 	typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -109,19 +126,30 @@ const createId = () =>
 		: Math.random().toString(36).slice(2);
 
 export default function ProfilePage() {
-	const user = { name: "User", avatarUrl: undefined };
 	const [activeTab, setActiveTab] = useState<Tab>("personal");
 	const [profile, setProfile] = useState<ProfileData>(emptyProfile);
 	const [isSaving, setIsSaving] = useState(false);
+	const [saveError, setSaveError] = useState<string | null>(null);
+	const [saveMessage, setSaveMessage] = useState<string | null>(null);
+	const [loadingProfile, setLoadingProfile] = useState(false);
 	const [newSkill, setNewSkill] = useState("");
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const importInputRef = useRef<HTMLInputElement>(null);
+	const initialProfileRef = useRef<{
+		profile: ProfileData;
+		customSections: CustomSection[];
+	} | null>(null);
 	const [customSections, setCustomSections] = useState<CustomSection[]>([]);
 	const [newSectionTitle, setNewSectionTitle] = useState("");
 	const [importing, setImporting] = useState(false);
 	const [importError, setImportError] = useState<string | null>(null);
 	const [importNotice, setImportNotice] = useState<string | null>(null);
 	const [importedFileName, setImportedFileName] = useState<string | null>(null);
+	const [photoStatus, setPhotoStatus] = useState<
+		"idle" | "uploading" | "success" | "error"
+	>("idle");
+	const [photoError, setPhotoError] = useState<string | null>(null);
+	const [photoFileName, setPhotoFileName] = useState<string | null>(null);
 
 	const baseTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
 		{
@@ -151,11 +179,261 @@ export default function ProfilePage() {
 		})),
 	];
 
+	const loadProfile = async () => {
+		setLoadingProfile(true);
+		try {
+			const response = await fetch("/api/profile/get");
+			const body = await response.json().catch(() => ({}));
+			if (!response.ok || !body.profile) {
+				setLoadingProfile(false);
+				return;
+			}
+
+			const data = body.profile;
+
+			let parsedExtended: Partial<{
+				work_experience: WorkExperience[];
+				education: Education[];
+				custom_fields: CustomField[];
+				customSections: CustomSection[];
+				github_url?: string;
+				avatar_url?: string;
+			}> = {};
+
+			if (data.education_summary) {
+				if (typeof data.education_summary === "string") {
+					try {
+						parsedExtended = JSON.parse(data.education_summary);
+					} catch {
+						parsedExtended = {};
+					}
+				} else if (typeof data.education_summary === "object") {
+					parsedExtended = data.education_summary as any;
+				}
+			}
+
+			const loadedProfile: ProfileData = {
+				id: data.id,
+				full_name: data.full_name || "",
+				email: data.email || "",
+				phone: data.phone || "",
+				location: data.location || "",
+				bio: data.experience_summary || data.headline || "",
+				website: data.portfolio_url || "",
+				linkedin_url: data.linkedin_url || "",
+				github_url: data.github_url || parsedExtended.github_url || "",
+				avatar_url: (() => {
+					const candidate =
+						data.avatar_url || parsedExtended.avatar_url || null;
+					// Ignore stale blob URLs that won't resolve after reload.
+					if (
+						candidate &&
+						typeof candidate === "string" &&
+						candidate.startsWith("blob:")
+					) {
+						return null;
+					}
+					return candidate;
+				})(),
+				skills: data.skills || [],
+				work_experience:
+					(data.work_experience || parsedExtended.work_experience)?.map(
+						(exp: any) => ({
+							...exp,
+							id: exp.id || createId(),
+							company: exp.company || "",
+							role: exp.role || "",
+							location: exp.location || "",
+							start_date: exp.start_date || "",
+							end_date: exp.end_date || "",
+							description: exp.description || "",
+						})
+					) || [],
+				education:
+					(data.education || parsedExtended.education)?.map((edu: any) => ({
+						...edu,
+						id: edu.id || createId(),
+						institution: edu.institution || "",
+						degree: edu.degree || "",
+						location: edu.location || "",
+						start_date: edu.start_date || "",
+						end_date: edu.end_date || "",
+					})) || [],
+				custom_fields:
+					(data.custom_fields || parsedExtended.custom_fields)?.map(
+						(field: any) => ({
+							...field,
+							id: field.id || createId(),
+							label: field.label || "",
+							value: field.value || "",
+						})
+					) || [],
+			};
+
+			const loadedCustomSections =
+				(data.customSections || parsedExtended.customSections)?.map(
+					(section: any) => ({
+						id: section.id || createId(),
+						title: section.title || "Imported Section",
+						entries: section.entries?.length
+							? section.entries.map((entry: any) => ({
+									id: entry.id || createId(),
+									title: entry.title || "",
+									value: entry.value || entry.description || "",
+							  }))
+							: [{ id: createId(), title: "", value: "" }],
+					})
+				) || [];
+
+			setProfile(loadedProfile);
+			setCustomSections(loadedCustomSections);
+			initialProfileRef.current = {
+				profile: loadedProfile,
+				customSections: loadedCustomSections,
+			};
+			setPhotoStatus("idle");
+			setPhotoError(null);
+			setPhotoFileName(null);
+		} finally {
+			setLoadingProfile(false);
+		}
+	};
+
+	useEffect(() => {
+		void loadProfile();
+	}, []);
+
 	const handleSave = async () => {
 		setIsSaving(true);
-		// TODO: Call API to persist profile changes
-		await new Promise((resolve) => setTimeout(resolve, 1000));
-		setIsSaving(false);
+		setSaveError(null);
+		setSaveMessage(null);
+
+		if (photoStatus === "uploading") {
+			setSaveError("Please wait for the photo upload to finish.");
+			setIsSaving(false);
+			return;
+		}
+
+		try {
+			const cleanValue = (val: any) => {
+				if (val === undefined) return undefined;
+				if (val === null) return null;
+				if (typeof val === "string") return val.trim() || null;
+				return val;
+			};
+			const isDifferent = (a: any, b: any) =>
+				JSON.stringify(a) !== JSON.stringify(b);
+			const initial = initialProfileRef.current;
+			const payloadProfile: Partial<ProfileData> = {};
+
+			const maybeSetString = (
+				key: keyof ProfileData,
+				current: any,
+				initialVal: any
+			) => {
+				const next = cleanValue(current);
+				const prev = initial ? cleanValue(initialVal) : undefined;
+				if (next === undefined) return;
+				if (!initial || isDifferent(next, prev)) {
+					(payloadProfile as any)[key] = next;
+				}
+			};
+
+			const maybeSetArray = (
+				key: keyof ProfileData,
+				current: any,
+				initialVal: any
+			) => {
+				if (current === undefined) return;
+				if (!initial || isDifferent(current, initialVal)) {
+					(payloadProfile as any)[key] = current;
+				}
+			};
+
+			maybeSetString(
+				"full_name",
+				profile.full_name,
+				initial?.profile.full_name
+			);
+			maybeSetString("email", profile.email, initial?.profile.email);
+			maybeSetString("phone", profile.phone, initial?.profile.phone);
+			maybeSetString("location", profile.location, initial?.profile.location);
+			maybeSetString("bio", profile.bio, initial?.profile.bio);
+			maybeSetString("website", profile.website, initial?.profile.website);
+			maybeSetString(
+				"linkedin_url",
+				profile.linkedin_url,
+				initial?.profile.linkedin_url
+			);
+			maybeSetString(
+				"github_url",
+				profile.github_url,
+				initial?.profile.github_url
+			);
+			maybeSetString(
+				"avatar_url",
+				profile.avatar_url,
+				initial?.profile.avatar_url
+			);
+
+			maybeSetArray("skills", profile.skills, initial?.profile.skills);
+			maybeSetArray(
+				"work_experience",
+				profile.work_experience,
+				initial?.profile.work_experience
+			);
+			maybeSetArray("education", profile.education, initial?.profile.education);
+			maybeSetArray(
+				"custom_fields",
+				profile.custom_fields,
+				initial?.profile.custom_fields
+			);
+
+			const customSectionsChanged =
+				!initial || isDifferent(customSections, initial.customSections);
+
+			if (Object.keys(payloadProfile).length === 0 && !customSectionsChanged) {
+				setSaveMessage("No changes to save.");
+				setIsSaving(false);
+				return;
+			}
+
+			const response = await fetch("/api/profile/save", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					profile: payloadProfile,
+					...(customSectionsChanged ? { customSections } : {}),
+				}),
+			});
+
+			const body = await response.json().catch(() => ({}));
+
+			if (!response.ok) {
+				setSaveError(body.error || "Unable to save profile right now.");
+				return;
+			}
+
+			setSaveMessage(body.saved ? "Profile saved." : "No changes to save.");
+			// Update avatar_url with the signed URL from the server
+			if (body.avatar_url !== undefined) {
+				setProfile((prev) => ({
+					...prev,
+					avatar_url: body.avatar_url ?? null,
+				}));
+			}
+			initialProfileRef.current = {
+				profile: {
+					...profile,
+					avatar_url: body.avatar_url ?? profile.avatar_url,
+				},
+				customSections,
+			};
+		} catch (error) {
+			setSaveError("Unable to save profile right now.");
+		} finally {
+			setIsSaving(false);
+		}
 	};
 
 	const mergeSkills = (incoming: string[]) =>
@@ -177,6 +455,77 @@ export default function ProfilePage() {
 
 	const handlePhotoClick = () => {
 		fileInputRef.current?.click();
+	};
+
+	const handlePhotoUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (!file) return;
+
+		if (file.size > MAX_PHOTO_BYTES) {
+			setPhotoError("Image must be 5MB or smaller.");
+			setPhotoStatus("error");
+			e.target.value = "";
+			return;
+		}
+
+		if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
+			setPhotoError("Use JPG, PNG, or WEBP images.");
+			setPhotoStatus("error");
+			e.target.value = "";
+			return;
+		}
+
+		const previewUrl = URL.createObjectURL(file);
+		if (profile.avatar_url && profile.avatar_url.startsWith("blob:")) {
+			URL.revokeObjectURL(profile.avatar_url);
+		}
+
+		setPhotoError(null);
+		setPhotoStatus("uploading");
+		setPhotoFileName(file.name);
+		setProfile((prev) => ({
+			...prev,
+			avatar_url: previewUrl,
+		}));
+
+		const formData = new FormData();
+		formData.append("file", file);
+
+		try {
+			const res = await fetch("/api/profile/photo", {
+				method: "POST",
+				body: formData,
+			});
+			const body = await res.json().catch(() => ({}));
+
+			if (!res.ok || !body.key) {
+				setPhotoStatus("error");
+				setPhotoError(body.error || "Unable to upload photo right now.");
+				return;
+			}
+
+			setProfile((prev) => ({
+				...prev,
+				avatar_url: body.url || previewUrl,
+			}));
+			setPhotoStatus("success");
+		} catch {
+			setPhotoStatus("error");
+			setPhotoError("Unable to upload photo right now.");
+		}
+	};
+
+	const handleRemovePhoto = () => {
+		if (profile.avatar_url && profile.avatar_url.startsWith("blob:")) {
+			URL.revokeObjectURL(profile.avatar_url);
+		}
+		setPhotoError(null);
+		setPhotoFileName(null);
+		setPhotoStatus("idle");
+		setProfile((prev) => ({
+			...prev,
+			avatar_url: null,
+		}));
 	};
 
 	const handleAddExperience = () => {
@@ -418,15 +767,33 @@ export default function ProfilePage() {
 				id: section.id || createId(),
 				title: section.title || "Imported Section",
 				entries: section.entries?.length
-					? section.entries.map((entry: any) =>
-							typeof entry === "string"
-								? { id: createId(), title: "", value: entry }
-								: {
-										id: entry.id || createId(),
-										title: entry.title || "",
-										value: entry.value || "",
-								  }
-					  )
+					? section.entries.map((entry: any) => {
+							if (typeof entry === "string") {
+								return { id: createId(), title: "", value: entry };
+							}
+
+							const baseValue =
+								(typeof entry.value === "string" && entry.value.trim()) ||
+								(typeof entry.description === "string" &&
+									entry.description.trim()) ||
+								"";
+							const linkValue =
+								typeof entry.link === "string" && entry.link.trim()
+									? entry.link.trim()
+									: "";
+							const combinedValue =
+								baseValue && linkValue && !baseValue.includes(linkValue)
+									? `${baseValue}\n${linkValue}`
+									: baseValue || linkValue;
+
+							return {
+								id: entry.id || createId(),
+								title: entry.title || "",
+								value: combinedValue,
+								description: entry.description,
+								link: entry.link,
+							};
+					  })
 					: [
 							{
 								id: createId(),
@@ -497,855 +864,975 @@ export default function ProfilePage() {
 	};
 
 	return (
-		<div className="min-h-screen">
-			<NavBar user={user} />
-			<GridBackground />
+		<SidebarProvider>
+			<SidebarLayout>
+				{/* Top Bar for Mobile */}
+				<header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:hidden">
+					<MobileMenuButton />
+					<Link href="/" className="font-bold text-lg">
+						OrbitHire
+					</Link>
+					<div className="flex items-center gap-2">
+						<ThemeToggle />
+					</div>
+				</header>
 
-			<div className="container relative max-w-4xl px-4 py-8">
-				{/* Header */}
-				<motion.div
-					initial={{ opacity: 0, y: 20 }}
-					animate={{ opacity: 1, y: 0 }}
-					className="mb-8"
-				>
-					<Button variant="ghost" asChild className="mb-4">
-						<Link href="/dashboard">
-							<ChevronLeft className="mr-1 h-4 w-4" />
-							Back to Dashboard
+				{/* Desktop Top Bar */}
+				<header className="sticky top-0 z-30 hidden h-14 items-center justify-end gap-4 border-b bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:flex">
+					<Button variant="ghost" size="icon">
+						<Bell className="h-5 w-5" />
+					</Button>
+					<ThemeToggle />
+					<Button variant="ghost" size="sm" asChild>
+						<Link href="/api/auth/logout">
+							<LogOut className="mr-2 h-4 w-4" />
+							Sign out
 						</Link>
 					</Button>
-					<h1 className="text-3xl font-bold tracking-tight">
-						Profile Settings
-					</h1>
-					<p className="mt-1 text-muted-foreground">
-						Manage your personal information, experience, and skills. This data
-						will be used to generate resumes.
-					</p>
-				</motion.div>
+				</header>
 
-				{/* Tab Navigation */}
-				<motion.div
-					initial={{ opacity: 0, y: 20 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.1 }}
-					className="mb-6"
-				>
-					<div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card/80 p-2 backdrop-blur">
-						<div className="flex flex-wrap gap-2">
-							{tabs.map((tab) => (
-								<button
-									key={tab.id}
-									onClick={() => setActiveTab(tab.id)}
-									className={cn(
-										"flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors",
-										activeTab === tab.id
-											? "bg-primary text-primary-foreground"
-											: "text-muted-foreground hover:bg-muted hover:text-foreground"
-									)}
-								>
-									{tab.icon}
-									{tab.label}
-								</button>
-							))}
-						</div>
+				<div className="relative min-h-screen">
+					<GridBackground />
 
-						<div className="ml-auto flex flex-1 flex-wrap items-center gap-2 sm:flex-none">
-							<Input
-								placeholder="Add custom section (e.g., Projects)"
-								value={newSectionTitle}
-								onChange={(e) => setNewSectionTitle(e.target.value)}
-								onKeyDown={(e) => {
-									if (e.key === "Enter") {
-										e.preventDefault();
-										handleAddCustomSection();
-									}
-								}}
-								className="min-w-[180px] flex-1"
-							/>
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={() => handleAddCustomSection()}
-								disabled={!newSectionTitle.trim()}
-							>
-								<PlusCircle className="mr-2 h-4 w-4" />
-								Add Section
+					<div className="container relative max-w-4xl px-4 py-8">
+						{/* Header */}
+						<motion.div
+							initial={{ opacity: 0, y: 20 }}
+							animate={{ opacity: 1, y: 0 }}
+							className="mb-8"
+						>
+							<Button variant="ghost" asChild className="mb-4">
+								<Link href="/dashboard">
+									<ChevronLeft className="mr-1 h-4 w-4" />
+									Back to Dashboard
+								</Link>
 							</Button>
-						</div>
-					</div>
-				</motion.div>
+							<h1 className="text-3xl font-bold tracking-tight">
+								Profile Settings
+							</h1>
+							<p className="mt-1 text-muted-foreground">
+								Manage your personal information, experience, and skills. This
+								data will be used to generate resumes.
+							</p>
+						</motion.div>
 
-				{/* Content */}
-				<motion.div
-					key={activeTab}
-					initial={{ opacity: 0, y: 10 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ duration: 0.2 }}
-				>
-					{/* Personal Info Tab */}
-					{activeTab === "personal" && (
-						<Card className="border-border/50 bg-card/80 backdrop-blur">
-							<CardHeader>
-								<CardTitle>Personal Information</CardTitle>
-								<CardDescription>
-									Your basic contact information and professional summary.
-								</CardDescription>
-							</CardHeader>
-							<CardContent className="space-y-6">
-								<div className="rounded-lg border border-dashed bg-muted/40 p-4">
-									<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-										<div>
-											<p className="flex items-center gap-2 text-sm font-medium">
-												<Upload className="h-4 w-4" />
-												Extract from resume
-											</p>
-											<p className="text-xs text-muted-foreground">
-												Upload a PDF, DOCX, or TXT to prefill fields and
-												auto-create sections like Projects or Certifications.
-											</p>
-										</div>
-										<div className="flex flex-wrap gap-2">
-											<Button
-												variant="outline"
-												size="sm"
-												onClick={() => importInputRef.current?.click()}
-												disabled={importing}
-											>
-												{importing ? (
-													<>
-														<span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-														Extracting...
-													</>
-												) : (
-													<>
-														<Wand2 className="mr-2 h-4 w-4" />
-														Upload & extract
-													</>
-												)}
-											</Button>
-										</div>
-									</div>
-									<input
-										ref={importInputRef}
-										type="file"
-										accept=".pdf,.docx,.txt"
-										className="hidden"
-										onChange={(e) => {
-											const file = e.target.files?.[0];
-											if (file) {
-												void handleImportFile(file);
-												e.target.value = "";
-											}
-										}}
-									/>
-									{importError && (
-										<div className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-											{importError}
-										</div>
-									)}
-									{importNotice && (
-										<div className="mt-3 rounded-md border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-700 dark:text-green-300">
-											{importNotice}
-											{importedFileName ? ` (${importedFileName})` : ""}
-										</div>
-									)}
-								</div>
-
-								{/* Profile Photo */}
-								<div className="flex items-center gap-6">
-									<div className="relative">
-										<div
-											onClick={handlePhotoClick}
-											className="flex h-24 w-24 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-muted-foreground/30 bg-muted transition-colors hover:border-primary"
-										>
-											{profile.avatar_url ? (
-												<img
-													src={profile.avatar_url}
-													alt="Profile"
-													className="h-full w-full object-cover"
-												/>
-											) : (
-												<Camera className="h-8 w-8 text-muted-foreground" />
-											)}
-										</div>
-										<input
-											ref={fileInputRef}
-											type="file"
-											accept="image/*"
-											className="hidden"
-											onChange={(e) => {
-												const file = e.target.files?.[0];
-												if (file) {
-													// TODO: Upload to storage
-													const url = URL.createObjectURL(file);
-													setProfile({ ...profile, avatar_url: url });
-												}
-											}}
-										/>
-									</div>
-									<div>
-										<p className="font-medium">Profile Photo</p>
-										<p className="text-sm text-muted-foreground">
-											Required for German/EU applications. Click to upload.
-										</p>
-										{profile.avatar_url && (
-											<Button
-												variant="ghost"
-												size="sm"
-												className="mt-1 h-7 text-destructive"
-												onClick={() =>
-													setProfile({ ...profile, avatar_url: undefined })
-												}
-											>
-												<Trash2 className="mr-1 h-3 w-3" />
-												Remove
-											</Button>
+						{/* Tab Navigation */}
+						<motion.div
+							initial={{ opacity: 0, y: 20 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ delay: 0.1 }}
+							className="mb-6 space-y-3"
+						>
+							{/* Main Tabs */}
+							<div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card/80 p-2 backdrop-blur">
+								{tabs.map((tab) => (
+									<button
+										key={tab.id}
+										onClick={() => setActiveTab(tab.id)}
+										className={cn(
+											"flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors",
+											activeTab === tab.id
+												? "bg-primary text-primary-foreground"
+												: "text-muted-foreground hover:bg-muted hover:text-foreground"
 										)}
-									</div>
-								</div>
+									>
+										{tab.icon}
+										{tab.label}
+									</button>
+								))}
+							</div>
 
-								<div className="grid gap-4 sm:grid-cols-2">
-									<div className="space-y-2">
-										<Label htmlFor="fullName">
-											<User className="mr-2 inline h-4 w-4" />
-											Full Name
-										</Label>
-										<Input
-											id="fullName"
-											value={profile.full_name}
-											onChange={(e) =>
-												setProfile({ ...profile, full_name: e.target.value })
-											}
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="email">
-											<Mail className="mr-2 inline h-4 w-4" />
-											Email
-										</Label>
-										<Input
-											id="email"
-											type="email"
-											value={profile.email}
-											onChange={(e) =>
-												setProfile({ ...profile, email: e.target.value })
-											}
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="phone">
-											<Phone className="mr-2 inline h-4 w-4" />
-											Phone
-										</Label>
-										<Input
-											id="phone"
-											value={profile.phone}
-											onChange={(e) =>
-												setProfile({ ...profile, phone: e.target.value })
-											}
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="location">
-											<MapPin className="mr-2 inline h-4 w-4" />
-											Location
-										</Label>
-										<Input
-											id="location"
-											value={profile.location}
-											onChange={(e) =>
-												setProfile({ ...profile, location: e.target.value })
-											}
-										/>
-									</div>
-								</div>
-
-								<div className="space-y-2">
-									<Label htmlFor="bio">Professional Summary</Label>
-									<Textarea
-										id="bio"
-										rows={4}
-										value={profile.bio}
-										onChange={(e) =>
-											setProfile({ ...profile, bio: e.target.value })
-										}
-										placeholder="Brief summary of your professional background and expertise..."
-									/>
-								</div>
-
-								<div className="grid gap-4 sm:grid-cols-3">
-									<div className="space-y-2">
-										<Label htmlFor="website">
-											<Globe className="mr-2 inline h-4 w-4" />
-											Website
-										</Label>
-										<Input
-											id="website"
-											value={profile.website}
-											onChange={(e) =>
-												setProfile({ ...profile, website: e.target.value })
-											}
-											placeholder="https://"
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="linkedin">
-											<LinkedinIcon className="mr-2 inline h-4 w-4" />
-											LinkedIn
-										</Label>
-										<Input
-											id="linkedin"
-											value={profile.linkedin_url}
-											onChange={(e) =>
-												setProfile({ ...profile, linkedin_url: e.target.value })
-											}
-											placeholder="https://linkedin.com/in/..."
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="github">
-											<GithubIcon className="mr-2 inline h-4 w-4" />
-											GitHub
-										</Label>
-										<Input
-											id="github"
-											value={profile.github_url}
-											onChange={(e) =>
-												setProfile({ ...profile, github_url: e.target.value })
-											}
-											placeholder="https://github.com/..."
-										/>
-									</div>
-								</div>
-
-								<div className="rounded-lg border bg-muted/40 p-4">
-									<div className="flex items-center justify-between gap-2">
-										<p className="text-sm font-medium">Additional fields</p>
-										<Button
-											variant="outline"
-											size="sm"
-											onClick={handleAddField}
-										>
-											<Plus className="mr-2 h-4 w-4" />
-											Add field
-										</Button>
-									</div>
-									{profile.custom_fields.length > 0 ? (
-										<div className="mt-3 space-y-2">
-											{profile.custom_fields.map((field) => (
-												<div
-													key={field.id}
-													className="grid gap-2 sm:grid-cols-[1fr,2fr,auto]"
-												>
-													<Input
-														placeholder="Label"
-														value={field.label}
-														onChange={(e) =>
-															handleUpdateField(field.id, {
-																label: e.target.value,
-															})
-														}
-													/>
-													<Input
-														placeholder="Value"
-														value={field.value}
-														onChange={(e) =>
-															handleUpdateField(field.id, {
-																value: e.target.value,
-															})
-														}
-													/>
-													<Button
-														variant="ghost"
-														size="icon"
-														className="h-9 w-9 text-destructive"
-														onClick={() => handleRemoveField(field.id)}
-													>
-														<Trash2 className="h-4 w-4" />
-													</Button>
-												</div>
-											))}
-										</div>
-									) : (
-										<p className="mt-2 text-xs text-muted-foreground">
-											Need visa status, portfolio password, or other custom
-											info? Add a field above.
-										</p>
-									)}
-								</div>
-							</CardContent>
-						</Card>
-					)}
-
-					{/* Work Experience Tab */}
-					{activeTab === "experience" && (
-						<Card className="border-border/50 bg-card/80 backdrop-blur">
-							<CardHeader className="flex flex-row items-center justify-between">
-								<div>
-									<CardTitle>Work Experience</CardTitle>
-									<CardDescription>
-										Your professional work history.
-									</CardDescription>
-								</div>
-								<Button onClick={handleAddExperience} variant="outline">
-									<Plus className="mr-2 h-4 w-4" />
-									Add Experience
-								</Button>
-							</CardHeader>
-							<CardContent className="space-y-4">
-								{profile.work_experience.length > 0 ? (
-									profile.work_experience.map((exp) => (
-										<div
-											key={exp.id}
-											className="rounded-lg border bg-background/50 p-4"
-										>
-											<div className="mb-4 flex items-start justify-between">
-												<div>
-													<h4 className="font-medium">
-														{exp.role || "Role / Title"}
-													</h4>
-													<p className="text-sm text-muted-foreground">
-														{exp.company || "Company"} ·{" "}
-														{exp.location || "Location"}
-													</p>
-													<p className="text-xs text-muted-foreground">
-														{exp.start_date || "Start"} -{" "}
-														{exp.end_date || "Present"}
-													</p>
-												</div>
-												<div className="flex gap-1">
-													<Button
-														variant="ghost"
-														size="icon"
-														className="h-8 w-8 text-destructive"
-														onClick={() => handleRemoveExperience(exp.id)}
-													>
-														<Trash2 className="h-4 w-4" />
-													</Button>
-												</div>
-											</div>
-											<div className="space-y-3">
-												<div className="grid gap-4 sm:grid-cols-2">
-													<div className="space-y-2">
-														<Label>Job Title</Label>
-														<Input
-															value={exp.role}
-															onChange={(e) =>
-																handleUpdateExperience(exp.id, {
-																	role: e.target.value,
-																})
-															}
-														/>
-													</div>
-													<div className="space-y-2">
-														<Label>Company</Label>
-														<Input
-															value={exp.company}
-															onChange={(e) =>
-																handleUpdateExperience(exp.id, {
-																	company: e.target.value,
-																})
-															}
-														/>
-													</div>
-													<div className="space-y-2">
-														<Label>Location</Label>
-														<Input
-															value={exp.location}
-															onChange={(e) =>
-																handleUpdateExperience(exp.id, {
-																	location: e.target.value,
-																})
-															}
-														/>
-													</div>
-													<div className="grid grid-cols-2 gap-2">
-														<div className="space-y-2">
-															<Label>Start</Label>
-															<Input
-																type="text"
-																value={exp.start_date || ""}
-																onChange={(e) =>
-																	handleUpdateExperience(exp.id, {
-																		start_date: e.target.value,
-																	})
-																}
-															/>
-														</div>
-														<div className="space-y-2">
-															<Label>End</Label>
-															<Input
-																type="text"
-																value={exp.end_date || ""}
-																placeholder="Present"
-																onChange={(e) =>
-																	handleUpdateExperience(exp.id, {
-																		end_date: e.target.value,
-																	})
-																}
-															/>
-														</div>
-													</div>
-												</div>
-												<div className="space-y-2">
-													<Label>Description</Label>
-													<Textarea
-														rows={3}
-														value={exp.description}
-														onChange={(e) =>
-															handleUpdateExperience(exp.id, {
-																description: e.target.value,
-															})
-														}
-														placeholder="Key responsibilities and achievements..."
-													/>
-												</div>
-											</div>
-										</div>
-									))
-								) : (
-									<div className="flex flex-col items-center justify-center py-12 text-center">
-										<Briefcase className="mb-3 h-12 w-12 text-muted-foreground/50" />
-										<p className="mb-1 font-medium">No work experience added</p>
-										<p className="mb-4 text-sm text-muted-foreground">
-											Add your professional experience to build better resumes
-										</p>
-										<Button>
-											<Plus className="mr-2 h-4 w-4" />
-											Add Your First Experience
-										</Button>
-									</div>
-								)}
-							</CardContent>
-						</Card>
-					)}
-
-					{/* Education Tab */}
-					{activeTab === "education" && (
-						<Card className="border-border/50 bg-card/80 backdrop-blur">
-							<CardHeader className="flex flex-row items-center justify-between">
-								<div>
-									<CardTitle>Education</CardTitle>
-									<CardDescription>Your academic background.</CardDescription>
-								</div>
-								<Button onClick={handleAddEducation} variant="outline">
-									<Plus className="mr-2 h-4 w-4" />
-									Add Education
-								</Button>
-							</CardHeader>
-							<CardContent className="space-y-4">
-								{profile.education.length > 0 ? (
-									profile.education.map((edu) => (
-										<div
-											key={edu.id}
-											className="rounded-lg border bg-background/50 p-4"
-										>
-											<div className="mb-4 flex items-start justify-between">
-												<div>
-													<h4 className="font-medium">
-														{edu.degree || "Degree"}
-													</h4>
-													<p className="text-sm text-muted-foreground">
-														{edu.institution || "Institution"} ·{" "}
-														{edu.location || "Location"}
-													</p>
-													<p className="text-xs text-muted-foreground">
-														{edu.start_date || "Start"} -{" "}
-														{edu.end_date || "End"}
-													</p>
-												</div>
-												<Button
-													variant="ghost"
-													size="icon"
-													className="h-8 w-8 text-destructive"
-													onClick={() => handleRemoveEducation(edu.id)}
-												>
-													<Trash2 className="h-4 w-4" />
-												</Button>
-											</div>
-											<div className="grid gap-4 sm:grid-cols-2">
-												<div className="space-y-2">
-													<Label>Degree</Label>
-													<Input
-														value={edu.degree}
-														onChange={(e) =>
-															handleUpdateEducation(edu.id, {
-																degree: e.target.value,
-															})
-														}
-													/>
-												</div>
-												<div className="space-y-2">
-													<Label>Institution</Label>
-													<Input
-														value={edu.institution}
-														onChange={(e) =>
-															handleUpdateEducation(edu.id, {
-																institution: e.target.value,
-															})
-														}
-													/>
-												</div>
-												<div className="space-y-2">
-													<Label>Location</Label>
-													<Input
-														value={edu.location}
-														onChange={(e) =>
-															handleUpdateEducation(edu.id, {
-																location: e.target.value,
-															})
-														}
-													/>
-												</div>
-												<div className="grid grid-cols-2 gap-2">
-													<div className="space-y-2">
-														<Label>Start</Label>
-														<Input
-															type="text"
-															value={edu.start_date}
-															onChange={(e) =>
-																handleUpdateEducation(edu.id, {
-																	start_date: e.target.value,
-																})
-															}
-														/>
-													</div>
-													<div className="space-y-2">
-														<Label>End</Label>
-														<Input
-															type="text"
-															value={edu.end_date}
-															onChange={(e) =>
-																handleUpdateEducation(edu.id, {
-																	end_date: e.target.value,
-																})
-															}
-														/>
-													</div>
-												</div>
-											</div>
-										</div>
-									))
-								) : (
-									<div className="flex flex-col items-center justify-center py-12 text-center">
-										<GraduationCap className="mb-3 h-12 w-12 text-muted-foreground/50" />
-										<p className="mb-1 font-medium">No education added</p>
-										<p className="mb-4 text-sm text-muted-foreground">
-											Add your academic background to strengthen your profile
-										</p>
-										<Button onClick={handleAddEducation}>
-											<Plus className="mr-2 h-4 w-4" />
-											Add Your First Education
-										</Button>
-									</div>
-								)}
-							</CardContent>
-						</Card>
-					)}
-
-					{/* Skills Tab */}
-					{activeTab === "skills" && (
-						<Card className="border-border/50 bg-card/80 backdrop-blur">
-							<CardHeader>
-								<CardTitle>Skills & Technologies</CardTitle>
-								<CardDescription>
-									Add skills that will be matched against job descriptions.
-								</CardDescription>
-							</CardHeader>
-							<CardContent className="space-y-4">
-								{/* Add Skill */}
-								<div className="flex gap-2">
-									<Input
-										placeholder="Add a skill..."
-										value={newSkill}
-										onChange={(e) => setNewSkill(e.target.value)}
-										onKeyDown={(e) => {
-											if (e.key === "Enter") {
-												e.preventDefault();
-												handleAddSkill();
-											}
-										}}
-									/>
-									<Button onClick={handleAddSkill}>
-										<Plus className="mr-2 h-4 w-4" />
-										Add
-									</Button>
-								</div>
-
-								{/* Skills List */}
-								{profile.skills.length > 0 ? (
-									<div className="flex flex-wrap gap-2">
-										{profile.skills.map((skill) => (
-											<span
-												key={skill}
-												className="flex items-center gap-1 rounded-full border bg-secondary px-3 py-1 text-sm font-medium"
+							{/* Add Custom Section - Expandable */}
+							<details className="group rounded-lg border border-dashed border-muted-foreground/30 bg-card/50 backdrop-blur transition-colors hover:border-primary/50">
+								<summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
+									<PlusCircle className="h-4 w-4 transition-transform group-open:rotate-45" />
+									<span>
+										Add custom section (Projects, Certifications, etc.)
+									</span>
+								</summary>
+								<div className="border-t border-dashed px-4 pb-4 pt-3">
+									<div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+										<div className="flex-1 space-y-1.5">
+											<Label
+												htmlFor="newSection"
+												className="text-xs text-muted-foreground"
 											>
-												{skill}
-												<button
-													onClick={() => handleRemoveSkill(skill)}
-													className="ml-1 rounded-full p-0.5 hover:bg-muted"
-												>
-													<X className="h-3 w-3" />
-												</button>
-											</span>
-										))}
-									</div>
-								) : (
-									<div className="rounded-lg border border-dashed bg-muted/30 py-8 text-center">
-										<p className="text-sm text-muted-foreground">
-											No skills added yet. Start typing above to add your first
-											skill.
-										</p>
-									</div>
-								)}
-
-								{/* Suggested Skills */}
-								<div className="rounded-lg border bg-muted/50 p-4">
-									<p className="mb-2 text-sm font-medium">
-										Suggested skills (based on your experience):
-									</p>
-									<div className="flex flex-wrap gap-2">
-										{[
-											"Kubernetes",
-											"GraphQL",
-											"MongoDB",
-											"Redis",
-											"Terraform",
-										].map((skill) => (
-											<Button
-												key={skill}
-												variant="outline"
-												size="sm"
-												onClick={() => {
-													if (!profile.skills.includes(skill)) {
-														setProfile({
-															...profile,
-															skills: [...profile.skills, skill],
-														});
+												Section Name
+											</Label>
+											<Input
+												id="newSection"
+												placeholder="e.g., Projects, Certifications, Languages..."
+												value={newSectionTitle}
+												onChange={(e) => setNewSectionTitle(e.target.value)}
+												onKeyDown={(e) => {
+													if (e.key === "Enter") {
+														e.preventDefault();
+														handleAddCustomSection();
 													}
 												}}
-												disabled={profile.skills.includes(skill)}
-											>
-												<Plus className="mr-1 h-3 w-3" />
-												{skill}
-											</Button>
-										))}
+											/>
+										</div>
+										<Button
+											onClick={() => handleAddCustomSection()}
+											disabled={!newSectionTitle.trim()}
+											className="shrink-0"
+										>
+											<PlusCircle className="mr-2 h-4 w-4" />
+											Create Section
+										</Button>
 									</div>
+									<p className="mt-2 text-xs text-muted-foreground">
+										Custom sections help you showcase unique qualifications like
+										volunteer work, publications, or awards.
+									</p>
 								</div>
-							</CardContent>
-						</Card>
-					)}
+							</details>
+						</motion.div>
 
-					{/* Custom / Imported Sections */}
-					{activeTab.startsWith("custom-") &&
-						(() => {
-							const section = customSections.find(
-								(s) => `custom-${s.id}` === activeTab
-							);
-							if (!section) return null;
+						{/* Content */}
+						<motion.div
+							key={activeTab}
+							initial={{ opacity: 0, y: 10 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ duration: 0.2 }}
+						>
+							{/* Personal Info Tab */}
+							{activeTab === "personal" && (
+								<Card className="border-border/50 bg-card/80 backdrop-blur">
+									<CardHeader>
+										<CardTitle>Personal Information</CardTitle>
+										<CardDescription>
+											Your basic contact information and professional summary.
+										</CardDescription>
+									</CardHeader>
+									<CardContent className="space-y-6">
+										<div className="rounded-lg border border-dashed bg-muted/40 p-4">
+											<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+												<div>
+													<p className="flex items-center gap-2 text-sm font-medium">
+														<Upload className="h-4 w-4" />
+														Extract from resume
+													</p>
+													<p className="text-xs text-muted-foreground">
+														Upload a PDF, DOCX, or TXT to prefill fields and
+														auto-create sections like Projects or
+														Certifications.
+													</p>
+												</div>
+												<div className="flex flex-wrap gap-2">
+													<Button
+														variant="outline"
+														size="sm"
+														onClick={() => importInputRef.current?.click()}
+														disabled={importing}
+													>
+														{importing ? (
+															<>
+																<span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+																Extracting...
+															</>
+														) : (
+															<>
+																<Wand2 className="mr-2 h-4 w-4" />
+																Upload & extract
+															</>
+														)}
+													</Button>
+												</div>
+											</div>
+											<input
+												ref={importInputRef}
+												type="file"
+												accept=".pdf,.docx,.txt"
+												className="hidden"
+												onChange={(e) => {
+													const file = e.target.files?.[0];
+													if (file) {
+														void handleImportFile(file);
+														e.target.value = "";
+													}
+												}}
+											/>
+											{importError && (
+												<div className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+													{importError}
+												</div>
+											)}
+											{importNotice && (
+												<div className="mt-3 rounded-md border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-700 dark:text-green-300">
+													{importNotice}
+													{importedFileName ? ` (${importedFileName})` : ""}
+												</div>
+											)}
+										</div>
 
-							return (
+										{/* Profile Photo */}
+										<div className="flex items-center gap-6">
+											<div className="relative">
+												<div
+													onClick={handlePhotoClick}
+													className={cn(
+														"flex h-24 w-24 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-dashed bg-muted transition-colors hover:border-primary",
+														photoStatus === "uploading"
+															? "border-primary"
+															: "border-muted-foreground/30"
+													)}
+												>
+													{profile.avatar_url ? (
+														<img
+															src={profile.avatar_url}
+															alt="Profile"
+															className="h-full w-full object-cover"
+														/>
+													) : (
+														<Camera className="h-8 w-8 text-muted-foreground" />
+													)}
+													{photoStatus === "uploading" && (
+														<div className="absolute inset-0 flex items-center justify-center bg-background/70">
+															<Loader2 className="h-6 w-6 animate-spin text-primary" />
+														</div>
+													)}
+												</div>
+												<input
+													ref={fileInputRef}
+													type="file"
+													accept="image/jpeg,image/png,image/webp"
+													className="hidden"
+													onChange={(e) => {
+														void handlePhotoUpload(e);
+														e.target.value = "";
+													}}
+												/>
+											</div>
+											<div className="space-y-1">
+												<p className="font-medium">Profile Photo</p>
+												<p className="text-sm text-muted-foreground">
+													Required for German/EU applications. Click to upload.
+												</p>
+												<div className="flex flex-wrap items-center gap-2">
+													<Button
+														variant="outline"
+														size="sm"
+														onClick={handlePhotoClick}
+														disabled={photoStatus === "uploading"}
+													>
+														<Upload className="mr-1.5 h-3.5 w-3.5" />
+														{photoStatus === "uploading"
+															? "Uploading..."
+															: "Upload"}
+													</Button>
+													{profile.avatar_url && (
+														<Button
+															variant="ghost"
+															size="sm"
+															className="h-7 text-destructive"
+															onClick={handleRemovePhoto}
+														>
+															<Trash2 className="mr-1 h-3 w-3" />
+															Remove
+														</Button>
+													)}
+												</div>
+												{photoFileName && !photoError && (
+													<p className="text-xs text-muted-foreground">
+														{photoStatus === "success"
+															? "Uploaded"
+															: "Selected"}
+														: {photoFileName}
+													</p>
+												)}
+												{photoStatus === "uploading" && !photoError && (
+													<p className="text-xs text-muted-foreground">
+														Please wait, uploading your photo...
+													</p>
+												)}
+												{photoError && (
+													<p className="text-xs text-destructive">
+														{photoError}
+													</p>
+												)}
+											</div>
+										</div>
+
+										<div className="grid gap-4 sm:grid-cols-2">
+											<div className="space-y-2">
+												<Label htmlFor="fullName">
+													<User className="mr-2 inline h-4 w-4" />
+													Full Name
+												</Label>
+												<Input
+													id="fullName"
+													value={profile.full_name}
+													disabled={loadingProfile}
+													onChange={(e) =>
+														setProfile({
+															...profile,
+															full_name: e.target.value,
+														})
+													}
+												/>
+											</div>
+											<div className="space-y-2">
+												<Label htmlFor="email">
+													<Mail className="mr-2 inline h-4 w-4" />
+													Email
+												</Label>
+												<Input
+													id="email"
+													type="email"
+													value={profile.email}
+													disabled={loadingProfile}
+													onChange={(e) =>
+														setProfile({ ...profile, email: e.target.value })
+													}
+												/>
+											</div>
+											<div className="space-y-2">
+												<Label htmlFor="phone">
+													<Phone className="mr-2 inline h-4 w-4" />
+													Phone
+												</Label>
+												<Input
+													id="phone"
+													value={profile.phone}
+													disabled={loadingProfile}
+													onChange={(e) =>
+														setProfile({ ...profile, phone: e.target.value })
+													}
+												/>
+											</div>
+											<div className="space-y-2">
+												<Label htmlFor="location">
+													<MapPin className="mr-2 inline h-4 w-4" />
+													Location
+												</Label>
+												<Input
+													id="location"
+													value={profile.location}
+													disabled={loadingProfile}
+													onChange={(e) =>
+														setProfile({ ...profile, location: e.target.value })
+													}
+												/>
+											</div>
+										</div>
+
+										<div className="space-y-2">
+											<Label htmlFor="bio">Professional Summary</Label>
+											<Textarea
+												id="bio"
+												rows={4}
+												value={profile.bio}
+												disabled={loadingProfile}
+												onChange={(e) =>
+													setProfile({ ...profile, bio: e.target.value })
+												}
+												placeholder="Brief summary of your professional background and expertise..."
+											/>
+										</div>
+
+										<div className="grid gap-4 sm:grid-cols-3">
+											<div className="space-y-2">
+												<Label htmlFor="website">
+													<Globe className="mr-2 inline h-4 w-4" />
+													Website
+												</Label>
+												<Input
+													id="website"
+													value={profile.website}
+													disabled={loadingProfile}
+													onChange={(e) =>
+														setProfile({ ...profile, website: e.target.value })
+													}
+													placeholder="https://"
+												/>
+											</div>
+											<div className="space-y-2">
+												<Label htmlFor="linkedin">
+													<LinkedinIcon className="mr-2 inline h-4 w-4" />
+													LinkedIn
+												</Label>
+												<Input
+													id="linkedin"
+													value={profile.linkedin_url}
+													disabled={loadingProfile}
+													onChange={(e) =>
+														setProfile({
+															...profile,
+															linkedin_url: e.target.value,
+														})
+													}
+													placeholder="https://linkedin.com/in/..."
+												/>
+											</div>
+											<div className="space-y-2">
+												<Label htmlFor="github">
+													<GithubIcon className="mr-2 inline h-4 w-4" />
+													GitHub
+												</Label>
+												<Input
+													id="github"
+													value={profile.github_url}
+													disabled={loadingProfile}
+													onChange={(e) =>
+														setProfile({
+															...profile,
+															github_url: e.target.value,
+														})
+													}
+													placeholder="https://github.com/..."
+												/>
+											</div>
+										</div>
+
+										<div className="rounded-lg border bg-muted/40 p-4">
+											<div className="flex items-center justify-between gap-2">
+												<p className="text-sm font-medium">Additional fields</p>
+												<Button
+													variant="outline"
+													size="sm"
+													onClick={handleAddField}
+												>
+													<Plus className="mr-2 h-4 w-4" />
+													Add field
+												</Button>
+											</div>
+											{profile.custom_fields.length > 0 ? (
+												<div className="mt-3 space-y-2">
+													{profile.custom_fields.map((field) => (
+														<div
+															key={field.id}
+															className="grid gap-2 sm:grid-cols-[1fr,2fr,auto]"
+														>
+															<Input
+																placeholder="Label"
+																value={field.label}
+																onChange={(e) =>
+																	handleUpdateField(field.id, {
+																		label: e.target.value,
+																	})
+																}
+															/>
+															<Input
+																placeholder="Value"
+																value={field.value}
+																onChange={(e) =>
+																	handleUpdateField(field.id, {
+																		value: e.target.value,
+																	})
+																}
+															/>
+															<Button
+																variant="ghost"
+																size="icon"
+																className="h-9 w-9 text-destructive"
+																onClick={() => handleRemoveField(field.id)}
+															>
+																<Trash2 className="h-4 w-4" />
+															</Button>
+														</div>
+													))}
+												</div>
+											) : (
+												<p className="mt-2 text-xs text-muted-foreground">
+													Need visa status, portfolio password, or other custom
+													info? Add a field above.
+												</p>
+											)}
+										</div>
+									</CardContent>
+								</Card>
+							)}
+
+							{/* Work Experience Tab */}
+							{activeTab === "experience" && (
 								<Card className="border-border/50 bg-card/80 backdrop-blur">
 									<CardHeader className="flex flex-row items-center justify-between">
 										<div>
-											<CardTitle>{section.title}</CardTitle>
+											<CardTitle>Work Experience</CardTitle>
 											<CardDescription>
-												Imported from your resume or added manually. Edit or
-												remove entries to keep your profile tidy.
+												Your professional work history.
 											</CardDescription>
 										</div>
-										<Button
-											variant="ghost"
-											className="text-destructive"
-											onClick={() => handleRemoveCustomSection(section.id)}
-										>
-											<Trash2 className="mr-2 h-4 w-4" />
-											Remove section
+										<Button onClick={handleAddExperience} variant="outline">
+											<Plus className="mr-2 h-4 w-4" />
+											Add Experience
 										</Button>
 									</CardHeader>
-									<CardContent className="space-y-3">
-										{section.entries.map((entry, index) => (
-											<div
-												key={`${section.id}-${entry.id}`}
-												className="space-y-2 rounded-lg border bg-background/50 p-3"
-											>
-												<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-													<div className="flex-1">
-														{/* <Label className="text-sm font-medium">
-															Entry heading
-														</Label> */}
-														<Input
-															className="mt-1"
-															placeholder="e.g., Project title, Award name, Publication"
-															value={entry.title}
-															onChange={(e) =>
-																handleUpdateCustomEntry(section.id, entry.id, {
-																	title: e.target.value,
-																})
-															}
-														/>
+									<CardContent className="space-y-4">
+										{profile.work_experience.length > 0 ? (
+											profile.work_experience.map((exp) => (
+												<div
+													key={exp.id}
+													className="rounded-lg border bg-background/50 p-4"
+												>
+													<div className="mb-4 flex items-start justify-between">
+														<div>
+															<h4 className="font-medium">
+																{exp.role || "Role / Title"}
+															</h4>
+															<p className="text-sm text-muted-foreground">
+																{exp.company || "Company"} ·{" "}
+																{exp.location || "Location"}
+															</p>
+															<p className="text-xs text-muted-foreground">
+																{exp.start_date || "Start"} -{" "}
+																{exp.end_date || "Present"}
+															</p>
+														</div>
+														<div className="flex gap-1">
+															<Button
+																variant="ghost"
+																size="icon"
+																className="h-8 w-8 text-destructive"
+																onClick={() => handleRemoveExperience(exp.id)}
+															>
+																<Trash2 className="h-4 w-4" />
+															</Button>
+														</div>
 													</div>
-													<Button
-														variant="ghost"
-														size="icon"
-														className="h-8 w-8 text-destructive"
-														onClick={() =>
-															handleRemoveCustomEntry(section.id, index)
-														}
-														aria-label="Remove entry"
-													>
-														<Trash2 className="h-4 w-4" />
-													</Button>
+													<div className="space-y-3">
+														<div className="grid gap-4 sm:grid-cols-2">
+															<div className="space-y-2">
+																<Label>Job Title</Label>
+																<Input
+																	value={exp.role}
+																	onChange={(e) =>
+																		handleUpdateExperience(exp.id, {
+																			role: e.target.value,
+																		})
+																	}
+																/>
+															</div>
+															<div className="space-y-2">
+																<Label>Company</Label>
+																<Input
+																	value={exp.company}
+																	onChange={(e) =>
+																		handleUpdateExperience(exp.id, {
+																			company: e.target.value,
+																		})
+																	}
+																/>
+															</div>
+															<div className="space-y-2">
+																<Label>Location</Label>
+																<Input
+																	value={exp.location}
+																	onChange={(e) =>
+																		handleUpdateExperience(exp.id, {
+																			location: e.target.value,
+																		})
+																	}
+																/>
+															</div>
+															<div className="grid grid-cols-2 gap-2">
+																<div className="space-y-2">
+																	<Label>Start</Label>
+																	<Input
+																		type="text"
+																		value={exp.start_date || ""}
+																		onChange={(e) =>
+																			handleUpdateExperience(exp.id, {
+																				start_date: e.target.value,
+																			})
+																		}
+																	/>
+																</div>
+																<div className="space-y-2">
+																	<Label>End</Label>
+																	<Input
+																		type="text"
+																		value={exp.end_date || ""}
+																		placeholder="Present"
+																		onChange={(e) =>
+																			handleUpdateExperience(exp.id, {
+																				end_date: e.target.value,
+																			})
+																		}
+																	/>
+																</div>
+															</div>
+														</div>
+														<div className="space-y-2">
+															<Label>Description</Label>
+															<Textarea
+																rows={3}
+																value={exp.description}
+																onChange={(e) =>
+																	handleUpdateExperience(exp.id, {
+																		description: e.target.value,
+																	})
+																}
+																placeholder="Key responsibilities and achievements..."
+															/>
+														</div>
+													</div>
 												</div>
-												<Textarea
-													value={entry.value}
-													onChange={(e) =>
-														handleUpdateCustomEntry(section.id, entry.id, {
-															value: e.target.value,
-														})
-													}
-													placeholder="Details, bullet points, or notes for this section..."
-													rows={3}
-												/>
+											))
+										) : (
+											<div className="flex flex-col items-center justify-center py-12 text-center">
+												<Briefcase className="mb-3 h-12 w-12 text-muted-foreground/50" />
+												<p className="mb-1 font-medium">
+													No work experience added
+												</p>
+												<p className="mb-4 text-sm text-muted-foreground">
+													Add your professional experience to build better
+													resumes
+												</p>
+												<Button>
+													<Plus className="mr-2 h-4 w-4" />
+													Add Your First Experience
+												</Button>
 											</div>
-										))}
-
-										<Button
-											variant="outline"
-											onClick={() => handleAddCustomEntry(section.id)}
-											className="w-full sm:w-auto"
-										>
-											<Plus className="mr-2 h-4 w-4" />
-											Add entry
-										</Button>
+										)}
 									</CardContent>
 								</Card>
-							);
-						})()}
-				</motion.div>
+							)}
 
-				{/* Save Button */}
-				<motion.div
-					initial={{ opacity: 0, y: 20 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.2 }}
-					className="mt-6 flex justify-end"
-				>
-					<Button onClick={handleSave} disabled={isSaving} size="lg">
-						{isSaving ? (
-							<>
-								<span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-								Saving...
-							</>
-						) : (
-							<>
-								<Save className="mr-2 h-4 w-4" />
-								Save Changes
-							</>
-						)}
-					</Button>
-				</motion.div>
-			</div>
-		</div>
+							{/* Education Tab */}
+							{activeTab === "education" && (
+								<Card className="border-border/50 bg-card/80 backdrop-blur">
+									<CardHeader className="flex flex-row items-center justify-between">
+										<div>
+											<CardTitle>Education</CardTitle>
+											<CardDescription>
+												Your academic background.
+											</CardDescription>
+										</div>
+										<Button onClick={handleAddEducation} variant="outline">
+											<Plus className="mr-2 h-4 w-4" />
+											Add Education
+										</Button>
+									</CardHeader>
+									<CardContent className="space-y-4">
+										{profile.education.length > 0 ? (
+											profile.education.map((edu) => (
+												<div
+													key={edu.id}
+													className="rounded-lg border bg-background/50 p-4"
+												>
+													<div className="mb-4 flex items-start justify-between">
+														<div>
+															<h4 className="font-medium">
+																{edu.degree || "Degree"}
+															</h4>
+															<p className="text-sm text-muted-foreground">
+																{edu.institution || "Institution"} ·{" "}
+																{edu.location || "Location"}
+															</p>
+															<p className="text-xs text-muted-foreground">
+																{edu.start_date || "Start"} -{" "}
+																{edu.end_date || "End"}
+															</p>
+														</div>
+														<Button
+															variant="ghost"
+															size="icon"
+															className="h-8 w-8 text-destructive"
+															onClick={() => handleRemoveEducation(edu.id)}
+														>
+															<Trash2 className="h-4 w-4" />
+														</Button>
+													</div>
+													<div className="grid gap-4 sm:grid-cols-2">
+														<div className="space-y-2">
+															<Label>Degree</Label>
+															<Input
+																value={edu.degree}
+																onChange={(e) =>
+																	handleUpdateEducation(edu.id, {
+																		degree: e.target.value,
+																	})
+																}
+															/>
+														</div>
+														<div className="space-y-2">
+															<Label>Institution</Label>
+															<Input
+																value={edu.institution}
+																onChange={(e) =>
+																	handleUpdateEducation(edu.id, {
+																		institution: e.target.value,
+																	})
+																}
+															/>
+														</div>
+														<div className="space-y-2">
+															<Label>Location</Label>
+															<Input
+																value={edu.location}
+																onChange={(e) =>
+																	handleUpdateEducation(edu.id, {
+																		location: e.target.value,
+																	})
+																}
+															/>
+														</div>
+														<div className="grid grid-cols-2 gap-2">
+															<div className="space-y-2">
+																<Label>Start</Label>
+																<Input
+																	type="text"
+																	value={edu.start_date}
+																	onChange={(e) =>
+																		handleUpdateEducation(edu.id, {
+																			start_date: e.target.value,
+																		})
+																	}
+																/>
+															</div>
+															<div className="space-y-2">
+																<Label>End</Label>
+																<Input
+																	type="text"
+																	value={edu.end_date}
+																	onChange={(e) =>
+																		handleUpdateEducation(edu.id, {
+																			end_date: e.target.value,
+																		})
+																	}
+																/>
+															</div>
+														</div>
+													</div>
+												</div>
+											))
+										) : (
+											<div className="flex flex-col items-center justify-center py-12 text-center">
+												<GraduationCap className="mb-3 h-12 w-12 text-muted-foreground/50" />
+												<p className="mb-1 font-medium">No education added</p>
+												<p className="mb-4 text-sm text-muted-foreground">
+													Add your academic background to strengthen your
+													profile
+												</p>
+												<Button onClick={handleAddEducation}>
+													<Plus className="mr-2 h-4 w-4" />
+													Add Your First Education
+												</Button>
+											</div>
+										)}
+									</CardContent>
+								</Card>
+							)}
+
+							{/* Skills Tab */}
+							{activeTab === "skills" && (
+								<Card className="border-border/50 bg-card/80 backdrop-blur">
+									<CardHeader>
+										<CardTitle>Skills & Technologies</CardTitle>
+										<CardDescription>
+											Add skills that will be matched against job descriptions.
+										</CardDescription>
+									</CardHeader>
+									<CardContent className="space-y-4">
+										{/* Add Skill */}
+										<div className="flex gap-2">
+											<Input
+												placeholder="Add a skill..."
+												value={newSkill}
+												onChange={(e) => setNewSkill(e.target.value)}
+												onKeyDown={(e) => {
+													if (e.key === "Enter") {
+														e.preventDefault();
+														handleAddSkill();
+													}
+												}}
+											/>
+											<Button onClick={handleAddSkill}>
+												<Plus className="mr-2 h-4 w-4" />
+												Add
+											</Button>
+										</div>
+
+										{/* Skills List */}
+										{profile.skills.length > 0 ? (
+											<div className="flex flex-wrap gap-2">
+												{profile.skills.map((skill) => (
+													<span
+														key={skill}
+														className="flex items-center gap-1 rounded-full border bg-secondary px-3 py-1 text-sm font-medium"
+													>
+														{skill}
+														<button
+															onClick={() => handleRemoveSkill(skill)}
+															className="ml-1 rounded-full p-0.5 hover:bg-muted"
+														>
+															<X className="h-3 w-3" />
+														</button>
+													</span>
+												))}
+											</div>
+										) : (
+											<div className="rounded-lg border border-dashed bg-muted/30 py-8 text-center">
+												<p className="text-sm text-muted-foreground">
+													No skills added yet. Start typing above to add your
+													first skill.
+												</p>
+											</div>
+										)}
+
+										{/* Suggested Skills */}
+										<div className="rounded-lg border bg-muted/50 p-4">
+											<p className="mb-2 text-sm font-medium">
+												Suggested skills (based on your experience):
+											</p>
+											<div className="flex flex-wrap gap-2">
+												{[
+													"Kubernetes",
+													"GraphQL",
+													"MongoDB",
+													"Redis",
+													"Terraform",
+												].map((skill) => (
+													<Button
+														key={skill}
+														variant="outline"
+														size="sm"
+														onClick={() => {
+															if (!profile.skills.includes(skill)) {
+																setProfile({
+																	...profile,
+																	skills: [...profile.skills, skill],
+																});
+															}
+														}}
+														disabled={profile.skills.includes(skill)}
+													>
+														<Plus className="mr-1 h-3 w-3" />
+														{skill}
+													</Button>
+												))}
+											</div>
+										</div>
+									</CardContent>
+								</Card>
+							)}
+
+							{/* Custom / Imported Sections */}
+							{activeTab.startsWith("custom-") &&
+								(() => {
+									const section = customSections.find(
+										(s) => `custom-${s.id}` === activeTab
+									);
+									if (!section) return null;
+
+									return (
+										<Card className="border-border/50 bg-card/80 backdrop-blur">
+											<CardHeader className="flex flex-row items-center justify-between">
+												<div>
+													<CardTitle>{section.title}</CardTitle>
+													<CardDescription>
+														Imported from your resume or added manually. Edit or
+														remove entries to keep your profile tidy.
+													</CardDescription>
+												</div>
+												<Button
+													variant="ghost"
+													className="text-destructive"
+													onClick={() => handleRemoveCustomSection(section.id)}
+												>
+													<Trash2 className="mr-2 h-4 w-4" />
+													Remove section
+												</Button>
+											</CardHeader>
+											<CardContent className="space-y-3">
+												{section.entries.map((entry, index) => (
+													<div
+														key={`${section.id}-${entry.id}`}
+														className="space-y-2 rounded-lg border bg-background/50 p-3"
+													>
+														<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+															<div className="flex-1">
+																{/* <Label className="text-sm font-medium">
+															Entry heading
+														</Label> */}
+																<Input
+																	className="mt-1"
+																	placeholder="e.g., Project title, Award name, Publication"
+																	value={entry.title}
+																	onChange={(e) =>
+																		handleUpdateCustomEntry(
+																			section.id,
+																			entry.id,
+																			{
+																				title: e.target.value,
+																			}
+																		)
+																	}
+																/>
+															</div>
+															<Button
+																variant="ghost"
+																size="icon"
+																className="h-8 w-8 text-destructive"
+																onClick={() =>
+																	handleRemoveCustomEntry(section.id, index)
+																}
+																aria-label="Remove entry"
+															>
+																<Trash2 className="h-4 w-4" />
+															</Button>
+														</div>
+														<Textarea
+															value={entry.value}
+															onChange={(e) =>
+																handleUpdateCustomEntry(section.id, entry.id, {
+																	value: e.target.value,
+																})
+															}
+															placeholder="Details, bullet points, or notes for this section..."
+															rows={3}
+														/>
+													</div>
+												))}
+
+												<Button
+													variant="outline"
+													onClick={() => handleAddCustomEntry(section.id)}
+													className="w-full sm:w-auto"
+												>
+													<Plus className="mr-2 h-4 w-4" />
+													Add entry
+												</Button>
+											</CardContent>
+										</Card>
+									);
+								})()}
+						</motion.div>
+
+						{/* Save Button */}
+						<motion.div
+							initial={{ opacity: 0, y: 20 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ delay: 0.2 }}
+							className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end"
+						>
+							<div className="flex flex-col text-sm sm:items-end">
+								{saveError && <p className="text-destructive">{saveError}</p>}
+								{saveMessage && (
+									<p className="text-green-600 dark:text-green-400">
+										{saveMessage}
+									</p>
+								)}
+							</div>
+							<Button onClick={handleSave} disabled={isSaving} size="lg">
+								{isSaving ? (
+									<>
+										<span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+										Saving...
+									</>
+								) : (
+									<>
+										<Save className="mr-2 h-4 w-4" />
+										Save Changes
+									</>
+								)}
+							</Button>
+						</motion.div>
+					</div>
+				</div>
+			</SidebarLayout>
+		</SidebarProvider>
 	);
 }

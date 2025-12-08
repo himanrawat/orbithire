@@ -10,17 +10,17 @@ export interface Profile {
 	email: string;
 	full_name: string | null;
 	headline: string | null;
-	phone: string | null;
-	location: string | null;
-	linkedin_url: string | null;
-	portfolio_url: string | null;
-	photo_url: string | null;
-	photo_key: string | null; // R2 storage key
+ phone: string | null;
+ location: string | null;
+ linkedin_url: string | null;
+ portfolio_url: string | null;
+  avatar_url: string | null;
+  avatar_key: string | null; // R2 storage key
 
-	// Parsed resume data
-	skills: string[];
-	experience_summary: string | null;
-	education_summary: string | null;
+  // Parsed resume data
+  skills: string[];
+  experience_summary: string | null;
+  education_summary: string | null;
 
 	// Preferences
 	target_job_titles: string[];
@@ -132,16 +132,17 @@ export interface CoverLetter {
 // ==================== RESUME CONTENT STRUCTURE ====================
 
 export interface ResumeContent {
-	personal: {
-		name: string;
-		headline: string;
-		email: string;
-		phone: string;
-		location: string;
-		linkedin?: string;
-		portfolio?: string;
-		photo_url?: string; // Only for EU/DE templates
-	};
+  personal: {
+	
+    name: string;
+    headline: string;
+    email: string;
+    phone: string;
+    location: string;
+    linkedin?: string;
+    portfolio?: string;
+    avatar_url?: string; // Only for EU/DE templates
+  };
 	summary: string;
 	experience: ExperienceEntry[];
 	education: EducationEntry[];

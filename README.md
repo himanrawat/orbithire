@@ -35,7 +35,7 @@ Architecture
 
 Data model (Supabase)
 ---------------------
-- `profiles`: id (uuid, FK to auth), name, headline, summary, skills (jsonb), photo_url (R2), location, visa_status, work_authorization, updated_at.
+- `profiles`: id (uuid, FK to auth), name, headline, summary, skills (jsonb), avatar_url (R2), location, visa_status, work_authorization, updated_at.
 - `resumes`: id, user_id, title, locale (enum: global, india, eu, de), ai_model_used, jd_hash (for provenance), content_text (plain), file_url (R2), created_at.
 - `cover_letters`: id, user_id, resume_id (nullable), jd_hash, content_text, file_url, created_at.
 - `job_descriptions`: id, user_id, title, company, location, remote (bool), salary_range, jd_text, jd_hash, created_at.

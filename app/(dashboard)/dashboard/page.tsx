@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,8 @@ import {
 	ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
+import type { Profile } from "@/lib/types/database";
 
 // Data types
 type Company = {
@@ -70,15 +73,6 @@ const companies: Company[] = [];
 const recentItems: RecentItem[] = [];
 const followUps: FollowUp[] = [];
 
-const profileCompletion = {
-	photo: false,
-	skills: false,
-	experience: false,
-	education: false,
-	preferences: false,
-	percentage: 0,
-};
-
 const statusColors: Record<string, string> = {
 	saved: "bg-secondary text-secondary-foreground",
 	applied: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
@@ -89,8 +83,93 @@ const statusColors: Record<string, string> = {
 };
 
 export default function DashboardPage() {
-	// User data will be populated from Supabase auth
-	const user = { name: "there", avatarUrl: undefined };
+	const [profile, setProfile] = useState<Profile | null>(null);
+	const [loadingProfile, setLoadingProfile] = useState(false);
+
+	useEffect(() => {
+		const loadProfile = async () => {
+			setLoadingProfile(true);
+			const supabase = getSupabaseBrowserClient();
+			const {
+				data: { user },
+			} = await supabase.auth.getUser();
+			if (!user) {
+				setLoadingProfile(false);
+				return;
+			}
+
+			const { data } = await supabase
+				.from("profiles")
+				.select(
+					"id, full_name, headline, avatar_url, skills, experience_summary, education_summary, target_job_titles"
+				)
+				.eq("id", user.id)
+				.single();
+
+			setProfile(data as Profile | null);
+			setLoadingProfile(false);
+		};
+
+		void loadProfile();
+	}, []);
+
+	const profileCompletion = useMemo(() => {
+		let extended: any = {};
+		if (profile?.education_summary) {
+			if (typeof profile.education_summary === "string") {
+				try {
+					extended = JSON.parse(profile.education_summary);
+				} catch {
+					extended = {};
+				}
+			} else if (typeof profile.education_summary === "object") {
+				extended = profile.education_summary;
+			}
+		}
+		const photoUrl = extended.avatar_url || profile?.avatar_url;
+		const photo = Boolean(photoUrl);
+		const skills = (profile?.skills || []).length > 0;
+		const experience =
+			Boolean(profile?.experience_summary) ||
+			(extended.work_experience || []).length > 0;
+		const education =
+			Boolean(profile?.education_summary) || (extended.education || []).length > 0;
+
+		const items: { label: string; completed: boolean }[] = [
+			{ label: "Photo", completed: photo },
+			{ label: "Skills", completed: skills },
+			{ label: "Experience", completed: experience },
+			{ label: "Education", completed: education },
+		];
+
+		if (Array.isArray(extended.custom_fields) && extended.custom_fields.length) {
+			items.push({
+				label: "Custom fields",
+				completed: true,
+			});
+		}
+
+		if (Array.isArray(extended.customSections)) {
+			extended.customSections.forEach((section: any) => {
+				items.push({
+					label: section.title || "Custom section",
+					completed: Boolean(section.entries?.length),
+				});
+			});
+		}
+
+		const completedCount = items.filter((i) => i.completed).length;
+		const percentage = items.length
+			? Math.min(100, Math.round((completedCount / items.length) * 100))
+			: 0;
+
+		return { items, percentage };
+	}, [profile]);
+
+	const firstName =
+		profile?.full_name?.split(" ")[0] ||
+		profile?.full_name ||
+		(loadingProfile ? "..." : "there");
 
 	return (
 		<div className="min-h-screen">
@@ -104,7 +183,7 @@ export default function DashboardPage() {
 					className="mb-8"
 				>
 					<h1 className="text-3xl font-bold tracking-tight">
-						Welcome back, {user.name}
+						Welcome back, {firstName}
 					</h1>
 					<p className="mt-1 text-muted-foreground">
 						Track your applications, manage resumes, and stay on top of
@@ -414,21 +493,19 @@ export default function DashboardPage() {
 										</div>
 									</div>
 									<div className="space-y-2">
-										{Object.entries(profileCompletion)
-											.filter(([key]) => key !== "percentage")
-											.map(([key, completed]) => (
-												<div
-													key={key}
-													className="flex items-center justify-between text-sm"
-												>
-													<span className="capitalize">{key}</span>
-													{completed ? (
-														<CheckCircle2 className="h-4 w-4 text-green-500" />
-													) : (
-														<AlertCircle className="h-4 w-4 text-orange-500" />
-													)}
-												</div>
-											))}
+										{profileCompletion.items.map(({ label, completed }) => (
+											<div
+												key={label}
+												className="flex items-center justify-between text-sm"
+											>
+												<span className="capitalize">{label}</span>
+												{completed ? (
+													<CheckCircle2 className="h-4 w-4 text-green-500" />
+												) : (
+													<AlertCircle className="h-4 w-4 text-orange-500" />
+												)}
+											</div>
+										))}
 									</div>
 									<Button className="mt-4 w-full" variant="outline" asChild>
 										<Link href="/profile">Complete Profile</Link>

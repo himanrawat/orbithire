@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { NavBar } from "@/components/NavBar";
@@ -39,6 +40,8 @@ const steps = [
 export default function SignUpPage() {
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
+	const router = useRouter();
+	const searchParams = useSearchParams();
 
 	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
@@ -62,7 +65,8 @@ export default function SignUpPage() {
 			return;
 		}
 
-		window.location.href = "/onboarding";
+		const redirect = searchParams.get("redirect") || "/onboarding";
+		router.push(redirect);
 	}
 
 	return (

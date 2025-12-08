@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { NavBar } from "@/components/NavBar";
@@ -27,6 +28,8 @@ const features = [
 export default function SignInPage() {
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
+	const router = useRouter();
+	const searchParams = useSearchParams();
 
 	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
@@ -50,7 +53,8 @@ export default function SignInPage() {
 			return;
 		}
 
-		window.location.href = "https://dashboard.himanshurawat.in";
+		const redirect = searchParams.get("redirect") || "/dashboard";
+		router.push(redirect);
 	}
 
 	return (
