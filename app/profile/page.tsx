@@ -182,7 +182,7 @@ export default function ProfilePage() {
 	const loadProfile = async () => {
 		setLoadingProfile(true);
 		try {
-			const response = await fetch("/api/profile/get");
+			const response = await fetch("/api/profile");
 			const body = await response.json().catch(() => ({}));
 			if (!response.ok || !body.profile) {
 				setLoadingProfile(false);
@@ -223,17 +223,19 @@ export default function ProfilePage() {
 				linkedin_url: data.linkedin_url || "",
 				github_url: data.github_url || parsedExtended.github_url || "",
 				avatar_url: (() => {
-					const candidate =
-						data.avatar_url || parsedExtended.avatar_url || null;
+					const resolved =
+						data.avatar_url === null
+							? null
+							: data.avatar_url || parsedExtended.avatar_url || null;
 					// Ignore stale blob URLs that won't resolve after reload.
 					if (
-						candidate &&
-						typeof candidate === "string" &&
-						candidate.startsWith("blob:")
+						resolved &&
+						typeof resolved === "string" &&
+						resolved.startsWith("blob:")
 					) {
 						return null;
 					}
-					return candidate;
+					return resolved;
 				})(),
 				skills: data.skills || [],
 				work_experience:
@@ -398,7 +400,7 @@ export default function ProfilePage() {
 				return;
 			}
 
-			const response = await fetch("/api/profile/save", {
+			const response = await fetch("/api/profile", {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({

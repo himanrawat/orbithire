@@ -126,7 +126,10 @@ export default function DashboardPage() {
 				extended = profile.education_summary;
 			}
 		}
-		const photoUrl = extended.avatar_url || profile?.avatar_url;
+		const photoUrl =
+			profile?.avatar_url === null
+				? null
+				: extended.avatar_url || profile?.avatar_url || null;
 		const photo = Boolean(photoUrl);
 		const skills = (profile?.skills || []).length > 0;
 		const experience =

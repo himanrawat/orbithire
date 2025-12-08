@@ -170,7 +170,7 @@ export default function ProfilePage() {
 	const loadProfile = async () => {
 		setLoadingProfile(true);
 		try {
-			const response = await fetch("/api/profile/get");
+			const response = await fetch("/api/profile");
 			const body = await response.json().catch(() => ({}));
 			if (!response.ok || !body.profile) {
 				setLoadingProfile(false);
@@ -286,8 +286,8 @@ export default function ProfilePage() {
 		setSaveMessage(null);
 
 		try {
-			const response = await fetch("/api/profile/save", {
-				method: "POST",
+			const response = await fetch("/api/profile", {
+				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					profile,

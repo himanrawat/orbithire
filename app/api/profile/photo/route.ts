@@ -39,24 +39,39 @@ function resolveExtension(file: Blob & { name?: string }) {
 	return "bin";
 }
 
+function publicUrlForKey(key: string | null) {
+	if (!key) return null;
+	if (key.startsWith("http")) return key;
+
+	const base = (
+		serverEnv.r2PublicBaseUrl ||
+		serverEnv.r2Endpoint ||
+		""
+	).replace(/\/$/, "");
+	if (!base || !serverEnv.r2Bucket) return null;
+	return `${base}/${serverEnv.r2Bucket}/${key}`;
+}
+
 async function signPhoto(key: string | null) {
 	if (!key) return null;
 	if (key.startsWith("http")) return key;
-	if (!r2Client || !serverEnv.r2Bucket) return null;
-
-	try {
-		return await getSignedUrl(
-			r2Client,
-			new GetObjectCommand({
-				Bucket: serverEnv.r2Bucket,
-				Key: key,
-			}),
-			{ expiresIn: 60 * 10 }
-		);
-	} catch (err) {
-		console.error("Failed to sign uploaded photo URL:", err);
-		return null;
+	// Prefer signing; fall back to public URL only if signing isn't available.
+	if (r2Client && serverEnv.r2Bucket) {
+		try {
+			return await getSignedUrl(
+				r2Client,
+				new GetObjectCommand({
+					Bucket: serverEnv.r2Bucket,
+					Key: key,
+				}),
+				{ expiresIn: 60 * 10 }
+			);
+		} catch (err) {
+			console.error("Failed to sign uploaded photo URL:", err);
+		}
 	}
+
+	return publicUrlForKey(key);
 }
 
 export async function POST(req: NextRequest) {
@@ -175,7 +190,7 @@ export async function POST(req: NextRequest) {
 	const signedUrl = await signPhoto(key);
 
 	return NextResponse.json(
-		{ ok: true, key, url: signedUrl || null },
+		{ ok: true, key, url: signedUrl || publicUrlForKey(key) || null },
 		{ status: 200 }
 	);
 }

@@ -16,6 +16,23 @@ export const runtime = "nodejs";
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
+const abbreviate = (value: any, max = 96) => {
+	if (!value) return value;
+	const str = `${value}`;
+	if (str.length <= max) return str;
+	const head = str.slice(0, Math.floor(max / 2));
+	const tail = str.slice(-12);
+	return `${head}...${tail}`;
+};
+
+const supabaseHost = () => {
+	try {
+		return new URL(serverEnv.supabaseUrl).host;
+	} catch {
+		return serverEnv.supabaseUrl;
+	}
+};
+
 type WorkExperience = {
 	id?: string;
 	company?: string;
@@ -169,21 +186,23 @@ async function uploadDataUrl(dataUrl: string, userId: string) {
 async function signPhotoUrl(key: string | null) {
 	if (!key) return null;
 	if (key.startsWith("http")) return key;
-	if (!r2Client || !serverEnv.r2Bucket) return publicUrlForKey(key);
-
-	try {
-		return await getSignedUrl(
-			r2Client,
-			new GetObjectCommand({
-				Bucket: serverEnv.r2Bucket,
-				Key: key,
-			}),
-			{ expiresIn: 60 * 10 }
-		);
-	} catch (err) {
-		console.error("Failed to sign photo URL:", err);
-		return publicUrlForKey(key);
+	// Prefer signing when we can; only fall back to public URL if signing isn't possible.
+	if (r2Client && serverEnv.r2Bucket) {
+		try {
+			return await getSignedUrl(
+				r2Client,
+				new GetObjectCommand({
+					Bucket: serverEnv.r2Bucket,
+					Key: key,
+				}),
+				{ expiresIn: 60 * 10 }
+			);
+		} catch (err) {
+			console.error("Failed to sign photo URL:", err);
+		}
 	}
+
+	return publicUrlForKey(key);
 }
 
 const normalizeString = (value: any) => {
@@ -195,6 +214,120 @@ const normalizeString = (value: any) => {
 };
 
 const isDifferent = (a: any, b: any) => JSON.stringify(a) !== JSON.stringify(b);
+
+export async function GET(req: NextRequest) {
+	const supabase = createServerClient(
+		serverEnv.supabaseUrl,
+		serverEnv.supabaseAnonKey,
+		{
+			cookies: {
+				get(name: string) {
+					return req.cookies.get(name)?.value;
+				},
+				set() {},
+				remove() {},
+			},
+		}
+	);
+
+	const {
+		data: { user },
+		error: authError,
+	} = await supabase.auth.getUser();
+
+	if (authError || !user) {
+		return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+	}
+	console.log("[profile/get] user:", user.id);
+	console.log("[profile/get] supabase host:", supabaseHost());
+
+	if (!serverEnv.supabaseServiceRoleKey) {
+		return NextResponse.json(
+			{ error: "Missing SUPABASE_SERVICE_ROLE_KEY on server." },
+			{ status: 503 }
+		);
+	}
+
+	const admin = createClient(
+		serverEnv.supabaseUrl,
+		serverEnv.supabaseServiceRoleKey,
+		{
+			auth: { autoRefreshToken: false, persistSession: false },
+		}
+	);
+
+	const { data, error } = await admin
+		.from("profiles")
+		.select(
+			"id, email, full_name, phone, location, headline, portfolio_url, linkedin_url, avatar_url, skills, experience_summary, education_summary"
+		)
+		.eq("id", user.id)
+		.single();
+
+	if (error) {
+		return NextResponse.json(
+			{
+				error:
+					error.message ||
+					error.details ||
+					"Unable to load profile right now.",
+			},
+			{ status: 500 }
+		);
+	}
+
+	let extended: any = {};
+	console.log(
+		"[profile/get] raw education_summary:",
+		abbreviate(
+			typeof data.education_summary === "string"
+				? data.education_summary
+				: JSON.stringify(data.education_summary || "")
+		)
+	);
+	if (data.education_summary) {
+		if (typeof data.education_summary === "string") {
+			try {
+				extended = JSON.parse(data.education_summary);
+			} catch (err) {
+				console.warn("[profile/get] failed to parse education_summary", err);
+				extended = {};
+			}
+		} else if (typeof data.education_summary === "object") {
+			extended = data.education_summary;
+		}
+	}
+
+	const extendedAvatar =
+		extended && typeof extended === "object" ? extended.avatar_url : undefined;
+	const useAvatar =
+		extendedAvatar === null ? null : data.avatar_url ?? extendedAvatar ?? null;
+	const photoKey = useAvatar === null ? null : normalizeR2Key(useAvatar);
+	const signedPhoto = await signPhotoUrl(photoKey);
+	console.log("[profile/get] avatar column:", abbreviate(data.avatar_url));
+	console.log("[profile/get] extended avatar:", abbreviate(extendedAvatar));
+	console.log("[profile/get] chosen avatar:", abbreviate(useAvatar));
+	console.log("[profile/get] normalized key:", abbreviate(photoKey));
+	console.log("[profile/get] signed avatar:", abbreviate(signedPhoto));
+
+	const { avatar_url: _avatarUrl, education_summary: _ext, ...profileWithoutPhoto } =
+		data;
+
+	return NextResponse.json(
+		{
+			profile: {
+				...profileWithoutPhoto,
+				avatar_url: signedPhoto,
+				github_url: extended.github_url || null,
+				work_experience: extended.work_experience || [],
+				education: extended.education || [],
+				custom_fields: extended.custom_fields || [],
+				customSections: extended.customSections || [],
+			},
+		},
+		{ status: 200 }
+	);
+}
 
 export async function PATCH(req: NextRequest) {
 	const supabase = createServerClient(
@@ -242,6 +375,8 @@ export async function PATCH(req: NextRequest) {
 	if (authError || !user) {
 		return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
 	}
+	console.log("[profile/save] user:", user.id);
+	console.log("[profile/save] supabase host:", supabaseHost());
 
 	const body = await req.json().catch(() => null);
 	if (!body || typeof body !== "object") {
@@ -282,6 +417,7 @@ export async function PATCH(req: NextRequest) {
 		.maybeSingle();
 
 	const existingAvatar = normalizeR2Key(existing?.avatar_url);
+	console.log("[profile/save] existing avatar column:", abbreviate(existingAvatar));
 	let existingExtended: any = {};
 	if (existing?.education_summary) {
 		if (typeof existing.education_summary === "string") {
@@ -390,6 +526,15 @@ export async function PATCH(req: NextRequest) {
 		}
 	}
 
+	console.log(
+		"[profile/save] incoming avatar payload:",
+		abbreviate(profile.avatar_url),
+		"normalized ->",
+		abbreviate(avatarKey),
+		"changed?",
+		avatarChanged
+	);
+
 	nextExtended.avatar_url = avatarKey ?? null;
 
 	const finalFullName =
@@ -463,14 +608,23 @@ export async function PATCH(req: NextRequest) {
 		hasChanges = true;
 	}
 
+	const educationSummary = JSON.stringify(nextExtended);
 	const extendedChanged = isDifferent(nextExtended, baseExtended);
-	if (extendedChanged) {
-		updatePayload.education_summary = JSON.stringify(nextExtended);
+	if (extendedChanged || avatarChanged) {
+		updatePayload.education_summary = educationSummary;
 		hasChanges = true;
 	}
 
+	console.log(
+		"[profile/save] upsert payload avatar_url:",
+		abbreviate(updatePayload.avatar_url),
+		"extendedChanged?",
+		extendedChanged,
+		"avatarChanged?",
+		avatarChanged
+	);
+
 	if (!existing && !hasChanges) {
-		// New profile but nothing provided except maybe empty payload
 		return NextResponse.json(
 			{ error: "Nothing to save. Provide at least one field." },
 			{ status: 400 }
@@ -522,6 +676,25 @@ export async function PATCH(req: NextRequest) {
 	}
 
 	const signedAvatarUrl = await signPhotoUrl(data.avatar_url);
+	console.log(
+		"[profile/save] saved avatar column:",
+		abbreviate(data.avatar_url),
+		"signed:",
+		abbreviate(signedAvatarUrl)
+	);
+	try {
+		const { data: verify } = await admin
+			.from("profiles")
+			.select("avatar_url")
+			.eq("id", user.id)
+			.single();
+		console.log(
+			"[profile/save] verify read avatar column:",
+			abbreviate(verify?.avatar_url)
+		);
+	} catch (e) {
+		console.warn("[profile/save] verify read failed", e);
+	}
 
 	return NextResponse.json(
 		{
@@ -534,5 +707,4 @@ export async function PATCH(req: NextRequest) {
 	);
 }
 
-// Fallback for older clients
 export const POST = PATCH;

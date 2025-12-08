@@ -19,7 +19,7 @@ export function NavBar({ user }: { user?: User | null }) {
 		if (user) return;
 		const loadUser = async () => {
 			try {
-				const apiProfile = await fetch("/api/profile/get")
+				const apiProfile = await fetch("/api/profile")
 					.then(async (res) => {
 						if (!res.ok) return null;
 						const body = await res.json().catch(() => ({}));
