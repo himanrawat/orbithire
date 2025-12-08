@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,17 @@ type ProfileCompletion = {
 	isComplete: boolean;
 	percentage: number;
 	missingFields: string[];
+	loading: boolean;
+	error?: string | null;
+};
+
+type ProfileData = {
+	full_name?: string | null;
+	email?: string | null;
+	skills?: string[] | null;
+	work_experience?: unknown[] | null;
+	education?: unknown[] | null;
+	experience_summary?: string | null;
 };
 
 const countries = [
@@ -90,29 +101,29 @@ const templates = [
 type Step = 1 | 2 | 3 | 4;
 
 // Helper function to check profile completion
-function checkProfileCompletion(): ProfileCompletion {
-	// TODO: Replace with actual profile data from Supabase
-	// This is a placeholder - in production, fetch from API or context
-	const profile = {
-		full_name: "", // Will be populated from Supabase
-		email: "",
-		skills: [] as string[],
-		work_experience: [] as unknown[],
-		education: [] as unknown[],
-	};
-
+function buildProfileCompletion(profile: ProfileData | null): ProfileCompletion {
+	const skills = Array.isArray(profile?.skills)
+		? (profile?.skills as string[]).filter(Boolean)
+		: [];
+	const experienceEntries = Array.isArray(profile?.work_experience)
+		? (profile?.work_experience as unknown[])
+		: [];
+	const educationEntries = Array.isArray(profile?.education)
+		? (profile?.education as unknown[])
+		: [];
 	const missingFields: string[] = [];
 
-	const hasBasicInfo = !!(profile.full_name && profile.email);
+	const hasBasicInfo = !!(profile?.full_name && profile?.email);
 	if (!hasBasicInfo) missingFields.push("Basic Information (Name, Email)");
 
-	const hasSkills = profile.skills.length > 0;
+	const hasSkills = skills.length > 0;
 	if (!hasSkills) missingFields.push("Skills");
 
-	const hasExperience = profile.work_experience.length > 0;
+	const hasExperience =
+		experienceEntries.length > 0 || Boolean(profile?.experience_summary);
 	if (!hasExperience) missingFields.push("Work Experience");
 
-	const hasEducation = profile.education.length > 0;
+	const hasEducation = educationEntries.length > 0;
 	if (!hasEducation) missingFields.push("Education");
 
 	const completedItems = [
@@ -122,7 +133,7 @@ function checkProfileCompletion(): ProfileCompletion {
 		hasEducation,
 	].filter(Boolean).length;
 	const percentage = Math.round((completedItems / 4) * 100);
-	const isComplete = percentage >= 75; // Require at least 75% completion
+	const isComplete = completedItems >= 3; // Require at least 75% completion
 
 	return {
 		hasBasicInfo,
@@ -132,6 +143,8 @@ function checkProfileCompletion(): ProfileCompletion {
 		isComplete,
 		percentage,
 		missingFields,
+		loading: false,
+		error: null,
 	};
 }
 
@@ -139,9 +152,53 @@ export default function GeneratePage() {
 	const [step, setStep] = useState<Step>(1);
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [isGenerated, setIsGenerated] = useState(false);
+	const [profileCompletion, setProfileCompletion] = useState<ProfileCompletion>({
+		hasBasicInfo: false,
+		hasSkills: false,
+		hasExperience: false,
+		hasEducation: false,
+		isComplete: false,
+		percentage: 0,
+		missingFields: [],
+		loading: true,
+		error: null,
+	});
 
 	// Profile completion check
-	const profileCompletion = checkProfileCompletion();
+	useEffect(() => {
+		const loadProfile = async () => {
+			setProfileCompletion((prev) => ({ ...prev, loading: true, error: null }));
+			try {
+				const response = await fetch("/api/profile");
+				if (!response.ok) {
+					throw new Error("Unable to load profile.");
+				}
+				const body = await response.json().catch(() => ({}));
+				const profile = (body.profile || null) as ProfileData | null;
+				if (!profile) {
+					throw new Error("Profile not found.");
+				}
+				setProfileCompletion(buildProfileCompletion(profile));
+			} catch (error) {
+				setProfileCompletion({
+					hasBasicInfo: false,
+					hasSkills: false,
+					hasExperience: false,
+					hasEducation: false,
+					isComplete: false,
+					percentage: 0,
+					missingFields: ["Profile information is incomplete"],
+					loading: false,
+					error:
+						error instanceof Error
+							? error.message
+							: "Unable to load profile.",
+				});
+			}
+		};
+
+		void loadProfile();
+	}, []);
 
 	// Form state
 	const [formData, setFormData] = useState({
@@ -217,7 +274,7 @@ export default function GeneratePage() {
 
 			<div className="relative max-w-4xl px-6 py-8">
 				{/* Profile Incomplete Warning */}
-				{!profileCompletion.isComplete && (
+				{!profileCompletion.loading && !profileCompletion.isComplete && (
 					<motion.div
 						initial={{ opacity: 0, y: 20 }}
 						animate={{ opacity: 1, y: 0 }}
@@ -242,6 +299,11 @@ export default function GeneratePage() {
 												<span className="font-medium">Missing: </span>
 												{profileCompletion.missingFields.join(", ")}
 											</div>
+										)}
+										{profileCompletion.error && (
+											<p className="mt-2 text-sm text-destructive">
+												{profileCompletion.error}
+											</p>
 										)}
 									</div>
 								</div>
@@ -646,7 +708,11 @@ export default function GeneratePage() {
 										size="lg"
 										className="w-full"
 										onClick={handleGenerate}
-										disabled={isGenerating || !profileCompletion.isComplete}
+										disabled={
+											isGenerating ||
+											profileCompletion.loading ||
+											!profileCompletion.isComplete
+										}
 									>
 										{isGenerating ? (
 											<>
@@ -827,7 +893,10 @@ export default function GeneratePage() {
 						<Button
 							onClick={() => setStep((s) => (s < 3 ? ((s + 1) as Step) : s))}
 							disabled={
-								!canProceed() || step === 3 || !profileCompletion.isComplete
+								!canProceed() ||
+								step === 3 ||
+								profileCompletion.loading ||
+								!profileCompletion.isComplete
 							}
 						>
 							Continue

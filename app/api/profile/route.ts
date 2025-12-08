@@ -15,6 +15,8 @@ export const runtime = "nodejs";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const PHOTO_URL_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
+const hasExplicitPublicPhotoBase = Boolean(process.env.R2_PUBLIC_BASE_URL);
 
 const abbreviate = (value: any, max = 96) => {
 	if (!value) return value;
@@ -186,6 +188,11 @@ async function uploadDataUrl(dataUrl: string, userId: string) {
 async function signPhotoUrl(key: string | null) {
 	if (!key) return null;
 	if (key.startsWith("http")) return key;
+	const publicUrl = publicUrlForKey(key);
+	// Prefer a stable, non-expiring URL when the bucket is public or a base URL is configured.
+	if (publicUrl) {
+		return publicUrl;
+	}
 	// Prefer signing when we can; only fall back to public URL if signing isn't possible.
 	if (r2Client && serverEnv.r2Bucket) {
 		try {
@@ -195,14 +202,14 @@ async function signPhotoUrl(key: string | null) {
 					Bucket: serverEnv.r2Bucket,
 					Key: key,
 				}),
-				{ expiresIn: 60 * 10 }
+				{ expiresIn: PHOTO_URL_TTL_SECONDS }
 			);
 		} catch (err) {
 			console.error("Failed to sign photo URL:", err);
 		}
 	}
 
-	return publicUrlForKey(key);
+	return publicUrl;
 }
 
 const normalizeString = (value: any) => {
