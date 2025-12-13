@@ -34,7 +34,7 @@ export interface UploadResult {
  * @param buffer - File buffer to upload
  * @param key - The object key (path) in R2
  * @param contentType - MIME type of the file
- * @returns Upload result with public URL
+ * @returns Upload result with proxy URL (works with private buckets)
  */
 export async function uploadToR2(
 	buffer: Buffer,
@@ -60,12 +60,13 @@ export async function uploadToR2(
 			})
 		);
 
-		// Construct the public URL
-		const publicUrl = `${serverEnv.r2PublicBaseUrl}/${key}`;
+		// Return proxy URL instead of public URL (works with private buckets)
+		// The /api/files endpoint will authenticate and proxy the file
+		const proxyUrl = `/api/files/${key}`;
 
 		return {
 			success: true,
-			url: publicUrl,
+			url: proxyUrl,
 		};
 	} catch (error) {
 		console.error("R2 upload error:", error);

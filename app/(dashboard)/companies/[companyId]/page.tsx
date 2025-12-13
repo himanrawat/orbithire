@@ -1056,7 +1056,9 @@ export default function CompanyDetailPage({
 					<div className="flex-1 min-h-0 h-full">
 						{pdfViewerUrl && (
 							<iframe
-								src={pdfViewerUrl}
+								src={`${pdfViewerUrl}${
+									pdfViewerUrl.includes("?") ? "&" : "?"
+								}view=true`}
 								className="w-full h-[calc(90vh-120px)] rounded-lg border"
 								title={pdfViewerTitle}
 							/>

@@ -18,8 +18,8 @@
     "incremental": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    // TS 5.x/6.x: silence deprecation notices for baseUrl
-    "ignoreDeprecations": "6.0",
+    // TS 5.x: silence deprecation notices for baseUrl
+    "ignoreDeprecations": "5.0",
     "baseUrl": ".",
     "paths": {
       "@/*": [
