@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +16,21 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { GridBackground } from "@/components/ui/aceternity";
 import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import {
 	Sparkles,
 	Building2,
 	ArrowRight,
@@ -27,11 +42,17 @@ import {
 	Download,
 	Eye,
 	Copy,
+	Calendar,
+	DollarSign,
+	Link as LinkIcon,
+	Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sampleResume, type JSONResume } from "@/lib/sampleResume";
 import { TemplateGallery } from "@/components/TemplateGallery";
 import { ResumePreview, type ResumeTemplate } from "@/components/ResumePreview";
+
+type ApplicationStatus = "saved" | "applied" | "interviewing" | "offered" | "rejected" | "withdrawn";
 
 type Step = "job-details" | "select-template" | "generating" | "preview";
 
@@ -154,6 +175,7 @@ const templates: ResumeTemplate[] = [
 ];
 
 export default function GeneratePage() {
+	const router = useRouter();
 	const [step, setStep] = useState<Step>("job-details");
 	const [form, setForm] = useState({
 		companyName: "",
@@ -172,6 +194,18 @@ export default function GeneratePage() {
 		null
 	);
 	const [copied, setCopied] = useState<"resume" | "cover" | null>(null);
+
+	// Track Application Modal state
+	const [showTrackModal, setShowTrackModal] = useState(false);
+	const [isSaving, setIsSaving] = useState(false);
+	const [trackForm, setTrackForm] = useState({
+		status: "applied" as ApplicationStatus,
+		appliedAt: new Date().toISOString().split("T")[0],
+		jobUrl: "",
+		salaryRange: "",
+		notes: "",
+		followUpDate: "",
+	});
 
 	// Editable content state - Resume
 	const [editedLabel, setEditedLabel] = useState("");
@@ -412,6 +446,49 @@ export default function GeneratePage() {
 		} catch (err) {
 			console.error("Download failed:", err);
 			setError("Failed to download PDF. Please try again.");
+		}
+	};
+
+	// Handle saving application to track
+	const handleSaveApplication = async () => {
+		if (!finalResume || !generatedContent) return;
+
+		setIsSaving(true);
+		setError(null);
+
+		try {
+			const response = await fetch("/api/companies", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					name: form.companyName.trim(),
+					status: trackForm.status,
+					jobTitle: form.jobTitle.trim(),
+					jobDescription: form.jobDescription.trim(),
+					jobUrl: trackForm.jobUrl.trim() || null,
+					recruiterName: form.recruiterName.trim() || null,
+					salaryRange: trackForm.salaryRange.trim() || null,
+					notes: trackForm.notes.trim() || null,
+					appliedAt: trackForm.status === "applied" ? trackForm.appliedAt : null,
+					followUpDate: trackForm.followUpDate || null,
+					resume: finalResume,
+					coverLetter: editedCoverLetter,
+					templateId: selectedTemplateId,
+				}),
+			});
+
+			const data = await response.json();
+
+			if (!response.ok) {
+				throw new Error(data.error || "Failed to save application");
+			}
+
+			setShowTrackModal(false);
+			router.push("/companies");
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to save application");
+		} finally {
+			setIsSaving(false);
 		}
 	};
 
@@ -1058,11 +1135,9 @@ export default function GeneratePage() {
 											<Wand2 className="mr-2 h-4 w-4" />
 											Regenerate
 										</Button>
-										<Button asChild>
-											<Link href="/companies">
-												<Building2 className="mr-2 h-4 w-4" />
-												Save to Company
-											</Link>
+										<Button onClick={() => setShowTrackModal(true)}>
+											<Save className="mr-2 h-4 w-4" />
+											Track Application
 										</Button>
 									</div>
 								</CardContent>
@@ -1084,6 +1159,150 @@ export default function GeneratePage() {
 					}}
 				/>
 			)}
+
+			{/* Track Application Modal */}
+			<Dialog open={showTrackModal} onOpenChange={setShowTrackModal}>
+				<DialogContent className="sm:max-w-[500px]">
+					<DialogHeader>
+						<DialogTitle className="flex items-center gap-2">
+							<Building2 className="h-5 w-5 text-primary" />
+							Track Application
+						</DialogTitle>
+						<DialogDescription>
+							Save your resume and cover letter for {form.jobTitle} at {form.companyName}
+						</DialogDescription>
+					</DialogHeader>
+
+					<div className="space-y-4 py-4">
+						{error && (
+							<div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+								{error}
+							</div>
+						)}
+
+						{/* Status */}
+						<div className="space-y-2">
+							<Label>Application Status</Label>
+							<Select
+								value={trackForm.status}
+								onValueChange={(value: ApplicationStatus) =>
+									setTrackForm({ ...trackForm, status: value })
+								}
+							>
+								<SelectTrigger>
+									<SelectValue placeholder="Select status" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="saved">Saved (Not Applied Yet)</SelectItem>
+									<SelectItem value="applied">Applied</SelectItem>
+									<SelectItem value="interviewing">Interviewing</SelectItem>
+									<SelectItem value="offered">Offered</SelectItem>
+									<SelectItem value="rejected">Rejected</SelectItem>
+									<SelectItem value="withdrawn">Withdrawn</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+
+						{/* Applied Date */}
+						{trackForm.status === "applied" && (
+							<div className="space-y-2">
+								<Label className="flex items-center gap-2">
+									<Calendar className="h-4 w-4" />
+									Applied Date
+								</Label>
+								<Input
+									type="date"
+									value={trackForm.appliedAt}
+									onChange={(e) =>
+										setTrackForm({ ...trackForm, appliedAt: e.target.value })
+									}
+								/>
+							</div>
+						)}
+
+						{/* Job URL */}
+						<div className="space-y-2">
+							<Label className="flex items-center gap-2">
+								<LinkIcon className="h-4 w-4" />
+								Job Posting URL (optional)
+							</Label>
+							<Input
+								placeholder="https://..."
+								value={trackForm.jobUrl}
+								onChange={(e) =>
+									setTrackForm({ ...trackForm, jobUrl: e.target.value })
+								}
+							/>
+						</div>
+
+						{/* Salary Range */}
+						<div className="space-y-2">
+							<Label className="flex items-center gap-2">
+								<DollarSign className="h-4 w-4" />
+								Salary Range (optional)
+							</Label>
+							<Input
+								placeholder="e.g., $120k - $150k"
+								value={trackForm.salaryRange}
+								onChange={(e) =>
+									setTrackForm({ ...trackForm, salaryRange: e.target.value })
+								}
+							/>
+						</div>
+
+						{/* Follow-up Date */}
+						<div className="space-y-2">
+							<Label className="flex items-center gap-2">
+								<Calendar className="h-4 w-4" />
+								Follow-up Reminder (optional)
+							</Label>
+							<Input
+								type="date"
+								value={trackForm.followUpDate}
+								onChange={(e) =>
+									setTrackForm({ ...trackForm, followUpDate: e.target.value })
+								}
+							/>
+						</div>
+
+						{/* Notes */}
+						<div className="space-y-2">
+							<Label>Notes (optional)</Label>
+							<Textarea
+								placeholder="Any notes about this application..."
+								value={trackForm.notes}
+								onChange={(e) =>
+									setTrackForm({ ...trackForm, notes: e.target.value })
+								}
+								rows={3}
+							/>
+						</div>
+					</div>
+
+					<DialogFooter>
+						<Button
+							variant="outline"
+							onClick={() => setShowTrackModal(false)}
+							disabled={isSaving}
+						>
+							Cancel
+						</Button>
+						<Button onClick={handleSaveApplication} disabled={isSaving}>
+							{isSaving ? (
+								<>
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+									Saving...
+								</>
+							) : (
+								<>
+									<CheckCircle2 className="mr-2 h-4 w-4" />
+									Save Application
+								</>
+							)}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }
