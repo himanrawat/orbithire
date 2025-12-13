@@ -49,6 +49,19 @@ import {
 	type TemplateOption,
 } from "../data";
 
+type PendingGeneration = {
+	companyName: string;
+	slug: string;
+	jobTitle: string;
+	jobDescription: string;
+	recruiterName?: string;
+	recruiterEmail?: string;
+	templateId: string;
+	createdAt: string;
+};
+
+const pendingKey = "pendingGeneration";
+
 type JobFormState = {
 	companyName: string;
 	jobTitle: string;
@@ -320,6 +333,123 @@ export default function CompanyDetailPage({
 			lastActivity: now.slice(0, 10),
 		}));
 	};
+
+	useEffect(() => {
+		if (typeof window === "undefined") return;
+		const raw = localStorage.getItem(pendingKey);
+		if (!raw) return;
+
+		let pending: PendingGeneration | null = null;
+		try {
+			pending = JSON.parse(raw);
+		} catch {
+			return;
+		}
+
+		if (!pending || pending.slug !== slug) return;
+		localStorage.removeItem(pendingKey);
+
+		const detectedKeywords = extractKeywords(pending.jobDescription || "");
+		const template =
+			templateOptions.find((option) => option.id === pending.templateId) ||
+			templateOptions[0];
+
+		let nextJob: JobApplication = {
+			id: createId(),
+			title: pending.jobTitle || "Untitled role",
+			description: pending.jobDescription,
+			link: "",
+			employmentType: "",
+			workMode: "Remote",
+			recruiter: {
+				name: pending.recruiterName,
+				email: pending.recruiterEmail,
+			},
+			extraFields: [],
+			keywords: detectedKeywords,
+			selectedTemplateId: template.id,
+			resumeDraft: "",
+			coverLetterDraft: "",
+			versions: [],
+		};
+
+		const now = new Date().toISOString();
+
+		setCompany((prev) => {
+			const existing = prev.jobs.find(
+				(job) =>
+					job.title.toLowerCase() === (pending?.jobTitle || "").toLowerCase()
+			);
+
+			const baseJob = existing
+				? {
+						...existing,
+						title: pending?.jobTitle || existing.title,
+						description: pending?.jobDescription || existing.description,
+						recruiter: { ...existing.recruiter, ...nextJob.recruiter },
+						keywords: detectedKeywords,
+						selectedTemplateId: template.id,
+				  }
+				: nextJob;
+
+			const resume = generateResumeDraft(
+				baseJob,
+				prev,
+				template,
+				detectedKeywords
+			);
+			const cover = generateCoverLetterDraft(
+				baseJob,
+				prev,
+				detectedKeywords
+			);
+			const mergedJob: JobApplication = {
+				...baseJob,
+				resumeDraft: resume,
+				coverLetterDraft: cover,
+				versions: existing ? existing.versions : baseJob.versions,
+			};
+			nextJob = mergedJob;
+
+			const jobs = existing
+				? prev.jobs.map((job) => (job.id === existing.id ? mergedJob : job))
+				: [...prev.jobs, mergedJob];
+
+			const pendingName = pending?.companyName?.trim();
+
+			return {
+				...prev,
+				name: pendingName || prev.name,
+				jobs,
+				auditLog: [
+					{
+						id: createId(),
+						action: `Queued generation payload for ${mergedJob.title}`,
+						timestamp: now,
+						actor: "System",
+					},
+					...prev.auditLog,
+				].slice(0, 12),
+				lastActivity: now.slice(0, 10),
+			};
+		});
+
+		setSelectedJobId(nextJob.id);
+		setJobForm({
+			companyName: pending.companyName || company.name,
+			jobTitle: nextJob.title,
+			jobDescription: nextJob.description,
+			jobLink: nextJob.link || "",
+			employmentType: nextJob.employmentType || "",
+			workMode: nextJob.workMode || "Remote",
+			recruiter: nextJob.recruiter,
+			extraFields: nextJob.extraFields,
+			selectedTemplateId: nextJob.selectedTemplateId,
+			notes: nextJob.notes || "",
+		});
+		setResumeDraft(nextJob.resumeDraft);
+		setCoverLetterDraft(nextJob.coverLetterDraft);
+	}, [slug, company.name]);
 
 	const handleAddJob = () => {
 		const id = createId();
