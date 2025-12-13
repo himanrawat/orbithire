@@ -26,6 +26,7 @@ import {
 	Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { companyDirectory, slugFromName } from "../data";
 
 const statusOptions = [
 	{ value: "saved", label: "Saved", description: "Saved for later" },
@@ -62,6 +63,7 @@ const industryOptions = [
 export default function NewCompanyPage() {
 	const router = useRouter();
 	const [isSaving, setIsSaving] = useState(false);
+	const [error, setError] = useState("");
 
 	const [formData, setFormData] = useState({
 		name: "",
@@ -74,12 +76,26 @@ export default function NewCompanyPage() {
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setIsSaving(true);
+		setError("");
+
+		const normalizedName = formData.name.trim();
+		const slug = slugFromName(normalizedName);
+		const duplicate = companyDirectory.find(
+			(company) =>
+				company.slug.toLowerCase() === slug ||
+				company.name.toLowerCase() === normalizedName.toLowerCase()
+		);
+		if (duplicate) {
+			setError(`A company named "${duplicate.name}" already exists.`);
+			setIsSaving(false);
+			return;
+		}
 
 		// TODO: Save to Supabase
 		await new Promise((resolve) => setTimeout(resolve, 1000));
 
 		setIsSaving(false);
-		router.push("/companies");
+		router.push(`/companies/${slug}`);
 	};
 
 	const isValid = formData.name.trim().length > 0;
@@ -226,6 +242,12 @@ export default function NewCompanyPage() {
 											setFormData({ ...formData, notes: e.target.value })
 										}
 									/>
+									{error && (
+										<p className="text-sm text-destructive">
+											{error} Case-insensitive duplicates are blocked to keep one
+											folder per company.
+										</p>
+									)}
 								</div>
 							</CardContent>
 						</Card>

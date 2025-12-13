@@ -262,7 +262,7 @@ export async function POST(req: NextRequest) {
 	if (incomingImage?.startsWith("data:")) {
 		try {
 			const uploaded = await uploadPhotoToR2(incomingImage, user.id);
-			photoUrl = uploaded?.key || existingPhoto;
+			photoUrl = uploaded?.key || existingAvatar;
 		} catch (err) {
 			console.error("Failed to upload photo to R2:", err);
 			photoUrl = incomingImage;

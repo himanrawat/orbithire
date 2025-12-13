@@ -22,11 +22,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { companyDirectory } from "./data";
 
 // Data types
 type Company = {
 	id: string;
 	name: string;
+	slug: string;
 	website: string | null;
 	industry: string | null;
 	status: string;
@@ -37,8 +39,30 @@ type Company = {
 	createdAt: string;
 };
 
-// Empty initial state - will be populated from Supabase
-const companies: Company[] = [];
+const companies: Company[] = companyDirectory.map((folder) => {
+	const resumeCount = folder.jobs.reduce(
+		(total, job) => total + job.versions.filter((v) => v.type === "resume").length,
+		0
+	);
+	const coverCount = folder.jobs.reduce(
+		(total, job) =>
+			total + job.versions.filter((v) => v.type === "cover_letter").length,
+		0
+	);
+	return {
+		id: folder.id,
+		slug: folder.slug,
+		name: folder.name,
+		website: folder.website || null,
+		industry: folder.industry || null,
+		status: folder.status,
+		resumes: resumeCount,
+		coverLetters: coverCount,
+		lastActivity: folder.lastActivity,
+		appliedAt: null,
+		createdAt: folder.createdAt,
+	};
+});
 
 const statusColors: Record<string, string> = {
 	saved: "bg-secondary text-secondary-foreground",
@@ -172,7 +196,7 @@ export default function CompaniesPage() {
 											</div>
 											<div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
 												<span>
-													{company.resumes} resume(s) · {company.coverLetters}{" "}
+													{company.resumes} resume(s) | {company.coverLetters}{" "}
 													cover letter(s)
 												</span>
 												<ChevronRight className="h-4 w-4" />

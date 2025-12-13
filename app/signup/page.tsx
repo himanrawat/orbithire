@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -38,6 +38,14 @@ const steps = [
 ];
 
 export default function SignUpPage() {
+	return (
+		<Suspense fallback={<div className="min-h-screen" />}>
+			<SignUpContent />
+		</Suspense>
+	);
+}
+
+function SignUpContent() {
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
 	const router = useRouter();
@@ -92,8 +100,7 @@ export default function SignUpPage() {
 									Start landing more interviews
 								</h2>
 								<p className="mt-2 text-muted-foreground">
-									Join thousands of job seekers who have streamlined their
-									application process.
+									Join thousands of job seekers who have streamlined their application process.
 								</p>
 							</div>
 							<div className="space-y-4">
