@@ -101,7 +101,7 @@ export default function DashboardPage() {
 			const { data } = await supabase
 				.from("profiles")
 				.select(
-					"id, full_name, headline, avatar_url, skills, experience_summary, education_summary, target_job_titles"
+					"id, full_name, headline, avatar_url, skills, experience_summary, extended_profile, target_job_titles"
 				)
 				.eq("id", user.id)
 				.single();
@@ -115,15 +115,15 @@ export default function DashboardPage() {
 
 	const profileCompletion = useMemo(() => {
 		let extended: any = {};
-		if (profile?.education_summary) {
-			if (typeof profile.education_summary === "string") {
+		if (profile?.extended_profile) {
+			if (typeof profile.extended_profile === "string") {
 				try {
-					extended = JSON.parse(profile.education_summary);
+					extended = JSON.parse(profile.extended_profile);
 				} catch {
 					extended = {};
 				}
-			} else if (typeof profile.education_summary === "object") {
-				extended = profile.education_summary;
+			} else if (typeof profile.extended_profile === "object") {
+				extended = profile.extended_profile;
 			}
 		}
 		const photoUrl =
@@ -136,7 +136,8 @@ export default function DashboardPage() {
 			Boolean(profile?.experience_summary) ||
 			(extended.work_experience || []).length > 0;
 		const education =
-			Boolean(profile?.education_summary) || (extended.education || []).length > 0;
+			Boolean(profile?.extended_profile) ||
+			(extended.education || []).length > 0;
 
 		const items: { label: string; completed: boolean }[] = [
 			{ label: "Photo", completed: photo },
@@ -145,7 +146,10 @@ export default function DashboardPage() {
 			{ label: "Education", completed: education },
 		];
 
-		if (Array.isArray(extended.custom_fields) && extended.custom_fields.length) {
+		if (
+			Array.isArray(extended.custom_fields) &&
+			extended.custom_fields.length
+		) {
 			items.push({
 				label: "Custom fields",
 				completed: true,

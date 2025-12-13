@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   -- Parsed resume data
   skills TEXT[] DEFAULT '{}',
   experience_summary TEXT,
-  education_summary TEXT,
+  extended_profile TEXT, -- JSON: work_experience[], education[], custom_fields[], customSections[]
   
   -- Preferences
   target_job_titles TEXT[] DEFAULT '{}',

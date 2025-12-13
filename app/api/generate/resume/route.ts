@@ -141,26 +141,65 @@ export async function POST(req: NextRequest) {
 		);
 	}
 
-	// Fetch work experience
-	const { data: workExperience } = await supabase
-		.from("work_experience")
-		.select("*")
-		.eq("user_id", user.id)
-		.order("start_date", { ascending: false });
+	// Parse extended profile data from extended_profile JSON
+	let extendedData: {
+		work_experience?: any[];
+		education?: any[];
+		custom_fields?: any[];
+		customSections?: any[];
+	} = {};
 
-	// Fetch education
-	const { data: education } = await supabase
-		.from("education")
-		.select("*")
-		.eq("user_id", user.id)
-		.order("end_date", { ascending: false });
+	if (profile.extended_profile) {
+		if (typeof profile.extended_profile === "string") {
+			try {
+				extendedData = JSON.parse(profile.extended_profile);
+			} catch (e) {
+				console.warn("[generate/resume] Failed to parse extended_profile:", e);
+			}
+		} else if (typeof profile.extended_profile === "object") {
+			extendedData = profile.extended_profile;
+		}
+	}
+
+	// Log what we're fetching
+	console.log("[generate/resume] Profile data:", {
+		full_name: profile.full_name,
+		headline: profile.headline,
+		email: profile.email,
+		phone: profile.phone,
+		location: profile.location,
+		skills: profile.skills,
+		experience_summary: profile.experience_summary?.substring(0, 100),
+	});
+	console.log("[generate/resume] Extended data from extended_profile:", {
+		work_experience_count: extendedData.work_experience?.length || 0,
+		education_count: extendedData.education?.length || 0,
+		custom_sections_count: extendedData.customSections?.length || 0,
+		work_experience: extendedData.work_experience,
+		education: extendedData.education,
+		customSections: extendedData.customSections,
+	});
+
+	// Use work experience from extended_profile JSON
+	const workExperience = extendedData.work_experience || [];
+
+	// Use education from extended_profile JSON
+	const education = extendedData.education || [];
+
+	// Use custom sections (e.g., Projects) from extended_profile JSON
+	const customSections = extendedData.customSections || [];
 
 	// Prepare profile for prompts
 	const candidateProfile = {
 		name: profile.full_name || "Candidate",
+		email: profile.email || undefined,
+		phone: profile.phone || undefined,
+		location: profile.location || undefined,
+		website: profile.portfolio_url || undefined,
+		linkedin: profile.linkedin_url || undefined,
 		headline: profile.headline || undefined,
 		summary: profile.experience_summary || profile.bio || undefined,
-		experience: (workExperience || []).map((exp: any) => ({
+		experience: workExperience.map((exp: any) => ({
 			company: exp.company,
 			title: exp.role || exp.title,
 			startDate: exp.start_date,
@@ -169,14 +208,32 @@ export async function POST(req: NextRequest) {
 				? exp.description.split(/\n|•/).filter((s: string) => s.trim())
 				: [],
 		})),
-		education: (education || []).map((edu: any) => ({
+		education: education.map((edu: any) => ({
 			institution: edu.institution,
 			degree: edu.degree || "Degree",
-			field: edu.field || edu.area || "",
+			field: edu.field || edu.area || edu.location || "",
 			endDate: edu.end_date,
 		})),
 		skills: profile.skills || [],
+		customSections: customSections.map((section: any) => ({
+			title: section.title,
+			entries: (section.entries || []).map((entry: any) => ({
+				title: entry.title || "",
+				description: entry.description || "",
+			})),
+		})),
 	};
+
+	console.log("[generate/resume] Candidate profile prepared:", {
+		name: candidateProfile.name,
+		experienceCount: candidateProfile.experience.length,
+		educationCount: candidateProfile.education.length,
+		skillsCount: candidateProfile.skills.length,
+		customSectionsCount: candidateProfile.customSections.length,
+		experience: candidateProfile.experience,
+		education: candidateProfile.education,
+		customSections: candidateProfile.customSections,
+	});
 
 	// Get AI configuration from user settings or environment
 	const aiConfig = await getAIConfig(supabase, user.id);
@@ -224,6 +281,7 @@ export async function POST(req: NextRequest) {
 			summary?: string;
 			workHighlights?: Record<string, string[]>;
 			skillsOrdered?: string[];
+			customSectionHighlights?: Record<string, string[]>;
 		} = {};
 
 		try {
@@ -279,6 +337,7 @@ export async function POST(req: NextRequest) {
 				summary: resumeData.summary || candidateProfile.summary,
 				workHighlights: resumeData.workHighlights || {},
 				skillsOrdered: resumeData.skillsOrdered || candidateProfile.skills,
+				customSectionHighlights: resumeData.customSectionHighlights || {},
 			},
 			coverLetter,
 			profile: {
@@ -291,6 +350,7 @@ export async function POST(req: NextRequest) {
 				experience: candidateProfile.experience,
 				education: candidateProfile.education,
 				skills: candidateProfile.skills,
+				customSections: candidateProfile.customSections,
 			},
 		});
 	} catch (error) {

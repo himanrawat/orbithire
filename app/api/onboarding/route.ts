@@ -151,8 +151,7 @@ export async function POST(req: NextRequest) {
 	if (resume.file && resume.file.name && !resumeFileType) {
 		return NextResponse.json(
 			{
-				error:
-					"Unsupported resume type. Use PDF, DOC, or DOCX up to 5MB.",
+				error: "Unsupported resume type. Use PDF, DOC, or DOCX up to 5MB.",
 			},
 			{ status: 400, headers: supabaseResponse.headers }
 		);
@@ -171,9 +170,10 @@ export async function POST(req: NextRequest) {
 	const skills = splitList(resume.skills);
 	const jobTitles = splitList(preferences.jobTitles);
 	const preferredLocations = splitList(preferences.locations);
-	const workType = preferences.workType && allowedWorkTypes.has(preferences.workType)
-		? preferences.workType
-		: null;
+	const workType =
+		preferences.workType && allowedWorkTypes.has(preferences.workType)
+			? preferences.workType
+			: null;
 	const startAvailability =
 		preferences.startDate && allowedStartDates.has(preferences.startDate)
 			? preferences.startDate
@@ -195,10 +195,12 @@ export async function POST(req: NextRequest) {
 			linkedin_url: profile.linkedIn?.trim() || null,
 			portfolio_url: profile.portfolio?.trim() || null,
 			experience_summary: resume.experience?.trim() || null,
-			education_summary: resume.education?.trim() || null,
+			extended_profile: resume.education?.trim() || null,
 			skills: skills.length ? skills : null,
 			target_job_titles: jobTitles.length ? jobTitles : null,
-			preferred_locations: preferredLocations.length ? preferredLocations : null,
+			preferred_locations: preferredLocations.length
+				? preferredLocations
+				: null,
 			work_type: workType,
 			salary_range: preferences.salaryRange?.trim() || null,
 			start_availability: startAvailability,

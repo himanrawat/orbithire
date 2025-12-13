@@ -41,6 +41,7 @@ interface GeneratedContent {
 		summary: string;
 		workHighlights: Record<string, string[]>;
 		skillsOrdered: string[];
+		customSectionHighlights?: Record<string, string[]>;
 	};
 	coverLetter: string;
 	profile: {
@@ -64,11 +65,33 @@ interface GeneratedContent {
 			endDate?: string;
 		}>;
 		skills: string[];
+		customSections?: Array<{
+			title: string;
+			entries: Array<{ title: string; description: string }>;
+		}>;
 	};
 }
 
 // Template definitions - using working themes only
 const templates: ResumeTemplate[] = [
+	{
+		id: "standard",
+		name: "Standard",
+		style: "Classic",
+		description:
+			"The official reference theme - clean, professional, and widely recognized",
+		tags: ["Official", "ATS-Friendly", "Classic"],
+		previewHtml: "",
+	},
+	{
+		id: "professional",
+		name: "Professional",
+		style: "Executive",
+		description:
+			"Modern and elegant design with great typography for senior roles",
+		tags: ["Executive", "Corporate", "Premium"],
+		previewHtml: "",
+	},
 	{
 		id: "even",
 		name: "Even",
@@ -81,9 +104,33 @@ const templates: ResumeTemplate[] = [
 	{
 		id: "elegant",
 		name: "Elegant",
-		style: "Professional",
+		style: "Minimalist",
 		description: "Detailed, professional layout with comprehensive sections",
 		tags: ["Corporate", "Detailed", "Executive"],
+		previewHtml: "",
+	},
+	{
+		id: "flat",
+		name: "Flat",
+		style: "Contemporary",
+		description: "Contemporary flat design with clean lines and bold sections",
+		tags: ["Modern", "Clean", "Tech"],
+		previewHtml: "",
+	},
+	{
+		id: "spartacus",
+		name: "Spartacus",
+		style: "Bold",
+		description: "Bold and impactful layout with strong visual hierarchy",
+		tags: ["Bold", "Visual", "Standout"],
+		previewHtml: "",
+	},
+	{
+		id: "paper",
+		name: "Paper",
+		style: "Minimal",
+		description: "Minimal paper-like design focused purely on content",
+		tags: ["Minimal", "Print-Ready", "Clean"],
 		previewHtml: "",
 	},
 	{
@@ -114,7 +161,7 @@ export default function GeneratePage() {
 		jobDescription: "",
 		recruiterName: "",
 	});
-	const [selectedTemplateId, setSelectedTemplateId] = useState("even");
+	const [selectedTemplateId, setSelectedTemplateId] = useState("standard");
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [generatedContent, setGeneratedContent] =
 		useState<GeneratedContent | null>(null);
@@ -125,6 +172,32 @@ export default function GeneratePage() {
 		null
 	);
 	const [copied, setCopied] = useState<"resume" | "cover" | null>(null);
+
+	// Editable content state - Resume
+	const [editedLabel, setEditedLabel] = useState("");
+	const [editedSummary, setEditedSummary] = useState("");
+	const [editedSkills, setEditedSkills] = useState<string[]>([]);
+	const [editedExperience, setEditedExperience] = useState<Array<{
+		company: string;
+		title: string;
+		startDate: string;
+		endDate?: string;
+		highlights: string[];
+	}>>([]);
+	const [editedEducation, setEditedEducation] = useState<Array<{
+		institution: string;
+		degree: string;
+		field: string;
+		endDate?: string;
+	}>>([]);
+	const [editedProjects, setEditedProjects] = useState<Array<{
+		name: string;
+		description: string;
+		highlights: string[];
+	}>>([]);
+	
+	// Editable content state - Cover Letter
+	const [editedCoverLetter, setEditedCoverLetter] = useState("");
 
 	// No longer need templatesWithPreviews - TemplateGallery fetches its own previews
 
@@ -159,6 +232,37 @@ export default function GeneratePage() {
 			}
 
 			setGeneratedContent(data);
+			
+			// Initialize editable resume content with generated/profile values
+			setEditedLabel(data.resume?.label || "");
+			setEditedSummary(data.resume?.summary || "");
+			setEditedSkills(data.resume?.skillsOrdered || data.profile?.skills || []);
+			
+			// Initialize experience with AI-optimized highlights
+			const experienceWithHighlights = (data.profile?.experience || []).map((exp: any) => ({
+				...exp,
+				highlights: data.resume?.workHighlights?.[exp.company] || exp.highlights || [],
+			}));
+			setEditedExperience(experienceWithHighlights);
+			
+			setEditedEducation(data.profile?.education || []);
+			
+			// Initialize projects from custom sections
+			const projectsFromSections = (data.profile?.customSections || []).flatMap((section: any) => {
+				const optimizedHighlights = data.resume?.customSectionHighlights?.[section.title] || [];
+				return section.entries.map((entry: any, index: number) => ({
+					name: entry.title,
+					description: entry.description || "",
+					highlights: optimizedHighlights.length > index 
+						? [optimizedHighlights[index]] 
+						: entry.description ? [entry.description] : [],
+				}));
+			});
+			setEditedProjects(projectsFromSections);
+			
+			// Initialize cover letter
+			setEditedCoverLetter(data.coverLetter || "");
+			
 			setStep("preview");
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Something went wrong");
@@ -168,20 +272,28 @@ export default function GeneratePage() {
 		}
 	};
 
-	// Build the full JSONResume from generated content
+	// Build the full JSONResume from EDITED content (user can modify before download)
 	const finalResume = useMemo((): JSONResume | null => {
 		if (!generatedContent) return null;
 
-		const { resume, profile } = generatedContent;
+		const { profile } = generatedContent;
+
+		// Build projects with keywords
+		const projects = editedProjects.map((proj) => ({
+			name: proj.name,
+			description: proj.description,
+			highlights: proj.highlights,
+			keywords: [],
+		}));
 
 		return {
 			basics: {
 				name: profile.name,
-				label: resume.label,
+				label: editedLabel,
 				email: profile.email,
 				phone: profile.phone,
 				url: profile.website,
-				summary: resume.summary,
+				summary: editedSummary,
 				location: {
 					city: profile.location || "",
 					countryCode: "US",
@@ -190,32 +302,33 @@ export default function GeneratePage() {
 					? [{ network: "LinkedIn", username: "", url: profile.linkedin }]
 					: [],
 			},
-			work: profile.experience.map((exp) => ({
+			work: editedExperience.map((exp) => ({
 				name: exp.company,
 				position: exp.title,
 				startDate: exp.startDate,
 				endDate: exp.endDate,
-				highlights: resume.workHighlights[exp.company] || exp.highlights,
+				highlights: exp.highlights,
 			})),
-			education: profile.education.map((edu) => ({
+			education: editedEducation.map((edu) => ({
 				institution: edu.institution,
 				area: edu.field,
 				studyType: edu.degree,
 				startDate: "",
 				endDate: edu.endDate,
 			})),
-			skills: groupSkillsFromArray(resume.skillsOrdered || profile.skills),
+			skills: groupSkillsFromArray(editedSkills),
+			projects: projects.length > 0 ? projects : undefined,
 		};
-	}, [generatedContent]);
+	}, [generatedContent, editedLabel, editedSummary, editedSkills, editedExperience, editedEducation, editedProjects]);
 
 	const handleCopy = (type: "resume" | "cover") => {
 		if (!generatedContent) return;
 
 		if (type === "cover") {
-			navigator.clipboard.writeText(generatedContent.coverLetter);
+			navigator.clipboard.writeText(editedCoverLetter || generatedContent.coverLetter);
 		} else {
 			// Copy resume as text summary
-			const text = `${generatedContent.profile.name}\n${generatedContent.resume.label}\n\n${generatedContent.resume.summary}`;
+			const text = `${generatedContent.profile.name}\n${generatedContent.resume.label}\n\n${editedSummary || generatedContent.resume.summary}`;
 			navigator.clipboard.writeText(text);
 		}
 
@@ -236,6 +349,42 @@ export default function GeneratePage() {
 			setPreviewTemplateId(selectedTemplateId);
 			setPreviewResume(finalResume);
 			setShowPreview(true);
+		}
+	};
+
+	// Handle PDF download
+	const handleDownloadPDF = async () => {
+		if (!finalResume) return;
+
+		try {
+			// Fetch the rendered HTML from the API
+			const response = await fetch("/api/resume/render", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					resume: finalResume,
+					template: selectedTemplateId,
+				}),
+			});
+
+			if (!response.ok) {
+				throw new Error("Failed to render resume");
+			}
+
+			const { html } = await response.json();
+
+			// Open a new window with the HTML and trigger print (save as PDF)
+			const printWindow = window.open("", "_blank");
+			if (printWindow) {
+				printWindow.document.write(html);
+				printWindow.document.close();
+				printWindow.onload = () => {
+					printWindow.print();
+				};
+			}
+		} catch (err) {
+			console.error("Download failed:", err);
+			setError("Failed to download PDF. Please try again.");
 		}
 	};
 
@@ -495,18 +644,21 @@ export default function GeneratePage() {
 												<Eye className="mr-2 h-4 w-4" />
 												Full Preview
 											</Button>
-											<Button>
+											<Button onClick={handleDownloadPDF}>
 												<Download className="mr-2 h-4 w-4" />
 												Download PDF
 											</Button>
 										</div>
 									</div>
 								</CardHeader>
-								<CardContent className="space-y-6">
-									{/* Resume Summary */}
-									<div className="rounded-lg border bg-background/60 p-6">
-										<div className="flex items-center justify-between">
-											<h3 className="font-semibold">Professional Summary</h3>
+								<CardContent className="space-y-8">
+									{/* ==================== RESUME SECTION ==================== */}
+									<div className="rounded-lg border-2 border-primary/20 bg-background/60 p-6">
+										<div className="flex items-center justify-between mb-6">
+											<h2 className="text-xl font-bold flex items-center gap-2">
+												<FileText className="h-5 w-5 text-primary" />
+												Resume
+											</h2>
 											<Button
 												variant="ghost"
 												size="sm"
@@ -519,29 +671,42 @@ export default function GeneratePage() {
 												)}
 											</Button>
 										</div>
-										<p className="mt-2 text-sm text-muted-foreground">
-											<span className="font-medium text-foreground">
-												{generatedContent.resume.label}
-											</span>
-										</p>
-										<p className="mt-3 text-sm">
-											{generatedContent.resume.summary}
-										</p>
-									</div>
 
-									{/* Optimized Skills */}
-									<div className="rounded-lg border bg-background/60 p-6">
-										<h3 className="font-semibold">
-											Skills (Reordered for Relevance)
-										</h3>
-										<div className="mt-3 flex flex-wrap gap-2">
-											{generatedContent.resume.skillsOrdered
-												.slice(0, 12)
-												.map((skill, i) => (
+										{/* Professional Label */}
+										<div className="mb-4">
+											<Label className="text-xs text-muted-foreground uppercase tracking-wide">Title/Label</Label>
+											<Input
+												value={editedLabel}
+												onChange={(e) => setEditedLabel(e.target.value)}
+												className="mt-1"
+											/>
+										</div>
+
+										{/* Professional Summary */}
+										<div className="mb-4">
+											<Label className="text-xs text-muted-foreground uppercase tracking-wide">Professional Summary</Label>
+											<Textarea
+												value={editedSummary}
+												onChange={(e) => setEditedSummary(e.target.value)}
+												className="mt-1 min-h-[100px]"
+											/>
+										</div>
+
+										{/* Skills */}
+										<div className="mb-4">
+											<Label className="text-xs text-muted-foreground uppercase tracking-wide">Skills (comma-separated)</Label>
+											<Textarea
+												value={editedSkills.join(", ")}
+												onChange={(e) => setEditedSkills(e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
+												className="mt-1 min-h-[60px]"
+												placeholder="React.js, TypeScript, Node.js..."
+											/>
+											<div className="mt-2 flex flex-wrap gap-1">
+												{editedSkills.slice(0, 10).map((skill, i) => (
 													<span
-														key={skill}
+														key={i}
 														className={cn(
-															"rounded-full px-3 py-1 text-sm",
+															"rounded-full px-2 py-0.5 text-xs",
 															i < 4
 																? "bg-primary/20 text-primary font-medium"
 																: "bg-muted text-muted-foreground"
@@ -550,13 +715,217 @@ export default function GeneratePage() {
 														{skill}
 													</span>
 												))}
+												{editedSkills.length > 10 && (
+													<span className="text-xs text-muted-foreground">+{editedSkills.length - 10} more</span>
+												)}
+											</div>
 										</div>
+
+										{/* Work Experience */}
+										<div className="mb-4">
+											<Label className="text-xs text-muted-foreground uppercase tracking-wide mb-2 block">Work Experience</Label>
+											<div className="space-y-4">
+												{editedExperience.map((exp, expIndex) => (
+													<div key={expIndex} className="rounded border bg-muted/30 p-4">
+														<div className="grid grid-cols-2 gap-3 mb-3">
+															<div>
+																<Label className="text-xs">Company</Label>
+																<Input
+																	value={exp.company}
+																	onChange={(e) => {
+																		const updated = [...editedExperience];
+																		updated[expIndex] = { ...exp, company: e.target.value };
+																		setEditedExperience(updated);
+																	}}
+																	className="mt-1"
+																/>
+															</div>
+															<div>
+																<Label className="text-xs">Title</Label>
+																<Input
+																	value={exp.title}
+																	onChange={(e) => {
+																		const updated = [...editedExperience];
+																		updated[expIndex] = { ...exp, title: e.target.value };
+																		setEditedExperience(updated);
+																	}}
+																	className="mt-1"
+																/>
+															</div>
+														</div>
+														<div className="grid grid-cols-2 gap-3 mb-3">
+															<div>
+																<Label className="text-xs">Start Date</Label>
+																<Input
+																	value={exp.startDate}
+																	onChange={(e) => {
+																		const updated = [...editedExperience];
+																		updated[expIndex] = { ...exp, startDate: e.target.value };
+																		setEditedExperience(updated);
+																	}}
+																	className="mt-1"
+																	placeholder="2022-01"
+																/>
+															</div>
+															<div>
+																<Label className="text-xs">End Date</Label>
+																<Input
+																	value={exp.endDate || ""}
+																	onChange={(e) => {
+																		const updated = [...editedExperience];
+																		updated[expIndex] = { ...exp, endDate: e.target.value || undefined };
+																		setEditedExperience(updated);
+																	}}
+																	className="mt-1"
+																	placeholder="Present"
+																/>
+															</div>
+														</div>
+														<div>
+															<Label className="text-xs">Highlights (one per line)</Label>
+															<Textarea
+																value={exp.highlights.join("\n")}
+																onChange={(e) => {
+																	const updated = [...editedExperience];
+																	updated[expIndex] = { 
+																		...exp, 
+																		highlights: e.target.value.split("\n").filter(Boolean)
+																	};
+																	setEditedExperience(updated);
+																}}
+																className="mt-1 min-h-[80px] text-sm"
+																placeholder="• Led development of..."
+															/>
+														</div>
+													</div>
+												))}
+											</div>
+										</div>
+
+										{/* Education */}
+										<div className="mb-4">
+											<Label className="text-xs text-muted-foreground uppercase tracking-wide mb-2 block">Education</Label>
+											<div className="space-y-4">
+												{editedEducation.map((edu, eduIndex) => (
+													<div key={eduIndex} className="rounded border bg-muted/30 p-4">
+														<div className="grid grid-cols-2 gap-3 mb-3">
+															<div>
+																<Label className="text-xs">Institution</Label>
+																<Input
+																	value={edu.institution}
+																	onChange={(e) => {
+																		const updated = [...editedEducation];
+																		updated[eduIndex] = { ...edu, institution: e.target.value };
+																		setEditedEducation(updated);
+																	}}
+																	className="mt-1"
+																/>
+															</div>
+															<div>
+																<Label className="text-xs">Degree</Label>
+																<Input
+																	value={edu.degree}
+																	onChange={(e) => {
+																		const updated = [...editedEducation];
+																		updated[eduIndex] = { ...edu, degree: e.target.value };
+																		setEditedEducation(updated);
+																	}}
+																	className="mt-1"
+																/>
+															</div>
+														</div>
+														<div className="grid grid-cols-2 gap-3">
+															<div>
+																<Label className="text-xs">Field of Study</Label>
+																<Input
+																	value={edu.field}
+																	onChange={(e) => {
+																		const updated = [...editedEducation];
+																		updated[eduIndex] = { ...edu, field: e.target.value };
+																		setEditedEducation(updated);
+																	}}
+																	className="mt-1"
+																/>
+															</div>
+															<div>
+																<Label className="text-xs">Graduation Date</Label>
+																<Input
+																	value={edu.endDate || ""}
+																	onChange={(e) => {
+																		const updated = [...editedEducation];
+																		updated[eduIndex] = { ...edu, endDate: e.target.value || undefined };
+																		setEditedEducation(updated);
+																	}}
+																	className="mt-1"
+																	placeholder="2020"
+																/>
+															</div>
+														</div>
+													</div>
+												))}
+											</div>
+										</div>
+
+										{/* Projects */}
+										{editedProjects.length > 0 && (
+											<div className="mb-4">
+												<Label className="text-xs text-muted-foreground uppercase tracking-wide mb-2 block">Projects</Label>
+												<div className="space-y-4">
+													{editedProjects.map((proj, projIndex) => (
+														<div key={projIndex} className="rounded border bg-muted/30 p-4">
+															<div className="mb-3">
+																<Label className="text-xs">Project Name</Label>
+																<Input
+																	value={proj.name}
+																	onChange={(e) => {
+																		const updated = [...editedProjects];
+																		updated[projIndex] = { ...proj, name: e.target.value };
+																		setEditedProjects(updated);
+																	}}
+																	className="mt-1"
+																/>
+															</div>
+															<div className="mb-3">
+																<Label className="text-xs">Description</Label>
+																<Input
+																	value={proj.description}
+																	onChange={(e) => {
+																		const updated = [...editedProjects];
+																		updated[projIndex] = { ...proj, description: e.target.value };
+																		setEditedProjects(updated);
+																	}}
+																	className="mt-1"
+																/>
+															</div>
+															<div>
+																<Label className="text-xs">Highlights (one per line)</Label>
+																<Textarea
+																	value={proj.highlights.join("\n")}
+																	onChange={(e) => {
+																		const updated = [...editedProjects];
+																		updated[projIndex] = { 
+																			...proj, 
+																			highlights: e.target.value.split("\n").filter(Boolean)
+																		};
+																		setEditedProjects(updated);
+																	}}
+																	className="mt-1 min-h-[60px] text-sm"
+																/>
+															</div>
+														</div>
+													))}
+												</div>
+											</div>
+										)}
 									</div>
 
-									{/* Cover Letter */}
-									<div className="rounded-lg border bg-background/60 p-6">
-										<div className="flex items-center justify-between">
-											<h3 className="font-semibold">Cover Letter</h3>
+									{/* ==================== COVER LETTER SECTION ==================== */}
+									<div className="rounded-lg border-2 border-primary/20 bg-background/60 p-6">
+										<div className="flex items-center justify-between mb-4">
+											<h2 className="text-xl font-bold flex items-center gap-2">
+												<FileText className="h-5 w-5 text-primary" />
+												Cover Letter
+											</h2>
 											<Button
 												variant="ghost"
 												size="sm"
@@ -569,9 +938,12 @@ export default function GeneratePage() {
 												)}
 											</Button>
 										</div>
-										<div className="mt-3 whitespace-pre-wrap text-sm">
-											{generatedContent.coverLetter}
-										</div>
+										<Textarea
+											value={editedCoverLetter}
+											onChange={(e) => setEditedCoverLetter(e.target.value)}
+											className="min-h-[300px] text-sm"
+											placeholder="Your cover letter..."
+										/>
 									</div>
 
 									{/* Actions */}

@@ -200,15 +200,15 @@ export default function ProfilePage() {
 				avatar_url?: string;
 			}> = {};
 
-			if (data.education_summary) {
-				if (typeof data.education_summary === "string") {
+			if (data.extended_profile) {
+				if (typeof data.extended_profile === "string") {
 					try {
-						parsedExtended = JSON.parse(data.education_summary);
+						parsedExtended = JSON.parse(data.extended_profile);
 					} catch {
 						parsedExtended = {};
 					}
-				} else if (typeof data.education_summary === "object") {
-					parsedExtended = data.education_summary as any;
+				} else if (typeof data.extended_profile === "object") {
+					parsedExtended = data.extended_profile as any;
 				}
 			}
 

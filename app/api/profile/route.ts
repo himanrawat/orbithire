@@ -266,7 +266,7 @@ export async function GET(req: NextRequest) {
 	const { data, error } = await admin
 		.from("profiles")
 		.select(
-			"id, email, full_name, phone, location, headline, portfolio_url, linkedin_url, avatar_url, skills, experience_summary, education_summary"
+			"id, email, full_name, phone, location, headline, portfolio_url, linkedin_url, avatar_url, skills, experience_summary, extended_profile"
 		)
 		.eq("id", user.id)
 		.single();
@@ -275,9 +275,7 @@ export async function GET(req: NextRequest) {
 		return NextResponse.json(
 			{
 				error:
-					error.message ||
-					error.details ||
-					"Unable to load profile right now.",
+					error.message || error.details || "Unable to load profile right now.",
 			},
 			{ status: 500 }
 		);
@@ -285,23 +283,23 @@ export async function GET(req: NextRequest) {
 
 	let extended: any = {};
 	console.log(
-		"[profile/get] raw education_summary:",
+		"[profile/get] raw extended_profile:",
 		abbreviate(
-			typeof data.education_summary === "string"
-				? data.education_summary
-				: JSON.stringify(data.education_summary || "")
+			typeof data.extended_profile === "string"
+				? data.extended_profile
+				: JSON.stringify(data.extended_profile || "")
 		)
 	);
-	if (data.education_summary) {
-		if (typeof data.education_summary === "string") {
+	if (data.extended_profile) {
+		if (typeof data.extended_profile === "string") {
 			try {
-				extended = JSON.parse(data.education_summary);
+				extended = JSON.parse(data.extended_profile);
 			} catch (err) {
-				console.warn("[profile/get] failed to parse education_summary", err);
+				console.warn("[profile/get] failed to parse extended_profile", err);
 				extended = {};
 			}
-		} else if (typeof data.education_summary === "object") {
-			extended = data.education_summary;
+		} else if (typeof data.extended_profile === "object") {
+			extended = data.extended_profile;
 		}
 	}
 
@@ -317,8 +315,11 @@ export async function GET(req: NextRequest) {
 	console.log("[profile/get] normalized key:", abbreviate(photoKey));
 	console.log("[profile/get] signed avatar:", abbreviate(signedPhoto));
 
-	const { avatar_url: _avatarUrl, education_summary: _ext, ...profileWithoutPhoto } =
-		data;
+	const {
+		avatar_url: _avatarUrl,
+		extended_profile: _ext,
+		...profileWithoutPhoto
+	} = data;
 
 	return NextResponse.json(
 		{
@@ -418,23 +419,26 @@ export async function PATCH(req: NextRequest) {
 	const { data: existing } = await admin
 		.from("profiles")
 		.select(
-			"id, email, full_name, phone, location, headline, experience_summary, portfolio_url, linkedin_url, avatar_url, skills, education_summary"
+			"id, email, full_name, phone, location, headline, experience_summary, portfolio_url, linkedin_url, avatar_url, skills, extended_profile"
 		)
 		.eq("id", user.id)
 		.maybeSingle();
 
 	const existingAvatar = normalizeR2Key(existing?.avatar_url);
-	console.log("[profile/save] existing avatar column:", abbreviate(existingAvatar));
+	console.log(
+		"[profile/save] existing avatar column:",
+		abbreviate(existingAvatar)
+	);
 	let existingExtended: any = {};
-	if (existing?.education_summary) {
-		if (typeof existing.education_summary === "string") {
+	if (existing?.extended_profile) {
+		if (typeof existing.extended_profile === "string") {
 			try {
-				existingExtended = JSON.parse(existing.education_summary);
+				existingExtended = JSON.parse(existing.extended_profile);
 			} catch {
 				existingExtended = {};
 			}
-		} else if (typeof existing.education_summary === "object") {
-			existingExtended = existing.education_summary;
+		} else if (typeof existing.extended_profile === "object") {
+			existingExtended = existing.extended_profile;
 		}
 	}
 
@@ -615,10 +619,10 @@ export async function PATCH(req: NextRequest) {
 		hasChanges = true;
 	}
 
-	const educationSummary = JSON.stringify(nextExtended);
+	const extendedProfileJson = JSON.stringify(nextExtended);
 	const extendedChanged = isDifferent(nextExtended, baseExtended);
 	if (extendedChanged || avatarChanged) {
-		updatePayload.education_summary = educationSummary;
+		updatePayload.extended_profile = extendedProfileJson;
 		hasChanges = true;
 	}
 

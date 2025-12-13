@@ -53,11 +53,39 @@ export function buildResumePrompt(
 			endDate?: string;
 		}>;
 		skills: string[];
+		customSections?: Array<{
+			title: string;
+			entries: Array<{ title: string; description: string }>;
+		}>;
 	},
 	jobDescription: string,
 	jobTitle: string,
 	companyName: string
 ): string {
+	// Build custom sections content for the prompt
+	const customSectionsText =
+		profile.customSections && profile.customSections.length > 0
+			? profile.customSections
+					.map(
+						(section) => `
+**${section.title}:**
+${section.entries
+	.map((entry) => `- **${entry.title}**: ${entry.description}`)
+	.join("\n")}`
+					)
+					.join("\n")
+			: "";
+
+	// Build the expected JSON output structure for custom sections
+	const customSectionNames =
+		profile.customSections?.map((s) => s.title) || [];
+	const customHighlightsExample = customSectionNames.length
+		? `,
+  "customSectionHighlights": {
+${customSectionNames.map((name) => `    "${name}": ["Optimized bullet 1...", "Optimized bullet 2..."]`).join(",\n")}
+  }`
+		: "";
+
 	return `
 ## CANDIDATE PROFILE
 
@@ -83,6 +111,7 @@ ${profile.education
 	.join("\n")}
 
 **Skills:** ${profile.skills.join(", ")}
+${customSectionsText}
 
 ---
 
@@ -107,7 +136,7 @@ Generate an optimized resume in JSON format with the following structure:
     "Company Name 1": ["Bullet 1 rewritten for relevance...", "Bullet 2..."],
     "Company Name 2": ["Bullet 1...", "Bullet 2..."]
   },
-  "skillsOrdered": ["Most relevant skill", "Second most relevant", "..."]
+  "skillsOrdered": ["Most relevant skill", "Second most relevant", "..."]${customHighlightsExample}
 }
 
 Rules:
@@ -117,6 +146,7 @@ Rules:
 4. Order skills by relevance to the job requirements
 5. Keep bullets concise (under 15 words each)
 6. ONLY include information that exists in the original profile - never fabricate
+${customSectionNames.length ? `7. For custom sections like ${customSectionNames.join(", ")}, rewrite entries to highlight relevance to the job` : ""}
 
 Return ONLY the JSON object, no markdown code blocks.`;
 }

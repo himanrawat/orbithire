@@ -11,3 +11,6 @@ coverage
 **/*.tsbuildinfo
 **/.turbo
 **/.vercel
+
+# Backup files
+_backup/
