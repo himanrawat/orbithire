@@ -161,25 +161,6 @@ export async function POST(req: NextRequest) {
 		}
 	}
 
-	// Log what we're fetching
-	console.log("[generate/resume] Profile data:", {
-		full_name: profile.full_name,
-		headline: profile.headline,
-		email: profile.email,
-		phone: profile.phone,
-		location: profile.location,
-		skills: profile.skills,
-		experience_summary: profile.experience_summary?.substring(0, 100),
-	});
-	console.log("[generate/resume] Extended data from extended_profile:", {
-		work_experience_count: extendedData.work_experience?.length || 0,
-		education_count: extendedData.education?.length || 0,
-		custom_sections_count: extendedData.customSections?.length || 0,
-		work_experience: extendedData.work_experience,
-		education: extendedData.education,
-		customSections: extendedData.customSections,
-	});
-
 	// Use work experience from extended_profile JSON
 	const workExperience = extendedData.work_experience || [];
 
@@ -223,17 +204,6 @@ export async function POST(req: NextRequest) {
 			})),
 		})),
 	};
-
-	console.log("[generate/resume] Candidate profile prepared:", {
-		name: candidateProfile.name,
-		experienceCount: candidateProfile.experience.length,
-		educationCount: candidateProfile.education.length,
-		skillsCount: candidateProfile.skills.length,
-		customSectionsCount: candidateProfile.customSections.length,
-		experience: candidateProfile.experience,
-		education: candidateProfile.education,
-		customSections: candidateProfile.customSections,
-	});
 
 	// Get AI configuration from user settings or environment
 	const aiConfig = await getAIConfig(supabase, user.id);

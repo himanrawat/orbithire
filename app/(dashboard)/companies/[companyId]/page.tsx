@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -16,1481 +16,1065 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { GridBackground } from "@/components/ui/aceternity";
-import { cn, slugify } from "@/lib/utils";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import {
 	Building2,
 	ChevronLeft,
-	Plus,
-	Save,
-	Sparkles,
-	ClipboardList,
 	FileText,
-	Wand2,
-	History,
-	FolderOpen,
-	LinkIcon,
-	Globe2,
-	User,
-	CheckCircle2,
-	XCircle,
-	ListChecks,
-	Layers,
+	Mail,
+	Loader2,
+	Calendar,
+	DollarSign,
+	Trash2,
+	ExternalLink,
+	Download,
+	Clock,
+	Edit3,
+	Check,
+	X,
+	Eye,
 } from "lucide-react";
-import {
-	companyDirectory,
-	findCompanyBySlug,
-	keywordLibrary,
-	templateOptions,
-	type AuditLogEntry,
-	type CompanyFolder,
-	type DocumentVersion,
-	type JobApplication,
-	type KeywordSet,
-	type TemplateOption,
-} from "../data";
 
-type PendingGeneration = {
-	companyName: string;
-	slug: string;
-	jobTitle: string;
-	jobDescription: string;
-	recruiterName?: string;
-	recruiterEmail?: string;
-	templateId: string;
-	createdAt: string;
+// Types based on Supabase schema
+type Resume = {
+	id: string;
+	title: string;
+	content_json: any;
+	content_text: string | null;
+	job_description: string | null;
+	template: string;
+	pdf_url: string | null;
+	docx_url: string | null;
+	created_at: string;
+	updated_at: string;
 };
 
-const pendingKey = "pendingGeneration";
-
-type JobFormState = {
-	companyName: string;
-	jobTitle: string;
-	jobDescription: string;
-	jobLink: string;
-	employmentType: string;
-	workMode: string;
-	recruiter: JobApplication["recruiter"];
-	extraFields: JobApplication["extraFields"];
-	selectedTemplateId: string;
-	notes: string;
+type CoverLetter = {
+	id: string;
+	title: string;
+	content: string;
+	job_description: string | null;
+	template: string;
+	pdf_url: string | null;
+	docx_url: string | null;
+	created_at: string;
+	updated_at: string;
 };
 
-const emptyKeywords: KeywordSet = {
-	skills: [],
-	tools: [],
-	responsibilities: [],
-	domains: [],
+type Company = {
+	id: string;
+	name: string;
+	website: string | null;
+	industry: string | null;
+	status: string;
+	notes: string | null;
+	job_title: string | null;
+	job_description: string | null;
+	job_url: string | null;
+	recruiter_name: string | null;
+	salary_range: string | null;
+	applied_at: string | null;
+	follow_up_date: string | null;
+	created_at: string;
+	updated_at: string;
+	resumes: Resume[];
+	cover_letters: CoverLetter[];
 };
 
-const mockProfile = {
-	name: "Avery Brooks",
-	headline: "Product-focused software engineer",
-	location: "Remote-first",
-	summary:
-		"6+ years building data-rich products with React, TypeScript, and GraphQL.",
-	topSkills: ["React", "TypeScript", "GraphQL", "Data storytelling"],
-};
+type ApplicationStatus =
+	| "saved"
+	| "applied"
+	| "interviewing"
+	| "offered"
+	| "rejected"
+	| "withdrawn";
 
-function createId() {
-	if (typeof crypto !== "undefined" && crypto.randomUUID)
-		return crypto.randomUUID();
-	return Math.random().toString(36).slice(2);
-}
-
-function toTitleCase(value: string) {
-	return value.replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
-function deriveNameFromSlug(slug: string) {
-	const spaced = slug.replace(/-/g, " ").trim();
-	return spaced ? toTitleCase(spaced) : "New Company";
-}
-
-function dedupe(list: string[]) {
-	return Array.from(new Set(list));
-}
-
-function extractKeywords(description: string): KeywordSet {
-	if (!description.trim()) return emptyKeywords;
-	const lower = description.toLowerCase();
-	const pickMatches = (source: string[]) =>
-		source.filter((item) => lower.includes(item.toLowerCase()));
-
-	const inferredResponsibilities = description
-		.split(/\n|\. /)
-		.map((line) => line.replace(/^[-*]\s*/, "").trim())
-		.filter((line) => line.length > 12)
-		.slice(0, 4);
-
-	const inferredSkills = description
-		.split(/[\s,]/)
-		.filter((word) => word.length > 4)
-		.filter((word) => word[0] && word[0] === word[0].toUpperCase())
-		.slice(0, 6);
-
-	return {
-		skills: dedupe([...pickMatches(keywordLibrary.skills), ...inferredSkills]),
-		tools: dedupe(pickMatches(keywordLibrary.tools)),
-		responsibilities: dedupe([
-			...pickMatches(keywordLibrary.responsibilities),
-			...inferredResponsibilities,
-		]),
-		domains: dedupe(pickMatches(keywordLibrary.domains)),
-	};
-}
-
-function jobSlug(title: string, fallback: string) {
-	const base = title?.trim() ? title : fallback;
-	return slugify(base || "role");
-}
-
-function buildPaths(
-	companySlug: string,
-	jobTitle: string,
-	type: DocumentVersion["type"],
-	version: number
-) {
-	const base = `companies/${companySlug}/${jobSlug(jobTitle, `${type}`)}`;
-	const prefix = type === "resume" ? "resume" : "cover-letter";
-	return {
-		pdf: `${base}/${prefix}-v${version}.pdf`,
-		docx: `${base}/${prefix}-v${version}.docx`,
-	};
-}
-
-function versionNumber(job: JobApplication, type: DocumentVersion["type"]) {
-	return (
-		job.versions
-			.filter((version) => version.type === type)
-			.reduce((max, version) => Math.max(max, version.version), 0) + 1
-	);
-}
-
-function generateResumeDraft(
-	job: JobApplication,
-	company: CompanyFolder,
-	template: TemplateOption,
-	keywords: KeywordSet
-) {
-	const keywordLine = dedupe([
-		...keywords.skills,
-		...keywords.tools,
-		...keywords.domains,
-	])
-		.slice(0, 8)
-		.join(", ");
-
-	return [
-		`${template.name} (${template.locale}) template for ${company.name}`,
-		`${mockProfile.name} - ${mockProfile.headline} (${mockProfile.location})`,
-		`Role focus: ${job.title || "Target role"}`,
-		`Top keywords: ${keywordLine || "Pending extraction"}`,
-		"Impact bullets:",
-		"- Led cross-functional delivery with design and backend partners.",
-		"- Quantified wins with adoption, performance, and accessibility metrics.",
-		`- Matched responsibilities: ${
-			(keywords.responsibilities || []).slice(0, 3).join("; ") ||
-			"Align roadmap, own execution, communicate status."
-		}`,
-	].join("\n");
-}
-
-function generateCoverLetterDraft(
-	job: JobApplication,
-	company: CompanyFolder,
-	keywords: KeywordSet
-) {
-	const keywordLine = dedupe([
-		...keywords.skills,
-		...keywords.tools,
-		...keywords.domains,
-	])
-		.slice(0, 5)
-		.join(", ");
-	return [
-		`Dear ${job.recruiter.name || "team"},`,
-		`I am excited about the ${job.title || "role"} at ${company.name}.`,
-		`I have shipped products that mirror your needs: ${
-			keywordLine || "tailored impact pending keywords"
-		}.`,
-		`Recent work: ${mockProfile.summary}`,
-		"Looking forward to sharing more in conversation.",
-		"",
-		`Thanks,\n${mockProfile.name}`,
-	].join("\n");
-}
-
-function createInitialJobForm(company: CompanyFolder, job?: JobApplication): JobFormState {
-	return {
-		companyName: company.name,
-		jobTitle: job?.title || "",
-		jobDescription: job?.description || "",
-		jobLink: job?.link || "",
-		employmentType: job?.employmentType || "",
-		workMode: job?.workMode || "Remote",
-		recruiter: job?.recruiter || {},
-		extraFields: job?.extraFields || [],
-		selectedTemplateId: job?.selectedTemplateId || templateOptions[0].id,
-		notes: job?.notes || "",
-	};
-}
-
-function hydrateCompany(slug: string) {
-	const existing = findCompanyBySlug(slug);
-	if (existing) {
-		return JSON.parse(JSON.stringify(existing)) as CompanyFolder;
-	}
-
-	const now = new Date().toISOString();
-	const derivedName = deriveNameFromSlug(slug);
-	const fallback: CompanyFolder = {
-		id: slug,
-		slug,
-		name: derivedName,
-		status: "saved",
-		createdAt: now.slice(0, 10),
-		lastActivity: now.slice(0, 10),
-		jobs: [],
-		auditLog: [
-			{
-				id: createId(),
-				action: `Auto-created company folder for ${derivedName}`,
-				timestamp: now,
-				actor: "System",
-			},
-		],
-	};
-	return fallback;
-}
+const statusOptions: {
+	value: ApplicationStatus;
+	label: string;
+	color: string;
+}[] = [
+	{
+		value: "saved",
+		label: "Saved",
+		color: "bg-secondary text-secondary-foreground",
+	},
+	{
+		value: "applied",
+		label: "Applied",
+		color: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+	},
+	{
+		value: "interviewing",
+		label: "Interviewing",
+		color: "bg-green-500/10 text-green-600 dark:text-green-400",
+	},
+	{
+		value: "offered",
+		label: "Offered",
+		color: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+	},
+	{
+		value: "rejected",
+		label: "Rejected",
+		color: "bg-red-500/10 text-red-600 dark:text-red-400",
+	},
+	{
+		value: "withdrawn",
+		label: "Withdrawn",
+		color: "bg-muted text-muted-foreground",
+	},
+];
 
 export default function CompanyDetailPage({
 	params,
-}: {
+}: Readonly<{
 	params: { companyId: string };
-}) {
+}>) {
 	const router = useRouter();
-	const slug = decodeURIComponent(params.companyId);
-	const bootstrappedCompany = useMemo(() => hydrateCompany(slug), [slug]);
-	const [company, setCompany] = useState<CompanyFolder>(bootstrappedCompany);
-	const [selectedJobId, setSelectedJobId] = useState<string>(
-		bootstrappedCompany.jobs[0]?.id || ""
-	);
-	const [jobForm, setJobForm] = useState<JobFormState>(() =>
-		createInitialJobForm(bootstrappedCompany, bootstrappedCompany.jobs[0])
-	);
-	const [resumeDraft, setResumeDraft] = useState(
-		bootstrappedCompany.jobs[0]?.resumeDraft || ""
-	);
-	const [coverLetterDraft, setCoverLetterDraft] = useState(
-		bootstrappedCompany.jobs[0]?.coverLetterDraft || ""
-	);
-	const [savingJob, setSavingJob] = useState(false);
-	const [generating, setGenerating] = useState(false);
-	const [savingVersion, setSavingVersion] = useState(false);
-	const [nameError, setNameError] = useState("");
+	const companyId = params.companyId;
 
-	const currentJob = company.jobs.find((job) => job.id === selectedJobId);
-	const keywords = currentJob
-		? currentJob.keywords
-		: extractKeywords(jobForm.jobDescription);
+	// Data state
+	const [company, setCompany] = useState<Company | null>(null);
+	const [isLoading, setIsLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
 
+	// Edit state
+	const [isEditing, setIsEditing] = useState(false);
+	const [isSaving, setIsSaving] = useState(false);
+	const [editForm, setEditForm] = useState({
+		name: "",
+		status: "applied" as ApplicationStatus,
+		jobTitle: "",
+		jobDescription: "",
+		jobUrl: "",
+		recruiterName: "",
+		salaryRange: "",
+		notes: "",
+		appliedAt: "",
+		followUpDate: "",
+	});
+
+	// Delete modal
+	const [showDeleteModal, setShowDeleteModal] = useState(false);
+	const [isDeleting, setIsDeleting] = useState(false);
+
+	// PDF viewer modal
+	const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
+	const [pdfViewerTitle, setPdfViewerTitle] = useState<string>("");
+
+	// Fetch company data
 	useEffect(() => {
-		if (!currentJob) return;
-		setJobForm(createInitialJobForm(company, currentJob));
-		setResumeDraft(currentJob.resumeDraft || "");
-		setCoverLetterDraft(currentJob.coverLetterDraft || "");
-	}, [currentJob?.id]);
+		async function fetchCompany() {
+			try {
+				setIsLoading(true);
+				const response = await fetch(`/api/companies/${companyId}`);
+				const data = await response.json();
 
-	const stats = useMemo(() => {
-		const documents = company.jobs.flatMap((job) => job.versions);
-		const resumes = documents.filter((doc) => doc.type === "resume").length;
-		const coverLetters = documents.filter(
-			(doc) => doc.type === "cover_letter"
-		).length;
-		return {
-			jobCount: company.jobs.length,
-			resumes,
-			coverLetters,
-			lastActivity: company.lastActivity,
-		};
-	}, [company]);
+				if (!response.ok) {
+					throw new Error(data.error || "Failed to fetch company");
+				}
 
-	const addAuditLog = (
-		entry: Omit<AuditLogEntry, "id" | "timestamp" | "actor">
-	) => {
-		const now = new Date().toISOString();
-		setCompany((prev) => ({
-			...prev,
-			auditLog: [
-				{
-					id: createId(),
-					actor: "You",
-					timestamp: now,
-					...entry,
-				},
-				...prev.auditLog,
-			].slice(0, 12),
-			lastActivity: now.slice(0, 10),
-		}));
-	};
-
-	useEffect(() => {
-		if (typeof window === "undefined") return;
-		const raw = localStorage.getItem(pendingKey);
-		if (!raw) return;
-
-		let pending: PendingGeneration | null = null;
-		try {
-			pending = JSON.parse(raw);
-		} catch {
-			return;
-		}
-
-		if (!pending || pending.slug !== slug) return;
-		localStorage.removeItem(pendingKey);
-
-		const detectedKeywords = extractKeywords(pending.jobDescription || "");
-		const template =
-			templateOptions.find((option) => option.id === pending.templateId) ||
-			templateOptions[0];
-
-		let nextJob: JobApplication = {
-			id: createId(),
-			title: pending.jobTitle || "Untitled role",
-			description: pending.jobDescription,
-			link: "",
-			employmentType: "",
-			workMode: "Remote",
-			recruiter: {
-				name: pending.recruiterName,
-				email: pending.recruiterEmail,
-			},
-			extraFields: [],
-			keywords: detectedKeywords,
-			selectedTemplateId: template.id,
-			resumeDraft: "",
-			coverLetterDraft: "",
-			versions: [],
-		};
-
-		const now = new Date().toISOString();
-
-		setCompany((prev) => {
-			const existing = prev.jobs.find(
-				(job) =>
-					job.title.toLowerCase() === (pending?.jobTitle || "").toLowerCase()
-			);
-
-			const baseJob = existing
-				? {
-						...existing,
-						title: pending?.jobTitle || existing.title,
-						description: pending?.jobDescription || existing.description,
-						recruiter: { ...existing.recruiter, ...nextJob.recruiter },
-						keywords: detectedKeywords,
-						selectedTemplateId: template.id,
-				  }
-				: nextJob;
-
-			const resume = generateResumeDraft(
-				baseJob,
-				prev,
-				template,
-				detectedKeywords
-			);
-			const cover = generateCoverLetterDraft(
-				baseJob,
-				prev,
-				detectedKeywords
-			);
-			const mergedJob: JobApplication = {
-				...baseJob,
-				resumeDraft: resume,
-				coverLetterDraft: cover,
-				versions: existing ? existing.versions : baseJob.versions,
-			};
-			nextJob = mergedJob;
-
-			const jobs = existing
-				? prev.jobs.map((job) => (job.id === existing.id ? mergedJob : job))
-				: [...prev.jobs, mergedJob];
-
-			const pendingName = pending?.companyName?.trim();
-
-			return {
-				...prev,
-				name: pendingName || prev.name,
-				jobs,
-				auditLog: [
-					{
-						id: createId(),
-						action: `Queued generation payload for ${mergedJob.title}`,
-						timestamp: now,
-						actor: "System",
-					},
-					...prev.auditLog,
-				].slice(0, 12),
-				lastActivity: now.slice(0, 10),
-			};
-		});
-
-		setSelectedJobId(nextJob.id);
-		setJobForm({
-			companyName: pending.companyName || company.name,
-			jobTitle: nextJob.title,
-			jobDescription: nextJob.description,
-			jobLink: nextJob.link || "",
-			employmentType: nextJob.employmentType || "",
-			workMode: nextJob.workMode || "Remote",
-			recruiter: nextJob.recruiter,
-			extraFields: nextJob.extraFields,
-			selectedTemplateId: nextJob.selectedTemplateId,
-			notes: nextJob.notes || "",
-		});
-		setResumeDraft(nextJob.resumeDraft);
-		setCoverLetterDraft(nextJob.coverLetterDraft);
-	}, [slug, company.name]);
-
-	const handleAddJob = () => {
-		const id = createId();
-		const newJob: JobApplication = {
-			id,
-			title: "New role",
-			description: "",
-			recruiter: {},
-			extraFields: [],
-			keywords: emptyKeywords,
-			selectedTemplateId: templateOptions[0].id,
-			resumeDraft: "",
-			coverLetterDraft: "",
-			versions: [],
-		};
-		setCompany((prev) => ({
-			...prev,
-			jobs: [...prev.jobs, newJob],
-			lastActivity: new Date().toISOString().slice(0, 10),
-		}));
-		setSelectedJobId(id);
-		setJobForm(createInitialJobForm(company, newJob));
-		setResumeDraft("");
-		setCoverLetterDraft("");
-		addAuditLog({ action: "Started a new job application slot" });
-	};
-
-	const handleSaveJob = () => {
-		setSavingJob(true);
-		setNameError("");
-
-		if (!jobForm.jobDescription.trim()) {
-			setSavingJob(false);
-			setNameError("Job description is required to anchor keywords.");
-			return;
-		}
-
-		const normalizedName = jobForm.companyName.trim();
-		if (
-			normalizedName &&
-			normalizedName.toLowerCase() !== company.name.toLowerCase()
-		) {
-			const duplicate = companyDirectory.find(
-				(entry) =>
-					entry.name.toLowerCase() === normalizedName.toLowerCase() &&
-					entry.id !== company.id
-			);
-			if (duplicate) {
-				setSavingJob(false);
-				setNameError(`"${normalizedName}" already exists as a company folder.`);
-				return;
+				setCompany(data.company);
+				// Initialize edit form with fetched data
+				setEditForm({
+					name: data.company.name || "",
+					status: data.company.status || "applied",
+					jobTitle: data.company.job_title || "",
+					jobDescription: data.company.job_description || "",
+					jobUrl: data.company.job_url || "",
+					recruiterName: data.company.recruiter_name || "",
+					salaryRange: data.company.salary_range || "",
+					notes: data.company.notes || "",
+					appliedAt: data.company.applied_at?.split("T")[0] || "",
+					followUpDate: data.company.follow_up_date?.split("T")[0] || "",
+				});
+			} catch (err) {
+				setError(err instanceof Error ? err.message : "Something went wrong");
+			} finally {
+				setIsLoading(false);
 			}
 		}
 
-		const detectedKeywords = extractKeywords(jobForm.jobDescription);
-		const templateId = jobForm.selectedTemplateId || templateOptions[0].id;
-		const cleanedExtras = jobForm.extraFields.filter(
-			(field) => field.key || field.value
-		);
+		fetchCompany();
+	}, [companyId]);
 
-		const updatedJob: JobApplication = {
-			id: currentJob?.id || createId(),
-			title: jobForm.jobTitle || currentJob?.title || "Untitled role",
-			description: jobForm.jobDescription,
-			link: jobForm.jobLink,
-			employmentType: jobForm.employmentType,
-			workMode: jobForm.workMode,
-			recruiter: jobForm.recruiter,
-			extraFields: cleanedExtras,
-			keywords: detectedKeywords,
-			selectedTemplateId: templateId,
-			resumeDraft,
-			coverLetterDraft,
-			versions: currentJob?.versions || [],
-			notes: jobForm.notes,
-		};
+	const handleSave = async () => {
+		setIsSaving(true);
+		try {
+			const response = await fetch(`/api/companies/${companyId}`, {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					name: editForm.name,
+					status: editForm.status,
+					jobTitle: editForm.jobTitle,
+					jobDescription: editForm.jobDescription,
+					jobUrl: editForm.jobUrl,
+					recruiterName: editForm.recruiterName,
+					salaryRange: editForm.salaryRange,
+					notes: editForm.notes,
+					appliedAt: editForm.appliedAt || null,
+					followUpDate: editForm.followUpDate || null,
+				}),
+			});
 
-		setCompany((prev) => ({
-			...prev,
-			name: normalizedName || prev.name,
-			jobs: prev.jobs.some((job) => job.id === updatedJob.id)
-				? prev.jobs.map((job) => (job.id === updatedJob.id ? updatedJob : job))
-				: [...prev.jobs, updatedJob],
-			lastActivity: new Date().toISOString().slice(0, 10),
-		}));
+			if (!response.ok) {
+				const data = await response.json();
+				throw new Error(data.error || "Failed to update");
+			}
 
-		setSelectedJobId(updatedJob.id);
-		addAuditLog({
-			action: `Saved job description and keywords for ${
-				updatedJob.title || "job"
-			}`,
-		});
-		setSavingJob(false);
-	};
-
-	const ensureJob = () => {
-		if (currentJob) return currentJob;
-		const generatedJob: JobApplication = {
-			id: createId(),
-			title: jobForm.jobTitle || "New role",
-			description: jobForm.jobDescription,
-			link: jobForm.jobLink,
-			employmentType: jobForm.employmentType,
-			workMode: jobForm.workMode,
-			recruiter: jobForm.recruiter,
-			extraFields: jobForm.extraFields,
-			keywords: extractKeywords(jobForm.jobDescription),
-			selectedTemplateId: jobForm.selectedTemplateId || templateOptions[0].id,
-			resumeDraft,
-			coverLetterDraft,
-			versions: [],
-		};
-
-		setCompany((prev) => ({
-			...prev,
-			jobs: [...prev.jobs, generatedJob],
-		}));
-		setSelectedJobId(generatedJob.id);
-		return generatedJob;
-	};
-
-	const handleGenerateDrafts = () => {
-		setGenerating(true);
-		const job = ensureJob();
-		const template =
-			templateOptions.find(
-				(option) => option.id === jobForm.selectedTemplateId
-			) || templateOptions[0];
-		const detectedKeywords = job.keywords.skills.length
-			? job.keywords
-			: extractKeywords(job.description || jobForm.jobDescription);
-
-		const newResume = generateResumeDraft(
-			job,
-			company,
-			template,
-			detectedKeywords
-		);
-		const newCoverLetter = generateCoverLetterDraft(
-			job,
-			company,
-			detectedKeywords
-		);
-
-		setResumeDraft(newResume);
-		setCoverLetterDraft(newCoverLetter);
-
-		setCompany((prev) => ({
-			...prev,
-			jobs: prev.jobs.map((entry) =>
-				entry.id === job.id
+			// Update local state
+			setCompany((prev) =>
+				prev
 					? {
-							...entry,
-							resumeDraft: newResume,
-							coverLetterDraft: newCoverLetter,
+							...prev,
+							name: editForm.name,
+							status: editForm.status,
+							job_title: editForm.jobTitle,
+							job_description: editForm.jobDescription,
+							job_url: editForm.jobUrl,
+							recruiter_name: editForm.recruiterName,
+							salary_range: editForm.salaryRange,
+							notes: editForm.notes,
+							applied_at: editForm.appliedAt || null,
+							follow_up_date: editForm.followUpDate || null,
 					  }
-					: entry
-			),
-		}));
-
-		addAuditLog({
-			action: `Generated drafts for ${job.title} using ${template.name}`,
-		});
-		setGenerating(false);
-	};
-
-	const rewriteDraft = (
-		type: "resume" | "cover",
-		mode: "metrics" | "shorten" | "tone"
-	) => {
-		const text = type === "resume" ? resumeDraft : coverLetterDraft;
-		const metricsLine = keywords.responsibilities[0]
-			? `Added metrics for "${keywords.responsibilities[0]}" with measurable impact.`
-			: "Added quantified metrics to bullets.";
-		const rewritten =
-			mode === "metrics"
-				? `${text}\n- ${metricsLine}`
-				: mode === "shorten"
-				? text.split("\n").filter(Boolean).slice(0, 6).join("\n")
-				: `${text}\n- Adjusted tone for concise, confident delivery.`;
-
-		if (type === "resume") {
-			setResumeDraft(rewritten);
-		} else {
-			setCoverLetterDraft(rewritten);
+					: null
+			);
+			setIsEditing(false);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to save");
+		} finally {
+			setIsSaving(false);
 		}
-		addAuditLog({
-			action: `Applied ${mode} rewrite to ${
-				type === "resume" ? "resume" : "cover letter"
-			}`,
+	};
+
+	const handleDelete = async () => {
+		setIsDeleting(true);
+		try {
+			const response = await fetch(`/api/companies/${companyId}`, {
+				method: "DELETE",
+			});
+
+			if (!response.ok) {
+				const data = await response.json();
+				throw new Error(data.error || "Failed to delete");
+			}
+
+			router.push("/companies");
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to delete");
+			setIsDeleting(false);
+		}
+	};
+
+	const formatDate = (dateString: string | null) => {
+		if (!dateString) return "—";
+		return new Date(dateString).toLocaleDateString("en-US", {
+			month: "short",
+			day: "numeric",
+			year: "numeric",
 		});
 	};
 
-	const handleSaveVersion = (type?: DocumentVersion["type"]) => {
-		if (!currentJob) return;
-		setSavingVersion(true);
-		const now = new Date().toISOString();
-		const template =
-			templateOptions.find(
-				(option) => option.id === jobForm.selectedTemplateId
-			) || templateOptions[0];
-
-		setCompany((prev) => ({
-			...prev,
-			jobs: prev.jobs.map((job) => {
-				if (job.id !== currentJob.id) return job;
-
-				const targetTypes: DocumentVersion["type"][] = type
-					? [type]
-					: ["resume", "cover_letter"];
-				let versions = [...job.versions];
-
-				targetTypes.forEach((docType) => {
-					const version = versionNumber(job, docType);
-					const paths = buildPaths(prev.slug, job.title, docType, version);
-					const contentTitle =
-						docType === "resume"
-							? `${job.title} - Resume v${version}`
-							: `${job.title} - Cover Letter v${version}`;
-					const newVersion: DocumentVersion = {
-						id: `${job.id}-${docType}-v${version}`,
-						jobId: job.id,
-						companyId: prev.id,
-						type: docType,
-						version,
-						title: contentTitle,
-						templateId: template.id,
-						templateName: template.name,
-						createdAt: now,
-						keywords: job.keywords || emptyKeywords,
-						paths,
-						note:
-							docType === "resume"
-								? "Saved from current resume editor state."
-								: "Saved from current cover letter editor state.",
-					};
-					versions = [...versions, newVersion];
-				});
-
-				return {
-					...job,
-					versions,
-					resumeDraft,
-					coverLetterDraft,
-				};
-			}),
-			lastActivity: now.slice(0, 10),
-		}));
-
-		addAuditLog({
-			action: `Saved ${
-				type ? type.replace("_", " ") : "resume and cover letter"
-			} version for ${currentJob.title || "job"}`,
-		});
-		setSavingVersion(false);
+	const getStatusColor = (status: string) => {
+		return (
+			statusOptions.find((s) => s.value === status)?.color || "bg-secondary"
+		);
 	};
 
-	const documentsByJob = company.jobs.map((job) => ({
-		job,
-		documents: [...job.versions].sort(
-			(a, b) =>
-				new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-		),
-	}));
+	// Loading state
+	if (isLoading) {
+		return (
+			<div className="flex min-h-screen items-center justify-center">
+				<Loader2 className="h-8 w-8 animate-spin text-primary" />
+			</div>
+		);
+	}
+
+	// Error state
+	if (error || !company) {
+		return (
+			<div className="min-h-screen">
+				<GridBackground />
+				<div className="relative px-6 py-8">
+					<Button variant="ghost" asChild className="mb-4">
+						<Link href="/companies">
+							<ChevronLeft className="mr-2 h-4 w-4" />
+							Back to Applications
+						</Link>
+					</Button>
+					<Card className="border-destructive/50 bg-destructive/10">
+						<CardContent className="flex flex-col items-center justify-center py-16 text-center">
+							<h3 className="mb-2 text-lg font-semibold text-destructive">
+								{error || "Company not found"}
+							</h3>
+							<Button onClick={() => router.push("/companies")}>
+								Go to Applications
+							</Button>
+						</CardContent>
+					</Card>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="min-h-screen">
 			<GridBackground />
 
 			<div className="relative px-6 py-8">
+				{/* Back button */}
 				<Button variant="ghost" asChild className="mb-4">
 					<Link href="/companies">
 						<ChevronLeft className="mr-2 h-4 w-4" />
-						Back to Companies
+						Back to Applications
 					</Link>
 				</Button>
 
+				{/* Header */}
 				<motion.div
 					initial={{ opacity: 0, y: 20 }}
 					animate={{ opacity: 1, y: 0 }}
-					className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
+					className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
 				>
-					<div className="space-y-1">
-						<h1 className="flex items-center gap-3 text-3xl font-bold tracking-tight">
-							<Building2 className="h-8 w-8 text-primary" />
-							{company.name}
-						</h1>
-						<p className="text-muted-foreground">
-							Company is the parent directory. Jobs, resumes, and cover letters
-							stay nested inside.
-						</p>
-						{findCompanyBySlug(slug) === undefined && (
-							<p className="text-sm text-primary">
-								Auto-created because this company did not exist yet.
-							</p>
-						)}
+					<div className="space-y-2">
+						<div className="flex items-center gap-3">
+							<div className="flex h-14 w-14 items-center justify-center rounded-xl bg-muted text-2xl font-bold">
+								{company.name.charAt(0)}
+							</div>
+							<div>
+								<h1 className="flex items-center gap-3 text-3xl font-bold tracking-tight">
+									{company.name}
+								</h1>
+								{company.job_title && (
+									<p className="text-lg text-muted-foreground">
+										{company.job_title}
+									</p>
+								)}
+							</div>
+						</div>
+						<div className="flex flex-wrap items-center gap-3">
+							<span
+								className={cn(
+									"rounded-full px-3 py-1 text-sm font-medium capitalize",
+									getStatusColor(company.status)
+								)}
+							>
+								{company.status}
+							</span>
+							{company.applied_at && (
+								<span className="flex items-center gap-1 text-sm text-muted-foreground">
+									<Calendar className="h-4 w-4" />
+									Applied {formatDate(company.applied_at)}
+								</span>
+							)}
+							{company.salary_range && (
+								<span className="flex items-center gap-1 text-sm text-muted-foreground">
+									<DollarSign className="h-4 w-4" />
+									{company.salary_range}
+								</span>
+							)}
+						</div>
 					</div>
-					<div className="flex flex-wrap gap-3">
-						<div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">
-							<ClipboardList className="h-4 w-4 text-primary" />
-							<span>{stats.jobCount} job(s)</span>
-						</div>
-						<div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">
-							<FileText className="h-4 w-4 text-primary" />
-							<span>{stats.resumes} resume(s)</span>
-						</div>
-						<div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">
-							<FileText className="h-4 w-4 text-primary" />
-							<span>{stats.coverLetters} cover letter(s)</span>
-						</div>
-						<Button onClick={handleAddJob} variant="outline">
-							<Plus className="mr-2 h-4 w-4" />
-							Add job
-						</Button>
+
+					<div className="flex flex-wrap gap-2">
+						{isEditing ? (
+							<>
+								<Button
+									variant="outline"
+									onClick={() => setIsEditing(false)}
+									disabled={isSaving}
+								>
+									<X className="mr-2 h-4 w-4" />
+									Cancel
+								</Button>
+								<Button onClick={handleSave} disabled={isSaving}>
+									{isSaving ? (
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+									) : (
+										<Check className="mr-2 h-4 w-4" />
+									)}
+									Save Changes
+								</Button>
+							</>
+						) : (
+							<>
+								<Button variant="outline" onClick={() => setIsEditing(true)}>
+									<Edit3 className="mr-2 h-4 w-4" />
+									Edit
+								</Button>
+								<Button
+									variant="destructive"
+									onClick={() => setShowDeleteModal(true)}
+								>
+									<Trash2 className="mr-2 h-4 w-4" />
+									Delete
+								</Button>
+							</>
+						)}
 					</div>
 				</motion.div>
 
 				<div className="grid gap-6 lg:grid-cols-3">
+					{/* Main content */}
 					<div className="space-y-6 lg:col-span-2">
+						{/* Application Details */}
 						<Card className="border-border/50 bg-card/80 backdrop-blur">
 							<CardHeader>
 								<CardTitle className="flex items-center gap-2">
-									<FolderOpen className="h-5 w-5" />
-									Job Description
+									<Building2 className="h-5 w-5" />
+									Application Details
 								</CardTitle>
 								<CardDescription>
-									Save the JD to extract keywords and bind everything to the job
-									under this company.
+									Job information and tracking details
 								</CardDescription>
 							</CardHeader>
 							<CardContent className="space-y-4">
-								<div className="grid gap-4 md:grid-cols-2">
-									<div className="space-y-2">
-										<Label htmlFor="companyName">Company Name</Label>
-										<Input
-											id="companyName"
-											value={jobForm.companyName}
-											onChange={(e) =>
-												setJobForm({ ...jobForm, companyName: e.target.value })
-											}
-											placeholder="Company name"
-										/>
-										{nameError && (
-											<p className="text-xs text-destructive">{nameError}</p>
-										)}
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="jobTitle">Job Title</Label>
-										<Input
-											id="jobTitle"
-											value={jobForm.jobTitle}
-											onChange={(e) =>
-												setJobForm({ ...jobForm, jobTitle: e.target.value })
-											}
-											placeholder="e.g., Senior Frontend Engineer"
-										/>
-									</div>
-								</div>
-
-								<div className="space-y-2">
-									<Label htmlFor="jobDescription">
-										Job Description <span className="text-destructive">*</span>
-									</Label>
-									<Textarea
-										id="jobDescription"
-										rows={6}
-										value={jobForm.jobDescription}
-										onChange={(e) =>
-											setJobForm({ ...jobForm, jobDescription: e.target.value })
-										}
-										placeholder="Paste the JD to anchor ATS prep and keyword extraction."
-										required
-									/>
-								</div>
-
-								<div className="grid gap-4 md:grid-cols-2">
-									<div className="space-y-2">
-										<Label htmlFor="jobLink">Job Link</Label>
-										<div className="relative">
-											<LinkIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-											<Input
-												id="jobLink"
-												className="pl-9"
-												value={jobForm.jobLink}
-												onChange={(e) =>
-													setJobForm({ ...jobForm, jobLink: e.target.value })
-												}
-												placeholder="https://"
-											/>
+								{isEditing ? (
+									<>
+										<div className="grid gap-4 md:grid-cols-2">
+											<div className="space-y-2">
+												<Label>Company Name</Label>
+												<Input
+													value={editForm.name}
+													onChange={(e) =>
+														setEditForm({ ...editForm, name: e.target.value })
+													}
+												/>
+											</div>
+											<div className="space-y-2">
+												<Label>Status</Label>
+												<Select
+													value={editForm.status}
+													onValueChange={(value: ApplicationStatus) =>
+														setEditForm({ ...editForm, status: value })
+													}
+												>
+													<SelectTrigger>
+														<SelectValue />
+													</SelectTrigger>
+													<SelectContent>
+														{statusOptions.map((status) => (
+															<SelectItem
+																key={status.value}
+																value={status.value}
+															>
+																{status.label}
+															</SelectItem>
+														))}
+													</SelectContent>
+												</Select>
+											</div>
 										</div>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="employmentType">Employment Type</Label>
-										<Input
-											id="employmentType"
-											value={jobForm.employmentType}
-											onChange={(e) =>
-												setJobForm({
-													...jobForm,
-													employmentType: e.target.value,
-												})
-											}
-											placeholder="Full-time, Contract, Internship"
-										/>
-									</div>
-								</div>
 
-								<div className="grid gap-4 md:grid-cols-2">
-									<div className="space-y-2">
-										<Label htmlFor="workMode">Work Mode</Label>
-										<select
-											id="workMode"
-											value={jobForm.workMode}
-											onChange={(e) =>
-												setJobForm({ ...jobForm, workMode: e.target.value })
-											}
-											className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-										>
-											<option>Remote</option>
-											<option>Hybrid</option>
-											<option>On-site</option>
-										</select>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="notes">Notes</Label>
-										<Input
-											id="notes"
-											value={jobForm.notes}
-											onChange={(e) =>
-												setJobForm({ ...jobForm, notes: e.target.value })
-											}
-											placeholder="Interview loop, timelines, advocates..."
-										/>
-									</div>
-								</div>
-
-								<div className="rounded-lg border p-4">
-									<div className="mb-3 flex items-center justify-between">
-										<div className="flex items-center gap-2">
-											<User className="h-4 w-4 text-primary" />
-											<p className="text-sm font-medium">
-												Recruiter (optional)
-											</p>
+										<div className="grid gap-4 md:grid-cols-2">
+											<div className="space-y-2">
+												<Label>Job Title</Label>
+												<Input
+													value={editForm.jobTitle}
+													onChange={(e) =>
+														setEditForm({
+															...editForm,
+															jobTitle: e.target.value,
+														})
+													}
+													placeholder="e.g., Senior Software Engineer"
+												/>
+											</div>
+											<div className="space-y-2">
+												<Label>Job URL</Label>
+												<Input
+													value={editForm.jobUrl}
+													onChange={(e) =>
+														setEditForm({ ...editForm, jobUrl: e.target.value })
+													}
+													placeholder="https://..."
+												/>
+											</div>
 										</div>
-										<span className="text-xs text-muted-foreground">
-											Tied only to this job
-										</span>
-									</div>
-									<div className="grid gap-3 md:grid-cols-2">
-										<Input
-											placeholder="Recruiter name"
-											value={jobForm.recruiter.name || ""}
-											onChange={(e) =>
-												setJobForm({
-													...jobForm,
-													recruiter: {
-														...jobForm.recruiter,
-														name: e.target.value,
-													},
-												})
-											}
-										/>
-										<Input
-											placeholder="Email"
-											type="email"
-											value={jobForm.recruiter.email || ""}
-											onChange={(e) =>
-												setJobForm({
-													...jobForm,
-													recruiter: {
-														...jobForm.recruiter,
-														email: e.target.value,
-													},
-												})
-											}
-										/>
-										<Input
-											placeholder="Phone"
-											value={jobForm.recruiter.phone || ""}
-											onChange={(e) =>
-												setJobForm({
-													...jobForm,
-													recruiter: {
-														...jobForm.recruiter,
-														phone: e.target.value,
-													},
-												})
-											}
-										/>
-										<div className="relative">
-											<Globe2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-											<Input
-												className="pl-9"
-												placeholder="LinkedIn"
-												value={jobForm.recruiter.linkedin || ""}
+
+										<div className="grid gap-4 md:grid-cols-2">
+											<div className="space-y-2">
+												<Label>Salary Range</Label>
+												<Input
+													value={editForm.salaryRange}
+													onChange={(e) =>
+														setEditForm({
+															...editForm,
+															salaryRange: e.target.value,
+														})
+													}
+													placeholder="$100k - $150k"
+												/>
+											</div>
+											<div className="space-y-2">
+												<Label>Recruiter Name</Label>
+												<Input
+													value={editForm.recruiterName}
+													onChange={(e) =>
+														setEditForm({
+															...editForm,
+															recruiterName: e.target.value,
+														})
+													}
+													placeholder="Contact person"
+												/>
+											</div>
+										</div>
+
+										<div className="grid gap-4 md:grid-cols-2">
+											<div className="space-y-2">
+												<Label>Applied Date</Label>
+												<Input
+													type="date"
+													value={editForm.appliedAt}
+													onChange={(e) =>
+														setEditForm({
+															...editForm,
+															appliedAt: e.target.value,
+														})
+													}
+												/>
+											</div>
+											<div className="space-y-2">
+												<Label>Follow-up Date</Label>
+												<Input
+													type="date"
+													value={editForm.followUpDate}
+													onChange={(e) =>
+														setEditForm({
+															...editForm,
+															followUpDate: e.target.value,
+														})
+													}
+												/>
+											</div>
+										</div>
+
+										<div className="space-y-2">
+											<Label>Job Description</Label>
+											<Textarea
+												value={editForm.jobDescription}
 												onChange={(e) =>
-													setJobForm({
-														...jobForm,
-														recruiter: {
-															...jobForm.recruiter,
-															linkedin: e.target.value,
-														},
+													setEditForm({
+														...editForm,
+														jobDescription: e.target.value,
 													})
 												}
+												rows={6}
+												placeholder="Paste the job description here..."
 											/>
 										</div>
-									</div>
-									<Textarea
-										className="mt-3"
-										rows={2}
-										placeholder="Recruiter notes, call outcomes, preferences..."
-										value={jobForm.recruiter.notes || ""}
-										onChange={(e) =>
-											setJobForm({
-												...jobForm,
-												recruiter: {
-													...jobForm.recruiter,
-													notes: e.target.value,
-												},
-											})
-										}
-									/>
-								</div>
 
-								<div className="rounded-lg border p-4">
-									<div className="mb-3 flex items-center justify-between">
-										<div className="flex items-center gap-2">
-											<ListChecks className="h-4 w-4 text-primary" />
-											<p className="text-sm font-medium">Extra fields</p>
-										</div>
-										<Button
-											type="button"
-											size="sm"
-											variant="outline"
-											onClick={() =>
-												setJobForm({
-													...jobForm,
-													extraFields: [
-														...jobForm.extraFields,
-														{ key: "", value: "" },
-													],
-												})
-											}
-										>
-											<Plus className="mr-1 h-4 w-4" /> Add field
-										</Button>
-									</div>
-									{jobForm.extraFields.length > 0 ? (
 										<div className="space-y-2">
-											{jobForm.extraFields.map((field, index) => (
-												<div
-													key={`${field.key}-${index}`}
-													className="grid gap-2 md:grid-cols-2"
+											<Label>Notes</Label>
+											<Textarea
+												value={editForm.notes}
+												onChange={(e) =>
+													setEditForm({ ...editForm, notes: e.target.value })
+												}
+												rows={3}
+												placeholder="Interview notes, contacts, timeline..."
+											/>
+										</div>
+									</>
+								) : (
+									<>
+										<div className="grid gap-4 md:grid-cols-2">
+											<div>
+												<p className="text-sm text-muted-foreground">Company</p>
+												<p className="font-medium">{company.name}</p>
+											</div>
+											<div>
+												<p className="text-sm text-muted-foreground">Status</p>
+												<span
+													className={cn(
+														"inline-block rounded-full px-2 py-0.5 text-sm font-medium capitalize",
+														getStatusColor(company.status)
+													)}
 												>
-													<Input
-														placeholder="Key (Referral, Salary, Notice period...)"
-														value={field.key}
-														onChange={(e) => {
-															const next = [...jobForm.extraFields];
-															next[index] = { ...field, key: e.target.value };
-															setJobForm({ ...jobForm, extraFields: next });
-														}}
-													/>
-													<Input
-														placeholder="Value"
-														value={field.value}
-														onChange={(e) => {
-															const next = [...jobForm.extraFields];
-															next[index] = { ...field, value: e.target.value };
-															setJobForm({ ...jobForm, extraFields: next });
-														}}
-													/>
-												</div>
-											))}
+													{company.status}
+												</span>
+											</div>
 										</div>
-									) : (
-										<p className="text-sm text-muted-foreground">
-											No custom fields yet. Add referral, salary, notice period,
-											or any special constraints.
-										</p>
-									)}
-								</div>
 
-								<div className="flex flex-wrap justify-end gap-2">
-									<Button
-										variant="outline"
-										onClick={() => router.push("/companies")}
-										type="button"
-									>
-										Back
-									</Button>
-									<Button onClick={handleSaveJob} disabled={savingJob}>
-										{savingJob ? (
-											<>
-												<Save className="mr-2 h-4 w-4 animate-spin" />
-												Saving...
-											</>
-										) : (
-											<>
-												<Save className="mr-2 h-4 w-4" />
-												Save description
-											</>
-										)}
-									</Button>
-								</div>
-							</CardContent>
-						</Card>
-
-						<Card className="border-border/50 bg-card/80 backdrop-blur">
-							<CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-								<div>
-									<CardTitle className="flex items-center gap-2">
-										<Sparkles className="h-5 w-5 text-primary" />
-										ATS Keywords
-									</CardTitle>
-									<CardDescription>
-										Extracted from the saved job description.
-									</CardDescription>
-								</div>
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() =>
-										setJobForm({
-											...jobForm,
-											jobDescription: jobForm.jobDescription,
-										})
-									}
-								>
-									Refresh extraction
-								</Button>
-							</CardHeader>
-							<CardContent className="grid gap-3 md:grid-cols-2">
-								{(
-									["skills", "tools", "responsibilities", "domains"] as const
-								).map((key) => (
-									<div key={key} className="rounded-lg border p-3">
-										<p className="text-xs uppercase text-muted-foreground">
-											{key}
-										</p>
-										<div className="mt-2 flex flex-wrap gap-2">
-											{keywords[key].length > 0 ? (
-												keywords[key].map((item) => (
-													<span
-														key={item}
-														className="rounded-full bg-secondary px-2 py-1 text-xs"
-													>
-														{item}
-													</span>
-												))
-											) : (
-												<p className="text-xs text-muted-foreground">
-													No {key} detected yet.
-												</p>
-											)}
-										</div>
-									</div>
-								))}
-							</CardContent>
-						</Card>
-
-						<Card className="border-border/50 bg-card/80 backdrop-blur">
-							<CardHeader>
-								<CardTitle className="flex items-center gap-2">
-									<Layers className="h-5 w-5" />
-									JSON Resume Template
-								</CardTitle>
-								<CardDescription>
-									Choose the JSON Resume layout before generating drafts.
-								</CardDescription>
-							</CardHeader>
-							<CardContent className="grid gap-3 md:grid-cols-3">
-								{templateOptions.map((template) => {
-									const isActive = jobForm.selectedTemplateId === template.id;
-									return (
-										<button
-											type="button"
-											key={template.id}
-											onClick={() =>
-												setJobForm({
-													...jobForm,
-													selectedTemplateId: template.id,
-												})
-											}
-											className={cn(
-												"flex h-full flex-col rounded-lg border p-3 text-left transition-colors",
-												isActive
-													? "border-primary bg-primary/5 shadow-sm"
-													: "border-border hover:border-primary/50"
-											)}
-										>
-											<div className="flex items-center justify-between">
-												<p className="font-semibold">{template.name}</p>
-												{isActive ? (
-													<CheckCircle2 className="h-4 w-4 text-primary" />
-												) : (
-													<XCircle className="h-4 w-4 text-muted-foreground" />
+										{(company.job_title || company.job_url) && (
+											<div className="grid gap-4 md:grid-cols-2">
+												{company.job_title && (
+													<div>
+														<p className="text-sm text-muted-foreground">
+															Job Title
+														</p>
+														<p className="font-medium">{company.job_title}</p>
+													</div>
+												)}
+												{company.job_url && (
+													<div>
+														<p className="text-sm text-muted-foreground">
+															Job URL
+														</p>
+														<a
+															href={company.job_url}
+															target="_blank"
+															rel="noopener noreferrer"
+															className="flex items-center gap-1 font-medium text-primary hover:underline"
+														>
+															View Posting
+															<ExternalLink className="h-3 w-3" />
+														</a>
+													</div>
 												)}
 											</div>
-											<p className="text-xs text-muted-foreground">
-												{template.style} - {template.locale}
-											</p>
-											<p className="mt-2 text-sm">{template.preview}</p>
-											<ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-												{template.emphasis.map((item) => (
-													<li key={item}>- {item}</li>
-												))}
-											</ul>
-										</button>
-									);
-								})}
+										)}
+
+										{(company.salary_range || company.recruiter_name) && (
+											<div className="grid gap-4 md:grid-cols-2">
+												{company.salary_range && (
+													<div>
+														<p className="text-sm text-muted-foreground">
+															Salary Range
+														</p>
+														<p className="font-medium">
+															{company.salary_range}
+														</p>
+													</div>
+												)}
+												{company.recruiter_name && (
+													<div>
+														<p className="text-sm text-muted-foreground">
+															Recruiter
+														</p>
+														<p className="font-medium">
+															{company.recruiter_name}
+														</p>
+													</div>
+												)}
+											</div>
+										)}
+
+										{(company.applied_at || company.follow_up_date) && (
+											<div className="grid gap-4 md:grid-cols-2">
+												{company.applied_at && (
+													<div>
+														<p className="text-sm text-muted-foreground">
+															Applied Date
+														</p>
+														<p className="font-medium">
+															{formatDate(company.applied_at)}
+														</p>
+													</div>
+												)}
+												{company.follow_up_date && (
+													<div>
+														<p className="text-sm text-muted-foreground">
+															Follow-up Date
+														</p>
+														<p className="flex items-center gap-1 font-medium">
+															<Clock className="h-4 w-4 text-primary" />
+															{formatDate(company.follow_up_date)}
+														</p>
+													</div>
+												)}
+											</div>
+										)}
+
+										{company.job_description && (
+											<div>
+												<p className="mb-2 text-sm text-muted-foreground">
+													Job Description
+												</p>
+												<div className="max-h-48 overflow-y-auto rounded-lg border bg-muted/50 p-3 text-sm">
+													<pre className="whitespace-pre-wrap font-sans">
+														{company.job_description}
+													</pre>
+												</div>
+											</div>
+										)}
+
+										{company.notes && (
+											<div>
+												<p className="mb-2 text-sm text-muted-foreground">
+													Notes
+												</p>
+												<div className="rounded-lg border bg-muted/50 p-3 text-sm">
+													{company.notes}
+												</div>
+											</div>
+										)}
+									</>
+								)}
 							</CardContent>
 						</Card>
 
-						<Card className="border-border/50 bg-card/80 backdrop-blur">
-							<CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-								<div>
+						{/* Resume */}
+						{company.resumes.length > 0 && (
+							<Card className="border-border/50 bg-card/80 backdrop-blur">
+								<CardHeader>
 									<CardTitle className="flex items-center gap-2">
-										<Wand2 className="h-5 w-5" />
-										Review & Generate
+										<FileText className="h-5 w-5" />
+										Resume ({company.resumes.length})
 									</CardTitle>
 									<CardDescription>
-										Base generation on your profile, JD keywords, and chosen
-										template.
+										Resume generated for this application
 									</CardDescription>
-								</div>
-								<div className="flex flex-wrap gap-2">
-									<Button
-										variant="outline"
-										size="sm"
-										onClick={handleGenerateDrafts}
-										disabled={generating}
-									>
-										<Sparkles className="mr-2 h-4 w-4" />
-										{generating ? "Generating..." : "Generate drafts"}
-									</Button>
-									<Button
-										size="sm"
-										onClick={() => handleSaveVersion()}
-										disabled={savingVersion}
-									>
-										<Save className="mr-2 h-4 w-4" />
-										Save resume + cover
-									</Button>
-								</div>
-							</CardHeader>
-							<CardContent className="space-y-4">
-								<div className="rounded-lg border p-3">
-									<div className="mb-2 flex items-center justify-between">
-										<p className="text-sm font-medium">Resume draft</p>
-										<div className="flex gap-2">
-											<Button
-												variant="outline"
-												size="sm"
-												onClick={() => rewriteDraft("resume", "metrics")}
-											>
-												Add metrics
-											</Button>
-											<Button
-												variant="outline"
-												size="sm"
-												onClick={() => rewriteDraft("resume", "shorten")}
-											>
-												Shorten
-											</Button>
-										</div>
-									</div>
-									<Textarea
-										value={resumeDraft}
-										onChange={(e) => setResumeDraft(e.target.value)}
-										rows={6}
-										placeholder="Resume content will appear here..."
-									/>
-								</div>
-
-								<div className="rounded-lg border p-3">
-									<div className="mb-2 flex items-center justify-between">
-										<p className="text-sm font-medium">Cover letter draft</p>
-										<div className="flex gap-2">
-											<Button
-												variant="outline"
-												size="sm"
-												onClick={() => rewriteDraft("cover", "tone")}
-											>
-												Improve tone
-											</Button>
-											<Button
-												variant="outline"
-												size="sm"
-												onClick={() => rewriteDraft("cover", "shorten")}
-											>
-												Tighten
-											</Button>
-										</div>
-									</div>
-									<Textarea
-										value={coverLetterDraft}
-										onChange={(e) => setCoverLetterDraft(e.target.value)}
-										rows={5}
-										placeholder="Cover letter content will appear here..."
-									/>
-								</div>
-							</CardContent>
-						</Card>
-
-						<Card className="border-border/50 bg-card/80 backdrop-blur">
-							<CardHeader>
-								<CardTitle className="flex items-center gap-2">
-									<History className="h-5 w-5" />
-									Version History (Job)
-								</CardTitle>
-								<CardDescription>
-									Every resume and cover letter sits under Company {"->"} Job{" "}
-									{"->"} Documents.
-								</CardDescription>
-							</CardHeader>
-							<CardContent className="space-y-3">
-								{currentJob && currentJob.versions.length > 0 ? (
-									[...currentJob.versions]
-										.sort(
-											(a, b) =>
-												new Date(b.createdAt).getTime() -
-												new Date(a.createdAt).getTime()
-										)
-										.map((version) => (
-											<div
-												key={version.id}
-												className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-background/50 p-3"
-											>
-												<div>
-													<p className="font-medium">
-														{version.title} ({version.type})
-													</p>
-													<p className="text-xs text-muted-foreground">
-														Template: {version.templateName} - v
-														{version.version} - {version.createdAt}
-													</p>
-												</div>
-												<div className="flex gap-2">
+								</CardHeader>
+								<CardContent className="space-y-3">
+									{company.resumes.map((resume) => (
+										<div
+											key={resume.id}
+											className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-background/50 p-4"
+										>
+											<div>
+												<p className="font-medium">{resume.title}</p>
+												<p className="text-sm text-muted-foreground">
+													Template: {resume.template} • Created{" "}
+													{formatDate(resume.created_at)}
+												</p>
+											</div>
+											<div className="flex gap-2">
+												{resume.pdf_url && (
+													<>
+														<Button
+															variant="default"
+															size="sm"
+															onClick={() => {
+																setPdfViewerUrl(resume.pdf_url);
+																setPdfViewerTitle(resume.title);
+															}}
+														>
+															<Eye className="mr-1 h-4 w-4" />
+															View
+														</Button>
+														<Button variant="outline" size="sm" asChild>
+															<a href={resume.pdf_url} download>
+																<Download className="mr-1 h-4 w-4" />
+																PDF
+															</a>
+														</Button>
+													</>
+												)}
+												{resume.docx_url && (
 													<Button variant="outline" size="sm" asChild>
-														<a href={`/${version.paths.pdf}`} download>
-															PDF
-														</a>
-													</Button>
-													<Button variant="outline" size="sm" asChild>
-														<a href={`/${version.paths.docx}`} download>
+														<a href={resume.docx_url} download>
+															<Download className="mr-1 h-4 w-4" />
 															DOCX
 														</a>
 													</Button>
-												</div>
+												)}
+												{!resume.pdf_url && !resume.docx_url && (
+													<span className="text-sm text-muted-foreground">
+														PDF not available
+													</span>
+												)}
 											</div>
-										))
-								) : (
-									<p className="text-sm text-muted-foreground">
-										No versions yet. Generate drafts and save a version to start
-										tracking.
-									</p>
-								)}
-							</CardContent>
-						</Card>
-					</div>
+										</div>
+									))}
+								</CardContent>
+							</Card>
+						)}
 
-					<div className="space-y-6">
-						<Card className="border-border/50 bg-card/80 backdrop-blur">
-							<CardHeader className="flex flex-row items-center justify-between">
-								<div>
-									<CardTitle className="flex items-center gap-2 text-lg">
-										<ClipboardList className="h-5 w-5" />
-										Jobs in this company
+						{/* Cover Letter */}
+						{company.cover_letters.length > 0 && (
+							<Card className="border-border/50 bg-card/80 backdrop-blur">
+								<CardHeader>
+									<CardTitle className="flex items-center gap-2">
+										<Mail className="h-5 w-5" />
+										Cover Letter ({company.cover_letters.length})
 									</CardTitle>
 									<CardDescription>
-										Switch jobs to keep outputs scoped correctly.
+										Cover letter generated for this application
 									</CardDescription>
-								</div>
-								<Button size="sm" variant="outline" onClick={handleAddJob}>
-									<Plus className="mr-1 h-4 w-4" /> Job
-								</Button>
-							</CardHeader>
-							<CardContent className="space-y-2">
-								{company.jobs.length > 0 ? (
-									company.jobs.map((job) => {
-										const resumeCount = job.versions.filter(
-											(v) => v.type === "resume"
-										).length;
-										const coverCount = job.versions.filter(
-											(v) => v.type === "cover_letter"
-										).length;
-										const isActive = job.id === selectedJobId;
-										return (
-											<button
-												key={job.id}
-												onClick={() => setSelectedJobId(job.id)}
-												className={cn(
-													"w-full rounded-lg border px-3 py-2 text-left transition-colors",
-													isActive
-														? "border-primary bg-primary/5"
-														: "border-border hover:border-primary/50"
-												)}
-											>
-												<div className="flex items-center justify-between">
-													<div>
-														<p className="font-medium">{job.title}</p>
-														<p className="text-xs text-muted-foreground">
-															{resumeCount} resume(s) - {coverCount} cover
-															letter(s)
-														</p>
-													</div>
-													{isActive && (
-														<span className="rounded-full bg-primary/10 px-2 py-1 text-xs text-primary">
-															Active
-														</span>
-													)}
-												</div>
-											</button>
-										);
-									})
-								) : (
-									<p className="text-sm text-muted-foreground">
-										No jobs yet. Add one to start organizing documents.
-									</p>
-								)}
-							</CardContent>
-						</Card>
-
-						<Card className="border-border/50 bg-card/80 backdrop-blur">
-							<CardHeader>
-								<CardTitle className="flex items-center gap-2 text-lg">
-									<FileText className="h-5 w-5" />
-									Documents by job
-								</CardTitle>
-								<CardDescription>
-									All resumes and cover letters stay under this company.
-								</CardDescription>
-							</CardHeader>
-							<CardContent className="space-y-4">
-								{documentsByJob.length > 0 ? (
-									documentsByJob.map(({ job, documents }) => (
+								</CardHeader>
+								<CardContent className="space-y-3">
+									{company.cover_letters.map((letter) => (
 										<div
-											key={job.id}
-											className="space-y-2 rounded-lg border p-3"
+											key={letter.id}
+											className="rounded-lg border bg-background/50 p-4"
 										>
-											<div className="flex items-center justify-between">
+											<div className="mb-3 flex flex-wrap items-center justify-between gap-3">
 												<div>
-													<p className="font-semibold">{job.title}</p>
-													<p className="text-xs text-muted-foreground">
-														Template:{" "}
-														{
-															(
-																templateOptions.find(
-																	(t) => t.id === job.selectedTemplateId
-																) || templateOptions[0]
-															).name
-														}
+													<p className="font-medium">{letter.title}</p>
+													<p className="text-sm text-muted-foreground">
+														Created {formatDate(letter.created_at)}
 													</p>
 												</div>
-												<span className="rounded-full bg-secondary px-2 py-1 text-xs">
-													{documents.length} version(s)
-												</span>
+												<div className="flex gap-2">
+													{letter.pdf_url && (
+														<>
+															<Button
+																variant="default"
+																size="sm"
+																onClick={() => {
+																	setPdfViewerUrl(letter.pdf_url);
+																	setPdfViewerTitle(letter.title);
+																}}
+															>
+																<Eye className="mr-1 h-4 w-4" />
+																View
+															</Button>
+															<Button variant="outline" size="sm" asChild>
+																<a href={letter.pdf_url} download>
+																	<Download className="mr-1 h-4 w-4" />
+																	PDF
+																</a>
+															</Button>
+														</>
+													)}
+													{letter.docx_url && (
+														<Button variant="outline" size="sm" asChild>
+															<a href={letter.docx_url} download>
+																<Download className="mr-1 h-4 w-4" />
+																DOCX
+															</a>
+														</Button>
+													)}
+												</div>
 											</div>
-											{documents.length > 0 ? (
-												documents.map((doc) => (
-													<div
-														key={doc.id}
-														className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-background/70 p-2"
-													>
-														<div>
-															<p className="text-sm font-medium">
-																{doc.title} ({doc.type})
-															</p>
-															<p className="text-xs text-muted-foreground">
-																Template {doc.templateName} - v{doc.version} -{" "}
-																{doc.createdAt}
-															</p>
-															<p className="text-[11px] text-muted-foreground">
-																PDF: {doc.paths.pdf}
-															</p>
-														</div>
-														<div className="flex gap-2">
-															<Button size="sm" variant="outline" asChild>
-																<a href={`/${doc.paths.pdf}`} download>
-																	Download PDF
-																</a>
-															</Button>
-															<Button size="sm" variant="outline" asChild>
-																<a href={`/${doc.paths.docx}`} download>
-																	DOCX
-																</a>
-															</Button>
-														</div>
-													</div>
-												))
-											) : (
-												<p className="text-sm text-muted-foreground">
-													No documents yet for this job.
-												</p>
+											{letter.content && !letter.pdf_url && (
+												<div className="max-h-48 overflow-y-auto rounded-lg border bg-muted/50 p-3 text-sm">
+													<pre className="whitespace-pre-wrap font-sans">
+														{letter.content}
+													</pre>
+												</div>
 											)}
 										</div>
-									))
-								) : (
-									<p className="text-sm text-muted-foreground">
-										Nothing generated yet. Save a job description, generate
-										drafts, and save a version to see documents grouped here.
-									</p>
+									))}
+								</CardContent>
+							</Card>
+						)}
+					</div>
+
+					{/* Sidebar */}
+					<div className="space-y-6">
+						{/* Quick Stats */}
+						<Card className="border-border/50 bg-card/80 backdrop-blur">
+							<CardHeader>
+								<CardTitle className="text-lg">Quick Stats</CardTitle>
+							</CardHeader>
+							<CardContent className="space-y-3">
+								<div className="flex items-center justify-between rounded-lg border p-3">
+									<div className="flex items-center gap-2">
+										<FileText className="h-4 w-4 text-primary" />
+										<span className="text-sm">Resumes</span>
+									</div>
+									<span className="font-semibold">
+										{company.resumes.length}
+									</span>
+								</div>
+								<div className="flex items-center justify-between rounded-lg border p-3">
+									<div className="flex items-center gap-2">
+										<Mail className="h-4 w-4 text-primary" />
+										<span className="text-sm">Cover Letters</span>
+									</div>
+									<span className="font-semibold">
+										{company.cover_letters.length}
+									</span>
+								</div>
+								<div className="flex items-center justify-between rounded-lg border p-3">
+									<div className="flex items-center gap-2">
+										<Calendar className="h-4 w-4 text-primary" />
+										<span className="text-sm">Created</span>
+									</div>
+									<span className="text-sm">
+										{formatDate(company.created_at)}
+									</span>
+								</div>
+								<div className="flex items-center justify-between rounded-lg border p-3">
+									<div className="flex items-center gap-2">
+										<Clock className="h-4 w-4 text-primary" />
+										<span className="text-sm">Last Updated</span>
+									</div>
+									<span className="text-sm">
+										{formatDate(company.updated_at)}
+									</span>
+								</div>
+							</CardContent>
+						</Card>
+
+						{/* Quick Actions */}
+						<Card className="border-border/50 bg-card/80 backdrop-blur">
+							<CardHeader>
+								<CardTitle className="text-lg">Quick Actions</CardTitle>
+							</CardHeader>
+							<CardContent className="space-y-2">
+								<Button
+									className="w-full justify-start"
+									variant="outline"
+									asChild
+								>
+									<Link href="/generate">
+										<FileText className="mr-2 h-4 w-4" />
+										Generate New Resume
+									</Link>
+								</Button>
+								{company.job_url && (
+									<Button
+										className="w-full justify-start"
+										variant="outline"
+										asChild
+									>
+										<a
+											href={company.job_url}
+											target="_blank"
+											rel="noopener noreferrer"
+										>
+											<ExternalLink className="mr-2 h-4 w-4" />
+											View Job Posting
+										</a>
+									</Button>
 								)}
 							</CardContent>
 						</Card>
 
+						{/* Timeline */}
 						<Card className="border-border/50 bg-card/80 backdrop-blur">
 							<CardHeader>
-								<CardTitle className="flex items-center gap-2 text-lg">
-									<History className="h-5 w-5" />
-									Audit log
-								</CardTitle>
-								<CardDescription>
-									Tracks AI generations and manual edits per company.
-								</CardDescription>
+								<CardTitle className="text-lg">Timeline</CardTitle>
+								<CardDescription>Application history</CardDescription>
 							</CardHeader>
-							<CardContent className="space-y-3">
-								{company.auditLog.length > 0 ? (
-									company.auditLog.map((entry) => (
-										<div
-											key={entry.id}
-											className="rounded-lg border bg-background/50 p-3"
-										>
-											<p className="text-sm font-medium">{entry.action}</p>
+							<CardContent>
+								<div className="space-y-3">
+									<div className="flex gap-3">
+										<div className="flex flex-col items-center">
+											<div className="h-2 w-2 rounded-full bg-primary" />
+											<div className="h-full w-px bg-border" />
+										</div>
+										<div className="pb-4">
+											<p className="text-sm font-medium">Application Created</p>
 											<p className="text-xs text-muted-foreground">
-												{entry.actor} - {entry.timestamp}
+												{formatDate(company.created_at)}
 											</p>
 										</div>
-									))
-								) : (
-									<p className="text-sm text-muted-foreground">
-										No activity yet. Saving job descriptions or versions will
-										record an entry.
-									</p>
-								)}
+									</div>
+									{company.applied_at && (
+										<div className="flex gap-3">
+											<div className="flex flex-col items-center">
+												<div className="h-2 w-2 rounded-full bg-blue-500" />
+												<div className="h-full w-px bg-border" />
+											</div>
+											<div className="pb-4">
+												<p className="text-sm font-medium">Applied</p>
+												<p className="text-xs text-muted-foreground">
+													{formatDate(company.applied_at)}
+												</p>
+											</div>
+										</div>
+									)}
+									{company.follow_up_date && (
+										<div className="flex gap-3">
+											<div className="flex flex-col items-center">
+												<div className="h-2 w-2 rounded-full bg-orange-500" />
+											</div>
+											<div>
+												<p className="text-sm font-medium">
+													Follow-up Scheduled
+												</p>
+												<p className="text-xs text-muted-foreground">
+													{formatDate(company.follow_up_date)}
+												</p>
+											</div>
+										</div>
+									)}
+								</div>
 							</CardContent>
 						</Card>
 					</div>
 				</div>
 			</div>
+
+			{/* Delete Modal */}
+			<Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle className="flex items-center gap-2 text-destructive">
+							<Trash2 className="h-5 w-5" />
+							Delete Application
+						</DialogTitle>
+						<DialogDescription>
+							Are you sure you want to delete the application for{" "}
+							<strong>{company.job_title || "this position"}</strong> at{" "}
+							<strong>{company.name}</strong>? This will also delete all
+							associated resumes and cover letters. This action cannot be
+							undone.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<Button
+							variant="outline"
+							onClick={() => setShowDeleteModal(false)}
+							disabled={isDeleting}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant="destructive"
+							onClick={handleDelete}
+							disabled={isDeleting}
+						>
+							{isDeleting ? (
+								<>
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+									Deleting...
+								</>
+							) : (
+								<>
+									<Trash2 className="mr-2 h-4 w-4" />
+									Delete
+								</>
+							)}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* PDF Viewer Modal */}
+			<Dialog open={!!pdfViewerUrl} onOpenChange={() => setPdfViewerUrl(null)}>
+				<DialogContent className="max-w-4xl h-[90vh]">
+					<DialogHeader>
+						<DialogTitle className="flex items-center gap-2">
+							<FileText className="h-5 w-5" />
+							{pdfViewerTitle}
+						</DialogTitle>
+					</DialogHeader>
+					<div className="flex-1 min-h-0 h-full">
+						{pdfViewerUrl && (
+							<iframe
+								src={pdfViewerUrl}
+								className="w-full h-[calc(90vh-120px)] rounded-lg border"
+								title={pdfViewerTitle}
+							/>
+						)}
+					</div>
+					<DialogFooter>
+						<Button variant="outline" asChild>
+							<a href={pdfViewerUrl || "#"} download>
+								<Download className="mr-2 h-4 w-4" />
+								Download
+							</a>
+						</Button>
+						<Button onClick={() => setPdfViewerUrl(null)}>
+							Close
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

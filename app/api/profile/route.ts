@@ -245,8 +245,6 @@ export async function GET(req: NextRequest) {
 	if (authError || !user) {
 		return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
 	}
-	console.log("[profile/get] user:", user.id);
-	console.log("[profile/get] supabase host:", supabaseHost());
 
 	if (!serverEnv.supabaseServiceRoleKey) {
 		return NextResponse.json(
@@ -282,14 +280,6 @@ export async function GET(req: NextRequest) {
 	}
 
 	let extended: any = {};
-	console.log(
-		"[profile/get] raw extended_profile:",
-		abbreviate(
-			typeof data.extended_profile === "string"
-				? data.extended_profile
-				: JSON.stringify(data.extended_profile || "")
-		)
-	);
 	if (data.extended_profile) {
 		if (typeof data.extended_profile === "string") {
 			try {
@@ -309,11 +299,6 @@ export async function GET(req: NextRequest) {
 		extendedAvatar === null ? null : data.avatar_url ?? extendedAvatar ?? null;
 	const photoKey = useAvatar === null ? null : normalizeR2Key(useAvatar);
 	const signedPhoto = await signPhotoUrl(photoKey);
-	console.log("[profile/get] avatar column:", abbreviate(data.avatar_url));
-	console.log("[profile/get] extended avatar:", abbreviate(extendedAvatar));
-	console.log("[profile/get] chosen avatar:", abbreviate(useAvatar));
-	console.log("[profile/get] normalized key:", abbreviate(photoKey));
-	console.log("[profile/get] signed avatar:", abbreviate(signedPhoto));
 
 	const {
 		avatar_url: _avatarUrl,
@@ -383,8 +368,6 @@ export async function PATCH(req: NextRequest) {
 	if (authError || !user) {
 		return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
 	}
-	console.log("[profile/save] user:", user.id);
-	console.log("[profile/save] supabase host:", supabaseHost());
 
 	const body = await req.json().catch(() => null);
 	if (!body || typeof body !== "object") {
@@ -425,10 +408,6 @@ export async function PATCH(req: NextRequest) {
 		.maybeSingle();
 
 	const existingAvatar = normalizeR2Key(existing?.avatar_url);
-	console.log(
-		"[profile/save] existing avatar column:",
-		abbreviate(existingAvatar)
-	);
 	let existingExtended: any = {};
 	if (existing?.extended_profile) {
 		if (typeof existing.extended_profile === "string") {
@@ -537,15 +516,6 @@ export async function PATCH(req: NextRequest) {
 		}
 	}
 
-	console.log(
-		"[profile/save] incoming avatar payload:",
-		abbreviate(profile.avatar_url),
-		"normalized ->",
-		abbreviate(avatarKey),
-		"changed?",
-		avatarChanged
-	);
-
 	nextExtended.avatar_url = avatarKey ?? null;
 
 	const finalFullName =
@@ -626,15 +596,6 @@ export async function PATCH(req: NextRequest) {
 		hasChanges = true;
 	}
 
-	console.log(
-		"[profile/save] upsert payload avatar_url:",
-		abbreviate(updatePayload.avatar_url),
-		"extendedChanged?",
-		extendedChanged,
-		"avatarChanged?",
-		avatarChanged
-	);
-
 	if (!existing && !hasChanges) {
 		return NextResponse.json(
 			{ error: "Nothing to save. Provide at least one field." },
@@ -687,25 +648,6 @@ export async function PATCH(req: NextRequest) {
 	}
 
 	const signedAvatarUrl = await signPhotoUrl(data.avatar_url);
-	console.log(
-		"[profile/save] saved avatar column:",
-		abbreviate(data.avatar_url),
-		"signed:",
-		abbreviate(signedAvatarUrl)
-	);
-	try {
-		const { data: verify } = await admin
-			.from("profiles")
-			.select("avatar_url")
-			.eq("id", user.id)
-			.single();
-		console.log(
-			"[profile/save] verify read avatar column:",
-			abbreviate(verify?.avatar_url)
-		);
-	} catch (e) {
-		console.warn("[profile/save] verify read failed", e);
-	}
 
 	return NextResponse.json(
 		{

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabaseServer";
+import { generatePDFFromHTML, generateCoverLetterPDF } from "@/lib/pdfGenerator";
+import { uploadToR2, generateFileKey } from "@/lib/r2";
+import { serverEnv } from "@/lib/config";
 
 export const runtime = "nodejs";
 
@@ -140,9 +143,47 @@ export async function POST(request: NextRequest) {
 
 		let resumeRecord = null;
 		let coverLetterRecord = null;
+		let resumePdfUrl: string | null = null;
+		let coverLetterPdfUrl: string | null = null;
 
-		// Create the resume record if provided
+		// Generate Resume PDF and upload to R2 if resume is provided
 		if (resume) {
+			try {
+				// Call the render API to get HTML
+				const renderResponse = await fetch(`${serverEnv.siteUrl}/api/resume/render`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						resume,
+						templateId: templateId || "compact",
+					}),
+				});
+
+				if (renderResponse.ok) {
+					const { html } = await renderResponse.json();
+					
+					// Generate PDF from HTML
+					const pdfResult = await generatePDFFromHTML(html);
+					
+					if (pdfResult.success && pdfResult.buffer) {
+						// Upload to R2
+						const fileKey = generateFileKey(user.id, "resume", name, "pdf");
+						const uploadResult = await uploadToR2(pdfResult.buffer, fileKey, "application/pdf");
+						
+						if (uploadResult.success && uploadResult.url) {
+							resumePdfUrl = uploadResult.url;
+						} else {
+							console.error("Resume PDF upload failed:", uploadResult.error);
+						}
+					} else {
+						console.error("Resume PDF generation failed:", pdfResult.error);
+					}
+				}
+			} catch (err) {
+				console.error("Resume PDF generation/upload error:", err);
+			}
+
+			// Create the resume record
 			const { data: resumeData, error: resumeError } = await supabase
 				.from("resumes")
 				.insert({
@@ -152,6 +193,7 @@ export async function POST(request: NextRequest) {
 					content_json: resume,
 					job_description: jobDescription,
 					template: templateId || "standard",
+					pdf_url: resumePdfUrl,
 				})
 				.select()
 				.single();
@@ -163,8 +205,38 @@ export async function POST(request: NextRequest) {
 			}
 		}
 
-		// Create the cover letter record if provided
+		// Generate Cover Letter PDF and upload to R2 if provided
 		if (coverLetter) {
+			try {
+				// Get candidate name from resume basics
+				const candidateName = resume?.basics?.name || "Candidate";
+				
+				// Generate PDF from cover letter content
+				const pdfResult = await generateCoverLetterPDF(
+					coverLetter,
+					candidateName,
+					name,
+					jobTitle || "Position"
+				);
+				
+				if (pdfResult.success && pdfResult.buffer) {
+					// Upload to R2
+					const fileKey = generateFileKey(user.id, "cover-letter", name, "pdf");
+					const uploadResult = await uploadToR2(pdfResult.buffer, fileKey, "application/pdf");
+					
+					if (uploadResult.success && uploadResult.url) {
+						coverLetterPdfUrl = uploadResult.url;
+					} else {
+						console.error("Cover letter PDF upload failed:", uploadResult.error);
+					}
+				} else {
+					console.error("Cover letter PDF generation failed:", pdfResult.error);
+				}
+			} catch (err) {
+				console.error("Cover letter PDF generation/upload error:", err);
+			}
+
+			// Create the cover letter record
 			const { data: coverLetterData, error: coverLetterError } = await supabase
 				.from("cover_letters")
 				.insert({
@@ -174,6 +246,7 @@ export async function POST(request: NextRequest) {
 					title: `Cover Letter - ${jobTitle} at ${name}`,
 					content: coverLetter,
 					job_description: jobDescription,
+					pdf_url: coverLetterPdfUrl,
 				})
 				.select()
 				.single();
