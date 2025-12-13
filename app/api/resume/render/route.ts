@@ -37,7 +37,11 @@ function renderProjectsSection(
 		<div class="project">
 			<div class="project-header">
 				<span class="project-name">${project.name}</span>
-				${project.url ? `<a href="${project.url}" class="project-link">${project.url}</a>` : ""}
+				${
+					project.url
+						? `<a href="${project.url}" class="project-link">${project.url}</a>`
+						: ""
+				}
 			</div>
 			${highlights}
 		</div>`;
@@ -46,7 +50,9 @@ function renderProjectsSection(
 
 	return `
 	<div class="section">
-		<${style === "compact" ? "div" : "h3"} class="section-title">Projects</${style === "compact" ? "div" : "h3"}>
+		<${style === "compact" ? "div" : "h3"} class="section-title">Projects</${
+		style === "compact" ? "div" : "h3"
+	}>
 		${projectItems}
 	</div>`;
 }

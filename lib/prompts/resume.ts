@@ -77,12 +77,16 @@ ${section.entries
 			: "";
 
 	// Build the expected JSON output structure for custom sections
-	const customSectionNames =
-		profile.customSections?.map((s) => s.title) || [];
+	const customSectionNames = profile.customSections?.map((s) => s.title) || [];
 	const customHighlightsExample = customSectionNames.length
 		? `,
   "customSectionHighlights": {
-${customSectionNames.map((name) => `    "${name}": ["Optimized bullet 1...", "Optimized bullet 2..."]`).join(",\n")}
+${customSectionNames
+	.map(
+		(name) =>
+			`    "${name}": ["Optimized bullet 1...", "Optimized bullet 2..."]`
+	)
+	.join(",\n")}
   }`
 		: "";
 
@@ -146,7 +150,13 @@ Rules:
 4. Order skills by relevance to the job requirements
 5. Keep bullets concise (under 15 words each)
 6. ONLY include information that exists in the original profile - never fabricate
-${customSectionNames.length ? `7. For custom sections like ${customSectionNames.join(", ")}, rewrite entries to highlight relevance to the job` : ""}
+${
+	customSectionNames.length
+		? `7. For custom sections like ${customSectionNames.join(
+				", "
+		  )}, rewrite entries to highlight relevance to the job`
+		: ""
+}
 
 Return ONLY the JSON object, no markdown code blocks.`;
 }

@@ -177,25 +177,31 @@ export default function GeneratePage() {
 	const [editedLabel, setEditedLabel] = useState("");
 	const [editedSummary, setEditedSummary] = useState("");
 	const [editedSkills, setEditedSkills] = useState<string[]>([]);
-	const [editedExperience, setEditedExperience] = useState<Array<{
-		company: string;
-		title: string;
-		startDate: string;
-		endDate?: string;
-		highlights: string[];
-	}>>([]);
-	const [editedEducation, setEditedEducation] = useState<Array<{
-		institution: string;
-		degree: string;
-		field: string;
-		endDate?: string;
-	}>>([]);
-	const [editedProjects, setEditedProjects] = useState<Array<{
-		name: string;
-		description: string;
-		highlights: string[];
-	}>>([]);
-	
+	const [editedExperience, setEditedExperience] = useState<
+		Array<{
+			company: string;
+			title: string;
+			startDate: string;
+			endDate?: string;
+			highlights: string[];
+		}>
+	>([]);
+	const [editedEducation, setEditedEducation] = useState<
+		Array<{
+			institution: string;
+			degree: string;
+			field: string;
+			endDate?: string;
+		}>
+	>([]);
+	const [editedProjects, setEditedProjects] = useState<
+		Array<{
+			name: string;
+			description: string;
+			highlights: string[];
+		}>
+	>([]);
+
 	// Editable content state - Cover Letter
 	const [editedCoverLetter, setEditedCoverLetter] = useState("");
 
@@ -232,37 +238,46 @@ export default function GeneratePage() {
 			}
 
 			setGeneratedContent(data);
-			
+
 			// Initialize editable resume content with generated/profile values
 			setEditedLabel(data.resume?.label || "");
 			setEditedSummary(data.resume?.summary || "");
 			setEditedSkills(data.resume?.skillsOrdered || data.profile?.skills || []);
-			
+
 			// Initialize experience with AI-optimized highlights
-			const experienceWithHighlights = (data.profile?.experience || []).map((exp: any) => ({
-				...exp,
-				highlights: data.resume?.workHighlights?.[exp.company] || exp.highlights || [],
-			}));
+			const experienceWithHighlights = (data.profile?.experience || []).map(
+				(exp: any) => ({
+					...exp,
+					highlights:
+						data.resume?.workHighlights?.[exp.company] || exp.highlights || [],
+				})
+			);
 			setEditedExperience(experienceWithHighlights);
-			
+
 			setEditedEducation(data.profile?.education || []);
-			
+
 			// Initialize projects from custom sections
-			const projectsFromSections = (data.profile?.customSections || []).flatMap((section: any) => {
-				const optimizedHighlights = data.resume?.customSectionHighlights?.[section.title] || [];
-				return section.entries.map((entry: any, index: number) => ({
-					name: entry.title,
-					description: entry.description || "",
-					highlights: optimizedHighlights.length > index 
-						? [optimizedHighlights[index]] 
-						: entry.description ? [entry.description] : [],
-				}));
-			});
+			const projectsFromSections = (data.profile?.customSections || []).flatMap(
+				(section: any) => {
+					const optimizedHighlights =
+						data.resume?.customSectionHighlights?.[section.title] || [];
+					return section.entries.map((entry: any, index: number) => ({
+						name: entry.title,
+						description: entry.description || "",
+						highlights:
+							optimizedHighlights.length > index
+								? [optimizedHighlights[index]]
+								: entry.description
+								? [entry.description]
+								: [],
+					}));
+				}
+			);
 			setEditedProjects(projectsFromSections);
-			
+
 			// Initialize cover letter
 			setEditedCoverLetter(data.coverLetter || "");
-			
+
 			setStep("preview");
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Something went wrong");
@@ -319,16 +334,28 @@ export default function GeneratePage() {
 			skills: groupSkillsFromArray(editedSkills),
 			projects: projects.length > 0 ? projects : undefined,
 		};
-	}, [generatedContent, editedLabel, editedSummary, editedSkills, editedExperience, editedEducation, editedProjects]);
+	}, [
+		generatedContent,
+		editedLabel,
+		editedSummary,
+		editedSkills,
+		editedExperience,
+		editedEducation,
+		editedProjects,
+	]);
 
 	const handleCopy = (type: "resume" | "cover") => {
 		if (!generatedContent) return;
 
 		if (type === "cover") {
-			navigator.clipboard.writeText(editedCoverLetter || generatedContent.coverLetter);
+			navigator.clipboard.writeText(
+				editedCoverLetter || generatedContent.coverLetter
+			);
 		} else {
 			// Copy resume as text summary
-			const text = `${generatedContent.profile.name}\n${generatedContent.resume.label}\n\n${editedSummary || generatedContent.resume.summary}`;
+			const text = `${generatedContent.profile.name}\n${
+				generatedContent.resume.label
+			}\n\n${editedSummary || generatedContent.resume.summary}`;
 			navigator.clipboard.writeText(text);
 		}
 
@@ -674,7 +701,9 @@ export default function GeneratePage() {
 
 										{/* Professional Label */}
 										<div className="mb-4">
-											<Label className="text-xs text-muted-foreground uppercase tracking-wide">Title/Label</Label>
+											<Label className="text-xs text-muted-foreground uppercase tracking-wide">
+												Title/Label
+											</Label>
 											<Input
 												value={editedLabel}
 												onChange={(e) => setEditedLabel(e.target.value)}
@@ -684,7 +713,9 @@ export default function GeneratePage() {
 
 										{/* Professional Summary */}
 										<div className="mb-4">
-											<Label className="text-xs text-muted-foreground uppercase tracking-wide">Professional Summary</Label>
+											<Label className="text-xs text-muted-foreground uppercase tracking-wide">
+												Professional Summary
+											</Label>
 											<Textarea
 												value={editedSummary}
 												onChange={(e) => setEditedSummary(e.target.value)}
@@ -694,10 +725,19 @@ export default function GeneratePage() {
 
 										{/* Skills */}
 										<div className="mb-4">
-											<Label className="text-xs text-muted-foreground uppercase tracking-wide">Skills (comma-separated)</Label>
+											<Label className="text-xs text-muted-foreground uppercase tracking-wide">
+												Skills (comma-separated)
+											</Label>
 											<Textarea
 												value={editedSkills.join(", ")}
-												onChange={(e) => setEditedSkills(e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
+												onChange={(e) =>
+													setEditedSkills(
+														e.target.value
+															.split(",")
+															.map((s) => s.trim())
+															.filter(Boolean)
+													)
+												}
 												className="mt-1 min-h-[60px]"
 												placeholder="React.js, TypeScript, Node.js..."
 											/>
@@ -716,17 +756,24 @@ export default function GeneratePage() {
 													</span>
 												))}
 												{editedSkills.length > 10 && (
-													<span className="text-xs text-muted-foreground">+{editedSkills.length - 10} more</span>
+													<span className="text-xs text-muted-foreground">
+														+{editedSkills.length - 10} more
+													</span>
 												)}
 											</div>
 										</div>
 
 										{/* Work Experience */}
 										<div className="mb-4">
-											<Label className="text-xs text-muted-foreground uppercase tracking-wide mb-2 block">Work Experience</Label>
+											<Label className="text-xs text-muted-foreground uppercase tracking-wide mb-2 block">
+												Work Experience
+											</Label>
 											<div className="space-y-4">
 												{editedExperience.map((exp, expIndex) => (
-													<div key={expIndex} className="rounded border bg-muted/30 p-4">
+													<div
+														key={expIndex}
+														className="rounded border bg-muted/30 p-4"
+													>
 														<div className="grid grid-cols-2 gap-3 mb-3">
 															<div>
 																<Label className="text-xs">Company</Label>
@@ -734,7 +781,10 @@ export default function GeneratePage() {
 																	value={exp.company}
 																	onChange={(e) => {
 																		const updated = [...editedExperience];
-																		updated[expIndex] = { ...exp, company: e.target.value };
+																		updated[expIndex] = {
+																			...exp,
+																			company: e.target.value,
+																		};
 																		setEditedExperience(updated);
 																	}}
 																	className="mt-1"
@@ -746,7 +796,10 @@ export default function GeneratePage() {
 																	value={exp.title}
 																	onChange={(e) => {
 																		const updated = [...editedExperience];
-																		updated[expIndex] = { ...exp, title: e.target.value };
+																		updated[expIndex] = {
+																			...exp,
+																			title: e.target.value,
+																		};
 																		setEditedExperience(updated);
 																	}}
 																	className="mt-1"
@@ -760,7 +813,10 @@ export default function GeneratePage() {
 																	value={exp.startDate}
 																	onChange={(e) => {
 																		const updated = [...editedExperience];
-																		updated[expIndex] = { ...exp, startDate: e.target.value };
+																		updated[expIndex] = {
+																			...exp,
+																			startDate: e.target.value,
+																		};
 																		setEditedExperience(updated);
 																	}}
 																	className="mt-1"
@@ -773,7 +829,10 @@ export default function GeneratePage() {
 																	value={exp.endDate || ""}
 																	onChange={(e) => {
 																		const updated = [...editedExperience];
-																		updated[expIndex] = { ...exp, endDate: e.target.value || undefined };
+																		updated[expIndex] = {
+																			...exp,
+																			endDate: e.target.value || undefined,
+																		};
 																		setEditedExperience(updated);
 																	}}
 																	className="mt-1"
@@ -782,14 +841,18 @@ export default function GeneratePage() {
 															</div>
 														</div>
 														<div>
-															<Label className="text-xs">Highlights (one per line)</Label>
+															<Label className="text-xs">
+																Highlights (one per line)
+															</Label>
 															<Textarea
 																value={exp.highlights.join("\n")}
 																onChange={(e) => {
 																	const updated = [...editedExperience];
-																	updated[expIndex] = { 
-																		...exp, 
-																		highlights: e.target.value.split("\n").filter(Boolean)
+																	updated[expIndex] = {
+																		...exp,
+																		highlights: e.target.value
+																			.split("\n")
+																			.filter(Boolean),
 																	};
 																	setEditedExperience(updated);
 																}}
@@ -804,10 +867,15 @@ export default function GeneratePage() {
 
 										{/* Education */}
 										<div className="mb-4">
-											<Label className="text-xs text-muted-foreground uppercase tracking-wide mb-2 block">Education</Label>
+											<Label className="text-xs text-muted-foreground uppercase tracking-wide mb-2 block">
+												Education
+											</Label>
 											<div className="space-y-4">
 												{editedEducation.map((edu, eduIndex) => (
-													<div key={eduIndex} className="rounded border bg-muted/30 p-4">
+													<div
+														key={eduIndex}
+														className="rounded border bg-muted/30 p-4"
+													>
 														<div className="grid grid-cols-2 gap-3 mb-3">
 															<div>
 																<Label className="text-xs">Institution</Label>
@@ -815,7 +883,10 @@ export default function GeneratePage() {
 																	value={edu.institution}
 																	onChange={(e) => {
 																		const updated = [...editedEducation];
-																		updated[eduIndex] = { ...edu, institution: e.target.value };
+																		updated[eduIndex] = {
+																			...edu,
+																			institution: e.target.value,
+																		};
 																		setEditedEducation(updated);
 																	}}
 																	className="mt-1"
@@ -827,7 +898,10 @@ export default function GeneratePage() {
 																	value={edu.degree}
 																	onChange={(e) => {
 																		const updated = [...editedEducation];
-																		updated[eduIndex] = { ...edu, degree: e.target.value };
+																		updated[eduIndex] = {
+																			...edu,
+																			degree: e.target.value,
+																		};
 																		setEditedEducation(updated);
 																	}}
 																	className="mt-1"
@@ -836,24 +910,34 @@ export default function GeneratePage() {
 														</div>
 														<div className="grid grid-cols-2 gap-3">
 															<div>
-																<Label className="text-xs">Field of Study</Label>
+																<Label className="text-xs">
+																	Field of Study
+																</Label>
 																<Input
 																	value={edu.field}
 																	onChange={(e) => {
 																		const updated = [...editedEducation];
-																		updated[eduIndex] = { ...edu, field: e.target.value };
+																		updated[eduIndex] = {
+																			...edu,
+																			field: e.target.value,
+																		};
 																		setEditedEducation(updated);
 																	}}
 																	className="mt-1"
 																/>
 															</div>
 															<div>
-																<Label className="text-xs">Graduation Date</Label>
+																<Label className="text-xs">
+																	Graduation Date
+																</Label>
 																<Input
 																	value={edu.endDate || ""}
 																	onChange={(e) => {
 																		const updated = [...editedEducation];
-																		updated[eduIndex] = { ...edu, endDate: e.target.value || undefined };
+																		updated[eduIndex] = {
+																			...edu,
+																			endDate: e.target.value || undefined,
+																		};
 																		setEditedEducation(updated);
 																	}}
 																	className="mt-1"
@@ -869,17 +953,25 @@ export default function GeneratePage() {
 										{/* Projects */}
 										{editedProjects.length > 0 && (
 											<div className="mb-4">
-												<Label className="text-xs text-muted-foreground uppercase tracking-wide mb-2 block">Projects</Label>
+												<Label className="text-xs text-muted-foreground uppercase tracking-wide mb-2 block">
+													Projects
+												</Label>
 												<div className="space-y-4">
 													{editedProjects.map((proj, projIndex) => (
-														<div key={projIndex} className="rounded border bg-muted/30 p-4">
+														<div
+															key={projIndex}
+															className="rounded border bg-muted/30 p-4"
+														>
 															<div className="mb-3">
 																<Label className="text-xs">Project Name</Label>
 																<Input
 																	value={proj.name}
 																	onChange={(e) => {
 																		const updated = [...editedProjects];
-																		updated[projIndex] = { ...proj, name: e.target.value };
+																		updated[projIndex] = {
+																			...proj,
+																			name: e.target.value,
+																		};
 																		setEditedProjects(updated);
 																	}}
 																	className="mt-1"
@@ -891,21 +983,28 @@ export default function GeneratePage() {
 																	value={proj.description}
 																	onChange={(e) => {
 																		const updated = [...editedProjects];
-																		updated[projIndex] = { ...proj, description: e.target.value };
+																		updated[projIndex] = {
+																			...proj,
+																			description: e.target.value,
+																		};
 																		setEditedProjects(updated);
 																	}}
 																	className="mt-1"
 																/>
 															</div>
 															<div>
-																<Label className="text-xs">Highlights (one per line)</Label>
+																<Label className="text-xs">
+																	Highlights (one per line)
+																</Label>
 																<Textarea
 																	value={proj.highlights.join("\n")}
 																	onChange={(e) => {
 																		const updated = [...editedProjects];
-																		updated[projIndex] = { 
-																			...proj, 
-																			highlights: e.target.value.split("\n").filter(Boolean)
+																		updated[projIndex] = {
+																			...proj,
+																			highlights: e.target.value
+																				.split("\n")
+																				.filter(Boolean),
 																		};
 																		setEditedProjects(updated);
 																	}}
