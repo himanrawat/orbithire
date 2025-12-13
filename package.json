@@ -5,8 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postbuild": "npx ts-node --project tsconfig.scripts.json scripts/generate-thumbnails.ts",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "generate-thumbnails": "npx ts-node --project tsconfig.scripts.json scripts/generate-thumbnails.ts",
+    "generate-thumbnails:force": "npx ts-node --project tsconfig.scripts.json scripts/generate-thumbnails.ts --force"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.946.0",
@@ -38,10 +41,12 @@
     "@types/react": "18.2.14",
     "@types/react-dom": "18.2.7",
     "autoprefixer": "^10.4.22",
+    "dotenv": "^17.2.3",
     "eslint": "8.56.0",
     "eslint-config-next": "14.2.3",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.18",
+    "ts-node": "^10.9.2",
     "typescript": "5.4.5"
   }
 }

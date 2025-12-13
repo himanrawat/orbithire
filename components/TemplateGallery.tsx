@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { CheckCircle2, Eye, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ResumeTemplate } from "@/components/ResumePreview";
-import { sampleResume } from "@/lib/sampleResume";
 
 export interface TemplateGalleryProps {
 	readonly templates: ResumeTemplate[];
@@ -21,48 +21,18 @@ export function TemplateGallery({
 	onPreview,
 }: TemplateGalleryProps) {
 	const [hoveredId, setHoveredId] = useState<string | null>(null);
-	const [previewHtmlMap, setPreviewHtmlMap] = useState<Record<string, string>>(
-		{}
-	);
-	const [loadingTemplates, setLoadingTemplates] = useState<Set<string>>(
-		new Set()
-	);
+	const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
+	const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
-	// Fetch actual template previews from API on mount
-	useEffect(() => {
-		async function fetchPreviews() {
-			const newLoadingSet = new Set(templates.map((t) => t.id));
-			setLoadingTemplates(newLoadingSet);
+	const handleImageLoad = (templateId: string) => {
+		setLoadedImages((prev) => new Set(prev).add(templateId));
+	};
 
-			const results: Record<string, string> = {};
-
-			await Promise.all(
-				templates.map(async (template) => {
-					try {
-						const response = await fetch("/api/resume/render", {
-							method: "POST",
-							headers: { "Content-Type": "application/json" },
-							body: JSON.stringify({
-								resume: sampleResume,
-								templateId: template.id,
-							}),
-						});
-						const data = await response.json();
-						if (data.html) {
-							results[template.id] = data.html;
-						}
-					} catch (error) {
-						console.error(`Failed to load preview for ${template.id}:`, error);
-					}
-				})
-			);
-
-			setPreviewHtmlMap(results);
-			setLoadingTemplates(new Set());
-		}
-
-		fetchPreviews();
-	}, [templates]);
+	const handleImageError = (templateId: string) => {
+		setFailedImages((prev) => new Set(prev).add(templateId));
+		// Also mark as "loaded" to stop showing spinner
+		setLoadedImages((prev) => new Set(prev).add(templateId));
+	};
 
 	return (
 		<div className="space-y-4">
@@ -77,8 +47,8 @@ export function TemplateGallery({
 				{templates.map((template) => {
 					const isSelected = template.id === selectedId;
 					const isHovered = template.id === hoveredId;
-					const isLoading = loadingTemplates.has(template.id);
-					const previewHtml = previewHtmlMap[template.id] || "";
+					const isLoaded = loadedImages.has(template.id);
+					const hasFailed = failedImages.has(template.id);
 
 					return (
 						<motion.div
@@ -102,52 +72,59 @@ export function TemplateGallery({
 								</div>
 							)}
 
-							{/* Preview thumbnail */}
+							{/* Preview thumbnail - static image from R2 */}
 							<div className="relative aspect-[8.5/11] overflow-hidden rounded-t-lg bg-white">
-								{isLoading ? (
-									<div className="flex h-full items-center justify-center">
+								{/* Loading spinner - shown until image loads */}
+								{!isLoaded && (
+									<div className="absolute inset-0 flex items-center justify-center">
 										<Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
 									</div>
-								) : (
-									<>
-										{/* Miniature resume preview - scaled down */}
-										<div
-											className="pointer-events-none absolute inset-0 origin-top-left"
-											style={{
-												transform: "scale(0.22)",
-												width: "454%",
-												height: "454%",
-											}}
-										>
-											<iframe
-												srcDoc={previewHtml}
-												className="h-full w-full border-0"
-												title={`${template.name} preview`}
-												sandbox="allow-same-origin"
-											/>
-										</div>
+								)}
 
-										{/* Hover overlay with preview button */}
-										{isHovered && onPreview && (
-											<motion.div
-												className="absolute inset-0 flex items-center justify-center bg-black/50"
-												initial={{ opacity: 0 }}
-												animate={{ opacity: 1 }}
-												exit={{ opacity: 0 }}
-											>
-												<button
-													onClick={(e) => {
-														e.stopPropagation();
-														onPreview(template.id);
-													}}
-													className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-lg transition hover:bg-gray-100"
-												>
-													<Eye className="h-4 w-4" />
-													Full Preview
-												</button>
-											</motion.div>
+								{/* Fallback for failed images */}
+								{hasFailed && (
+									<div className="absolute inset-0 flex items-center justify-center bg-muted">
+										<span className="text-xs text-muted-foreground">
+											Preview unavailable
+										</span>
+									</div>
+								)}
+
+								{/* Static thumbnail image */}
+								{!hasFailed && (
+									<Image
+										src={`/api/template/thumbnail/${template.id}`}
+										alt={`${template.name} template preview`}
+										fill
+										className={cn(
+											"object-cover object-top transition-opacity",
+											isLoaded ? "opacity-100" : "opacity-0"
 										)}
-									</>
+										onLoad={() => handleImageLoad(template.id)}
+										onError={() => handleImageError(template.id)}
+										unoptimized // Using external R2 URL via redirect
+									/>
+								)}
+
+								{/* Hover overlay with preview button */}
+								{isHovered && onPreview && isLoaded && !hasFailed && (
+									<motion.div
+										className="absolute inset-0 flex items-center justify-center bg-black/50"
+										initial={{ opacity: 0 }}
+										animate={{ opacity: 1 }}
+										exit={{ opacity: 0 }}
+									>
+										<button
+											onClick={(e) => {
+												e.stopPropagation();
+												onPreview(template.id);
+											}}
+											className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-lg transition hover:bg-gray-100"
+										>
+											<Eye className="h-4 w-4" />
+											Full Preview
+										</button>
+									</motion.div>
 								)}
 							</div>
 

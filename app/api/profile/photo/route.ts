@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { randomUUID } from "node:crypto";
 import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { serverEnv } from "@/lib/config";
 
 export const runtime = "nodejs";
@@ -39,50 +38,43 @@ function resolveExtension(file: Blob & { name?: string }) {
 	return "bin";
 }
 
-function publicUrlForKey(key: string | null) {
-	if (!key) return null;
-	if (key.startsWith("http")) return key;
+/**
+ * Fetch image from R2 and return as Buffer
+ */
+async function fetchPhotoFromR2(key: string): Promise<{ buffer: Buffer; contentType: string } | null> {
+	if (!r2Client || !serverEnv.r2Bucket) return null;
 
-	const base = (
-		serverEnv.r2PublicBaseUrl ||
-		serverEnv.r2Endpoint ||
-		""
-	).replace(/\/$/, "");
-	if (!base || !serverEnv.r2Bucket) return null;
-	return `${base}/${serverEnv.r2Bucket}/${key}`;
-}
-
-async function signPhoto(key: string | null) {
-	if (!key) return null;
-	if (key.startsWith("http")) return key;
-	// Prefer signing; fall back to public URL only if signing isn't available.
-	if (r2Client && serverEnv.r2Bucket) {
-		try {
-			return await getSignedUrl(
-				r2Client,
-				new GetObjectCommand({
-					Bucket: serverEnv.r2Bucket,
-					Key: key,
-				}),
-				{ expiresIn: 60 * 10 }
-			);
-		} catch (err) {
-			console.error("Failed to sign uploaded photo URL:", err);
-		}
-	}
-
-	return publicUrlForKey(key);
-}
-
-export async function POST(req: NextRequest) {
-	if (!r2Client || !serverEnv.r2Bucket) {
-		return NextResponse.json(
-			{ error: "File storage is not configured." },
-			{ status: 503 }
+	try {
+		const response = await r2Client.send(
+			new GetObjectCommand({
+				Bucket: serverEnv.r2Bucket,
+				Key: key,
+			})
 		);
-	}
 
-	const supabase = createServerClient(
+		if (!response.Body) return null;
+
+		// Convert stream to buffer
+		const chunks: Uint8Array[] = [];
+		for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {
+			chunks.push(chunk);
+		}
+
+		return {
+			buffer: Buffer.concat(chunks),
+			contentType: response.ContentType || "image/jpeg",
+		};
+	} catch (err) {
+		console.error("Failed to fetch photo from R2:", err);
+		return null;
+	}
+}
+
+/**
+ * Create Supabase client for server-side operations
+ */
+function createSupabaseClient() {
+	return createServerClient(
 		serverEnv.supabaseUrl,
 		serverEnv.supabaseAnonKey,
 		{
@@ -118,6 +110,84 @@ export async function POST(req: NextRequest) {
 			},
 		}
 	);
+}
+
+/**
+ * GET /api/profile/photo
+ * Proxy the authenticated user's profile photo from R2
+ * This allows private R2 bucket without signed URLs
+ */
+export async function GET() {
+	if (!r2Client || !serverEnv.r2Bucket) {
+		return NextResponse.json(
+			{ error: "File storage is not configured." },
+			{ status: 503 }
+		);
+	}
+
+	const supabase = createSupabaseClient();
+
+	const {
+		data: { user },
+		error: authError,
+	} = await supabase.auth.getUser();
+
+	if (authError || !user) {
+		return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+	}
+
+	// Get the user's avatar R2 key from their profile
+	// The key is stored in avatar_url column (not avatar_key)
+	const { data: profile, error: profileError } = await supabase
+		.from("profiles")
+		.select("avatar_url")
+		.eq("id", user.id)
+		.single();
+
+	if (profileError || !profile?.avatar_url) {
+		return NextResponse.json(
+			{ error: "No profile photo found." },
+			{ status: 404 }
+		);
+	}
+
+	// Skip if it's a URL (legacy data) - can't proxy external URLs
+	const avatarKey = profile.avatar_url;
+	if (avatarKey.startsWith("http")) {
+		// Redirect to the external URL for legacy data
+		return NextResponse.redirect(avatarKey);
+	}
+
+	// Fetch the image from R2
+	const result = await fetchPhotoFromR2(avatarKey);
+
+	if (!result) {
+		return NextResponse.json(
+			{ error: "Failed to fetch photo." },
+			{ status: 500 }
+		);
+	}
+
+	// Return the image with proper headers
+	// Convert Buffer to Uint8Array for NextResponse compatibility
+	return new NextResponse(new Uint8Array(result.buffer), {
+		status: 200,
+		headers: {
+			"Content-Type": result.contentType,
+			"Cache-Control": "private, max-age=3600", // Cache for 1 hour (private since user-specific)
+		},
+	});
+}
+
+export async function POST(req: NextRequest) {
+	if (!r2Client || !serverEnv.r2Bucket) {
+		return NextResponse.json(
+			{ error: "File storage is not configured." },
+			{ status: 503 }
+		);
+	}
+
+	const supabase = createSupabaseClient();
 
 	const {
 		data: { user },
@@ -187,10 +257,22 @@ export async function POST(req: NextRequest) {
 		);
 	}
 
-	const signedUrl = await signPhoto(key);
+	// Save the R2 key to the profile immediately so the proxy GET works
+	const { error: updateError } = await supabase
+		.from("profiles")
+		.update({ avatar_url: key, updated_at: new Date().toISOString() })
+		.eq("id", user.id);
+
+	if (updateError) {
+		console.error("Failed to update profile with avatar_url:", updateError);
+		// Don't fail - the upload succeeded, user can save profile manually
+	}
+
+	// Return proxy URL instead of signed URL - this never expires
+	const proxyUrl = "/api/profile/photo";
 
 	return NextResponse.json(
-		{ ok: true, key, url: signedUrl || publicUrlForKey(key) || null },
+		{ ok: true, key, url: proxyUrl },
 		{ status: 200 }
 	);
 }

@@ -2,9 +2,11 @@
 
 import { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { X, Download, Printer, Loader2 } from "lucide-react";
+import { X, Printer, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { JSONResume } from "@/lib/sampleResume";
+import { sampleResume } from "@/lib/sampleResume";
+import Image from "next/image";
 
 export interface ResumeTemplate {
 	id: string;
@@ -20,7 +22,16 @@ interface ResumePreviewProps {
 	templateId: string;
 	isOpen: boolean;
 	onClose: () => void;
-	onDownload?: () => void;
+}
+
+/**
+ * Check if two JSONResume objects are the same (for sample data detection)
+ */
+function isSampleResume(resume: JSONResume): boolean {
+	return (
+		resume.basics?.name === sampleResume.basics?.name &&
+		resume.basics?.email === sampleResume.basics?.email
+	);
 }
 
 /**
@@ -31,9 +42,10 @@ export function ResumePreview({
 	templateId,
 	isOpen,
 	onClose,
-	onDownload,
 }: ResumePreviewProps) {
 	const [html, setHtml] = useState<string>("");
+	const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+	const [useThumbnail, setUseThumbnail] = useState(false);
 	const [loading, setLoading] = useState(false);
 	const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -42,7 +54,20 @@ export function ResumePreview({
 
 		async function renderResume() {
 			setLoading(true);
+			setPreviewUrl(null);
+			setUseThumbnail(false);
+
 			try {
+				// Check if this is sample data - use cached thumbnail image
+				if (isSampleResume(resume)) {
+					// Use the thumbnail API which returns a high-res image
+					setPreviewUrl(`/api/template/thumbnail/${templateId}`);
+					setUseThumbnail(true);
+					setLoading(false);
+					return;
+				}
+
+				// For custom resume data, render dynamically
 				const response = await fetch("/api/resume/render", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -97,21 +122,11 @@ export function ResumePreview({
 							size="sm"
 							onClick={handlePrint}
 							className="text-gray-700"
+							disabled={useThumbnail}
 						>
 							<Printer className="mr-2 h-4 w-4" />
 							Print
 						</Button>
-						{onDownload && (
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={onDownload}
-								className="text-gray-700"
-							>
-								<Download className="mr-2 h-4 w-4" />
-								Download PDF
-							</Button>
-						)}
 						<Button
 							variant="ghost"
 							size="icon"
@@ -124,13 +139,25 @@ export function ResumePreview({
 				</div>
 
 				{/* Preview content */}
-				<div className="flex-1 overflow-auto bg-gray-100 p-8">
+				<div className="flex-1 overflow-auto bg-gray-100 p-4">
 					{loading ? (
 						<div className="flex h-full items-center justify-center">
 							<Loader2 className="h-8 w-8 animate-spin text-gray-400" />
 						</div>
+					) : useThumbnail && previewUrl ? (
+						<div className="mx-auto flex h-full items-center justify-center">
+							<div className="relative aspect-[8.5/11] h-full max-h-full overflow-hidden rounded-lg bg-white shadow-lg">
+								<Image
+									src={previewUrl}
+									alt={`${templateId} template preview`}
+									fill
+									className="object-contain"
+									unoptimized
+								/>
+							</div>
+						</div>
 					) : (
-						<div className="mx-auto aspect-[8.5/11] w-full max-w-[8.5in] overflow-hidden rounded-lg bg-white shadow-lg">
+						<div className="mx-auto aspect-[8.5/11] h-full max-h-full overflow-hidden rounded-lg bg-white shadow-lg">
 							<iframe
 								ref={iframeRef}
 								srcDoc={html}

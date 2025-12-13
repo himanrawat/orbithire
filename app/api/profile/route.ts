@@ -3,20 +3,13 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
-import {
-	S3Client,
-	PutObjectCommand,
-	GetObjectCommand,
-} from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { serverEnv } from "@/lib/config";
 
 export const runtime = "nodejs";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const PHOTO_URL_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
-const hasExplicitPublicPhotoBase = Boolean(process.env.R2_PUBLIC_BASE_URL);
 
 const abbreviate = (value: any, max = 96) => {
 	if (!value) return value;
@@ -185,31 +178,15 @@ async function uploadDataUrl(dataUrl: string, userId: string) {
 	return key;
 }
 
-async function signPhotoUrl(key: string | null) {
+/**
+ * Returns proxy URL for profile photo - never expires since it's just an API route
+ * The proxy endpoint fetches from R2 server-side, allowing private buckets
+ */
+function getProxyPhotoUrl(key: string | null): string | null {
 	if (!key) return null;
-	if (key.startsWith("http")) return key;
-	const publicUrl = publicUrlForKey(key);
-	// Prefer a stable, non-expiring URL when the bucket is public or a base URL is configured.
-	if (publicUrl) {
-		return publicUrl;
-	}
-	// Prefer signing when we can; only fall back to public URL if signing isn't possible.
-	if (r2Client && serverEnv.r2Bucket) {
-		try {
-			return await getSignedUrl(
-				r2Client,
-				new GetObjectCommand({
-					Bucket: serverEnv.r2Bucket,
-					Key: key,
-				}),
-				{ expiresIn: PHOTO_URL_TTL_SECONDS }
-			);
-		} catch (err) {
-			console.error("Failed to sign photo URL:", err);
-		}
-	}
-
-	return publicUrl;
+	if (key.startsWith("http")) return key; // Already a full URL (legacy data)
+	// Return the proxy API endpoint - this never expires
+	return "/api/profile/photo";
 }
 
 const normalizeString = (value: any) => {
@@ -298,7 +275,7 @@ export async function GET(req: NextRequest) {
 	const useAvatar =
 		extendedAvatar === null ? null : data.avatar_url ?? extendedAvatar ?? null;
 	const photoKey = useAvatar === null ? null : normalizeR2Key(useAvatar);
-	const signedPhoto = await signPhotoUrl(photoKey);
+	const proxyPhotoUrl = getProxyPhotoUrl(photoKey);
 
 	const {
 		avatar_url: _avatarUrl,
@@ -310,7 +287,7 @@ export async function GET(req: NextRequest) {
 		{
 			profile: {
 				...profileWithoutPhoto,
-				avatar_url: signedPhoto,
+				avatar_url: proxyPhotoUrl,
 				github_url: extended.github_url || null,
 				work_experience: extended.work_experience || [],
 				education: extended.education || [],
@@ -608,13 +585,13 @@ export async function PATCH(req: NextRequest) {
 	}
 
 	if (!hasChanges) {
-		const signedAvatarUrl = await signPhotoUrl(avatarKey);
+		const proxyAvatarUrl = getProxyPhotoUrl(avatarKey);
 		return NextResponse.json(
 			{
 				ok: true,
 				saved: false,
 				id: existing?.id || user.id,
-				avatar_url: signedAvatarUrl,
+				avatar_url: proxyAvatarUrl,
 			},
 			{ status: 200 }
 		);
@@ -647,14 +624,14 @@ export async function PATCH(req: NextRequest) {
 		);
 	}
 
-	const signedAvatarUrl = await signPhotoUrl(data.avatar_url);
+	const proxyAvatarUrl = getProxyPhotoUrl(data.avatar_url);
 
 	return NextResponse.json(
 		{
 			ok: true,
 			saved: true,
 			id: data.id,
-			avatar_url: signedAvatarUrl,
+			avatar_url: proxyAvatarUrl,
 		},
 		{ status: 200 }
 	);
