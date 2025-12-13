@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabaseServer";
-import { generatePDFFromHTML, generateCoverLetterPDF } from "@/lib/pdfGenerator";
+import {
+	generatePDFFromHTML,
+	generateCoverLetterPDF,
+} from "@/lib/pdfGenerator";
 import { uploadToR2, generateFileKey } from "@/lib/r2";
 import { serverEnv } from "@/lib/config";
 
@@ -150,26 +153,33 @@ export async function POST(request: NextRequest) {
 		if (resume) {
 			try {
 				// Call the render API to get HTML
-				const renderResponse = await fetch(`${serverEnv.siteUrl}/api/resume/render`, {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						resume,
-						templateId: templateId || "compact",
-					}),
-				});
+				const renderResponse = await fetch(
+					`${serverEnv.siteUrl}/api/resume/render`,
+					{
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							resume,
+							templateId: templateId || "compact",
+						}),
+					}
+				);
 
 				if (renderResponse.ok) {
 					const { html } = await renderResponse.json();
-					
+
 					// Generate PDF from HTML
 					const pdfResult = await generatePDFFromHTML(html);
-					
+
 					if (pdfResult.success && pdfResult.buffer) {
 						// Upload to R2
 						const fileKey = generateFileKey(user.id, "resume", name, "pdf");
-						const uploadResult = await uploadToR2(pdfResult.buffer, fileKey, "application/pdf");
-						
+						const uploadResult = await uploadToR2(
+							pdfResult.buffer,
+							fileKey,
+							"application/pdf"
+						);
+
 						if (uploadResult.success && uploadResult.url) {
 							resumePdfUrl = uploadResult.url;
 						} else {
@@ -210,7 +220,7 @@ export async function POST(request: NextRequest) {
 			try {
 				// Get candidate name from resume basics
 				const candidateName = resume?.basics?.name || "Candidate";
-				
+
 				// Generate PDF from cover letter content
 				const pdfResult = await generateCoverLetterPDF(
 					coverLetter,
@@ -218,16 +228,23 @@ export async function POST(request: NextRequest) {
 					name,
 					jobTitle || "Position"
 				);
-				
+
 				if (pdfResult.success && pdfResult.buffer) {
 					// Upload to R2
 					const fileKey = generateFileKey(user.id, "cover-letter", name, "pdf");
-					const uploadResult = await uploadToR2(pdfResult.buffer, fileKey, "application/pdf");
-					
+					const uploadResult = await uploadToR2(
+						pdfResult.buffer,
+						fileKey,
+						"application/pdf"
+					);
+
 					if (uploadResult.success && uploadResult.url) {
 						coverLetterPdfUrl = uploadResult.url;
 					} else {
-						console.error("Cover letter PDF upload failed:", uploadResult.error);
+						console.error(
+							"Cover letter PDF upload failed:",
+							uploadResult.error
+						);
 					}
 				} else {
 					console.error("Cover letter PDF generation failed:", pdfResult.error);

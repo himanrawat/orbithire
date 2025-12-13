@@ -1069,9 +1069,7 @@ export default function CompanyDetailPage({
 								Download
 							</a>
 						</Button>
-						<Button onClick={() => setPdfViewerUrl(null)}>
-							Close
-						</Button>
+						<Button onClick={() => setPdfViewerUrl(null)}>Close</Button>
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
