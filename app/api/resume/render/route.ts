@@ -524,9 +524,12 @@ function renderModernTemplate(resume: JSONResume): string {
 <body>
 	<div class="container">
 		<div class="sidebar">
-			${basics.image 
-				? `<img src="${basics.image}" alt="${basics.name}" class="profile-photo" />`
-				: `<div class="photo-placeholder">${basics.name?.charAt(0) || "?"}</div>`
+			${
+				basics.image
+					? `<img src="${basics.image}" alt="${basics.name}" class="profile-photo" />`
+					: `<div class="photo-placeholder">${
+							basics.name?.charAt(0) || "?"
+					  }</div>`
 			}
 			<div class="sidebar-name">${basics.name}</div>
 			${basics.label ? `<div class="sidebar-label">${basics.label}</div>` : ""}

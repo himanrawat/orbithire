@@ -31,9 +31,11 @@ const r2Client =
 /**
  * Fetch profile photo from R2 and return as base64 data URL
  */
-async function fetchPhotoAsBase64(avatarKey: string | null): Promise<string | undefined> {
+async function fetchPhotoAsBase64(
+	avatarKey: string | null
+): Promise<string | undefined> {
 	if (!avatarKey || !r2Client || !serverEnv.r2Bucket) return undefined;
-	
+
 	// Skip if it's already a URL (legacy data)
 	if (avatarKey.startsWith("http") || avatarKey.startsWith("data:")) {
 		return avatarKey;
@@ -56,7 +58,7 @@ async function fetchPhotoAsBase64(avatarKey: string | null): Promise<string | un
 		}
 		const buffer = Buffer.concat(chunks);
 		const contentType = response.ContentType || "image/jpeg";
-		
+
 		// Return as base64 data URL
 		return `data:${contentType};base64,${buffer.toString("base64")}`;
 	} catch (err) {
