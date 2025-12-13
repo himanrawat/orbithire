@@ -144,6 +144,54 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
+		// Create a follow-up for the new company based on its status
+		const followUpConfig: Record<string, { days: number; message: string }> = {
+			saved: { days: 2, message: "Submit your application" },
+			applied: { days: 3, message: "Follow up with recruiter" },
+			interviewing: { days: 1, message: "Prepare for interview" },
+			offered: { days: 2, message: "Respond to offer" },
+		};
+		
+		const config = followUpConfig[status] || { days: 3, message: "Check on this application" };
+		const followUpReminderDate = new Date();
+		followUpReminderDate.setDate(followUpReminderDate.getDate() + config.days);
+
+		console.log("[Company POST] Creating follow-up for new company:", {
+			user_id: user.id,
+			company_id: company.id,
+			companyName: name,
+			status,
+			message: config.message,
+			next_reminder_at: followUpReminderDate.toISOString(),
+		});
+
+		const { data: followUpData, error: followUpError } = await supabase
+			.from("follow_ups")
+			.insert({
+				user_id: user.id,
+				company_id: company.id,
+				sent_at: new Date().toISOString(),
+				sent_method: "portal",
+				next_reminder_at: followUpReminderDate.toISOString(),
+				status: "active",
+				reminder_count: 1,
+				message: config.message,
+			})
+			.select()
+			.single();
+
+		if (followUpError) {
+			console.error("[Company POST] Error creating follow-up:", followUpError);
+			// Don't fail the request, just log the error
+		} else {
+			console.log("[Company POST] Follow-up created successfully:", followUpData);
+			// Update company's follow_up_date
+			await supabase
+				.from("companies")
+				.update({ follow_up_date: followUpReminderDate.toISOString() })
+				.eq("id", company.id);
+		}
+
 		let resumeRecord = null;
 		let coverLetterRecord = null;
 		let resumePdfUrl: string | null = null;

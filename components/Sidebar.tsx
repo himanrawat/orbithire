@@ -10,7 +10,6 @@ import {
 	LayoutDashboard,
 	Sparkles,
 	Building2,
-	Upload,
 	User,
 	Settings,
 	FileText,
@@ -63,7 +62,6 @@ const mainNavItems: NavItem[] = [
 	{ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
 	{ label: "Generate Resume", href: "/generate", icon: Sparkles },
 	{ label: "Companies", href: "/companies", icon: Building2 },
-	{ label: "Upload Resume", href: "/upload", icon: Upload },
 	{ label: "My Resumes", href: "/resumes", icon: FileText },
 ];
 

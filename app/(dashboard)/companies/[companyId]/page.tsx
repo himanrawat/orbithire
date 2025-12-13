@@ -31,6 +31,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import {
 	Building2,
@@ -48,7 +49,22 @@ import {
 	Check,
 	X,
 	Eye,
+	ArrowRight,
+	CalendarIcon,
+	Plus,
 } from "lucide-react";
+
+// Simple date formatting helper
+const formatDateTime = (date: Date): string => {
+	return date.toLocaleString("en-US", {
+		month: "long",
+		day: "numeric",
+		year: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+		hour12: true,
+	});
+};
 
 // Types based on Supabase schema
 type Resume = {
@@ -76,6 +92,12 @@ type CoverLetter = {
 	updated_at: string;
 };
 
+type StatusHistoryEntry = {
+	from: string;
+	to: string;
+	changed_at: string;
+};
+
 type Company = {
 	id: string;
 	name: string;
@@ -90,6 +112,9 @@ type Company = {
 	salary_range: string | null;
 	applied_at: string | null;
 	follow_up_date: string | null;
+	interview_at: string | null;
+	interview_rounds?: { date: string; notes: string }[];
+	status_history?: StatusHistoryEntry[];
 	created_at: string;
 	updated_at: string;
 	resumes: Resume[];
@@ -168,6 +193,7 @@ export default function CompanyDetailPage({
 		notes: "",
 		appliedAt: "",
 		followUpDate: "",
+		interviewRounds: [] as { date: string; notes: string }[],
 	});
 
 	// Delete modal
@@ -177,6 +203,118 @@ export default function CompanyDetailPage({
 	// PDF viewer modal
 	const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
 	const [pdfViewerTitle, setPdfViewerTitle] = useState<string>("");
+
+	// Interview round modal
+	const [showInterviewModal, setShowInterviewModal] = useState(false);
+	const [editingInterviewIndex, setEditingInterviewIndex] = useState<
+		number | null
+	>(null);
+	const [interviewModalDate, setInterviewModalDate] = useState<
+		Date | undefined
+	>(undefined);
+	const [interviewModalHour, setInterviewModalHour] = useState("09");
+	const [interviewModalMinute, setInterviewModalMinute] = useState("00");
+	const [interviewModalPeriod, setInterviewModalPeriod] = useState<"AM" | "PM">(
+		"AM"
+	);
+	const [interviewModalNotes, setInterviewModalNotes] = useState("");
+
+	// Helper to open interview modal for new or edit
+	const openInterviewModal = (index: number | null = null) => {
+		if (index !== null && editForm.interviewRounds[index]) {
+			// Editing existing
+			const round = editForm.interviewRounds[index];
+			if (round.date) {
+				const dateObj = new Date(round.date);
+				if (!isNaN(dateObj.getTime())) {
+					setInterviewModalDate(dateObj);
+					let hours = dateObj.getHours();
+					const minutes = dateObj.getMinutes();
+					const period = hours >= 12 ? "PM" : "AM";
+					if (hours > 12) hours -= 12;
+					if (hours === 0) hours = 12;
+					setInterviewModalHour(hours.toString().padStart(2, "0"));
+					setInterviewModalMinute(minutes.toString().padStart(2, "0"));
+					setInterviewModalPeriod(period);
+				} else {
+					setInterviewModalDate(undefined);
+					setInterviewModalHour("09");
+					setInterviewModalMinute("00");
+					setInterviewModalPeriod("AM");
+				}
+			} else {
+				setInterviewModalDate(undefined);
+				setInterviewModalHour("09");
+				setInterviewModalMinute("00");
+				setInterviewModalPeriod("AM");
+			}
+			setInterviewModalNotes(round.notes || "");
+		} else {
+			// New interview
+			setInterviewModalDate(undefined);
+			setInterviewModalHour("09");
+			setInterviewModalMinute("00");
+			setInterviewModalPeriod("AM");
+			setInterviewModalNotes("");
+		}
+		setEditingInterviewIndex(index);
+		setShowInterviewModal(true);
+	};
+
+	// Save interview from modal
+	const saveInterviewFromModal = () => {
+		if (!interviewModalDate) return;
+
+		let hours = Number.parseInt(interviewModalHour, 10);
+		const minutes = Number.parseInt(interviewModalMinute, 10);
+		if (interviewModalPeriod === "PM" && hours !== 12) hours += 12;
+		if (interviewModalPeriod === "AM" && hours === 12) hours = 0;
+
+		const fullDate = new Date(interviewModalDate);
+		fullDate.setHours(hours, minutes, 0, 0);
+
+		const dateStr = fullDate.toISOString().slice(0, 16); // datetime-local format
+
+		const newRound = { date: dateStr, notes: interviewModalNotes };
+
+		if (editingInterviewIndex === null) {
+			// Add new
+			setEditForm({
+				...editForm,
+				interviewRounds: [...editForm.interviewRounds, newRound],
+			});
+		} else {
+			// Update existing
+			const newRounds = [...editForm.interviewRounds];
+			newRounds[editingInterviewIndex] = newRound;
+			setEditForm({ ...editForm, interviewRounds: newRounds });
+		}
+
+		setShowInterviewModal(false);
+	};
+
+	// Auto-open interview modal when switching to interviewing status
+	useEffect(() => {
+		if (isEditing) {
+			if (
+				editForm.status === "interviewing" &&
+				editForm.interviewRounds.length === 0
+			) {
+				// Open the modal to add the first interview round
+				openInterviewModal(null);
+			} else if (
+				editForm.status !== "interviewing" &&
+				editForm.interviewRounds.length > 0
+			) {
+				// Clear interview rounds when switching away from interviewing
+				setEditForm((prev) => ({
+					...prev,
+					interviewRounds: [],
+				}));
+			}
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [isEditing, editForm.status]);
 
 	// Fetch company data
 	useEffect(() => {
@@ -203,6 +341,7 @@ export default function CompanyDetailPage({
 					notes: data.company.notes || "",
 					appliedAt: data.company.applied_at?.split("T")[0] || "",
 					followUpDate: data.company.follow_up_date?.split("T")[0] || "",
+					interviewRounds: data.company.interview_rounds || [],
 				});
 			} catch (err) {
 				setError(err instanceof Error ? err.message : "Something went wrong");
@@ -231,6 +370,7 @@ export default function CompanyDetailPage({
 					notes: editForm.notes,
 					appliedAt: editForm.appliedAt || null,
 					followUpDate: editForm.followUpDate || null,
+					interviewRounds: editForm.interviewRounds,
 				}),
 			});
 
@@ -254,6 +394,7 @@ export default function CompanyDetailPage({
 							notes: editForm.notes,
 							applied_at: editForm.appliedAt || null,
 							follow_up_date: editForm.followUpDate || null,
+							interview_rounds: editForm.interviewRounds,
 					  }
 					: null
 			);
@@ -568,6 +709,80 @@ export default function CompanyDetailPage({
 											</div>
 										</div>
 
+										{editForm.status === "interviewing" && (
+											<div className="space-y-3">
+												<Label>Interview Rounds</Label>
+												{editForm.interviewRounds.length > 0 ? (
+													<div className="space-y-2">
+														{editForm.interviewRounds.map((round, idx) => (
+															<div
+																key={`interview-round-${round.date || idx}`}
+																className="flex items-center gap-2 p-3 border rounded-lg bg-muted/30"
+															>
+																<CalendarIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+																<div className="flex-1 min-w-0">
+																	<p className="text-sm font-medium">
+																		{round.date
+																			? formatDateTime(new Date(round.date))
+																			: "No date set"}
+																	</p>
+																	{round.notes && (
+																		<p className="text-xs text-muted-foreground truncate">
+																			{round.notes}
+																		</p>
+																	)}
+																</div>
+																<Button
+																	type="button"
+																	variant="ghost"
+																	size="icon"
+																	className="h-8 w-8"
+																	onClick={() => openInterviewModal(idx)}
+																>
+																	<Edit3 className="h-4 w-4" />
+																</Button>
+																<Button
+																	type="button"
+																	variant="ghost"
+																	size="icon"
+																	className="h-8 w-8 text-destructive hover:text-destructive"
+																	onClick={() => {
+																		const newRounds =
+																			editForm.interviewRounds.filter(
+																				(_, i) => i !== idx
+																			);
+																		setEditForm({
+																			...editForm,
+																			interviewRounds: newRounds,
+																		});
+																	}}
+																>
+																	<Trash2 className="h-4 w-4" />
+																</Button>
+															</div>
+														))}
+													</div>
+												) : (
+													<p className="text-sm text-muted-foreground">
+														No interview rounds scheduled yet.
+													</p>
+												)}
+												<Button
+													type="button"
+													variant="outline"
+													size="sm"
+													onClick={() => openInterviewModal(null)}
+												>
+													<Plus className="h-4 w-4 mr-2" />
+													Add Interview Round
+												</Button>
+												<p className="text-xs text-muted-foreground">
+													Add one or more interview rounds. A reminder will be
+													created 1 day before each round.
+												</p>
+											</div>
+										)}
+
 										<div className="space-y-2">
 											<Label>Job Description</Label>
 											<Textarea
@@ -694,6 +909,55 @@ export default function CompanyDetailPage({
 												)}
 											</div>
 										)}
+
+										{company.status === "interviewing" &&
+											company.interview_rounds &&
+											company.interview_rounds.length > 0 &&
+											(() => {
+												// Only show the next upcoming interview round
+												const now = new Date();
+												const sorted = [...company.interview_rounds]
+													.filter((r) => r.date)
+													.sort(
+														(a, b) =>
+															new Date(a.date).getTime() -
+															new Date(b.date).getTime()
+													);
+												const nextRound =
+													sorted.find((r) => new Date(r.date) > now) ||
+													sorted[0];
+												if (!nextRound) return null;
+												return (
+													<div className="rounded-lg border border-green-500/30 bg-green-500/10 p-4">
+														<p className="text-sm text-muted-foreground mb-2">
+															Next Interview Scheduled
+														</p>
+														<div className="flex items-center gap-2">
+															<Calendar className="h-4 w-4" />
+															<span className="font-medium text-green-600 dark:text-green-400">
+																{nextRound.date
+																	? new Date(nextRound.date).toLocaleString(
+																			"en-US",
+																			{
+																				weekday: "long",
+																				month: "long",
+																				day: "numeric",
+																				year: "numeric",
+																				hour: "numeric",
+																				minute: "2-digit",
+																			}
+																	  )
+																	: "No date set"}
+															</span>
+															{nextRound.notes && (
+																<span className="text-xs text-muted-foreground">
+																	({nextRound.notes})
+																</span>
+															)}
+														</div>
+													</div>
+												);
+											})()}
 
 										{company.job_description && (
 											<div>
@@ -951,6 +1215,7 @@ export default function CompanyDetailPage({
 							</CardHeader>
 							<CardContent>
 								<div className="space-y-3">
+									{/* Application Created */}
 									<div className="flex gap-3">
 										<div className="flex flex-col items-center">
 											<div className="h-2 w-2 rounded-full bg-primary" />
@@ -959,39 +1224,78 @@ export default function CompanyDetailPage({
 										<div className="pb-4">
 											<p className="text-sm font-medium">Application Created</p>
 											<p className="text-xs text-muted-foreground">
-												{formatDate(company.created_at)}
+												{new Date(company.created_at).toLocaleString("en-US", {
+													month: "short",
+													day: "numeric",
+													year: "numeric",
+													hour: "numeric",
+													minute: "2-digit",
+												})}
 											</p>
 										</div>
 									</div>
-									{company.applied_at && (
-										<div className="flex gap-3">
-											<div className="flex flex-col items-center">
-												<div className="h-2 w-2 rounded-full bg-blue-500" />
-												<div className="h-full w-px bg-border" />
-											</div>
-											<div className="pb-4">
-												<p className="text-sm font-medium">Applied</p>
-												<p className="text-xs text-muted-foreground">
-													{formatDate(company.applied_at)}
-												</p>
-											</div>
-										</div>
-									)}
-									{company.follow_up_date && (
-										<div className="flex gap-3">
-											<div className="flex flex-col items-center">
-												<div className="h-2 w-2 rounded-full bg-orange-500" />
-											</div>
-											<div>
-												<p className="text-sm font-medium">
-													Follow-up Scheduled
-												</p>
-												<p className="text-xs text-muted-foreground">
-													{formatDate(company.follow_up_date)}
-												</p>
-											</div>
-										</div>
-									)}
+
+									{/* Status History */}
+									{company.status_history &&
+										company.status_history.length > 0 &&
+										company.status_history.map((entry, idx) => {
+											const getStatusDotColor = (status: string) => {
+												switch (status) {
+													case "saved":
+														return "bg-secondary";
+													case "applied":
+														return "bg-blue-500";
+													case "interviewing":
+														return "bg-green-500";
+													case "offered":
+														return "bg-purple-500";
+													case "rejected":
+														return "bg-red-500";
+													case "withdrawn":
+														return "bg-muted-foreground";
+													default:
+														return "bg-primary";
+												}
+											};
+											const isLast = idx === company.status_history!.length - 1;
+											return (
+												<div
+													key={`status-${entry.changed_at}`}
+													className="flex gap-3"
+												>
+													<div className="flex flex-col items-center">
+														<div
+															className={cn(
+																"h-2 w-2 rounded-full",
+																getStatusDotColor(entry.to)
+															)}
+														/>
+														{!isLast && (
+															<div className="h-full w-px bg-border" />
+														)}
+													</div>
+													<div className={isLast ? "" : "pb-4"}>
+														<p className="text-sm font-medium flex items-center gap-1">
+															<span className="capitalize">{entry.from}</span>
+															<ArrowRight className="h-3 w-3" />
+															<span className="capitalize">{entry.to}</span>
+														</p>
+														<p className="text-xs text-muted-foreground">
+															{new Date(entry.changed_at).toLocaleString(
+																"en-US",
+																{
+																	month: "short",
+																	day: "numeric",
+																	year: "numeric",
+																	hour: "numeric",
+																	minute: "2-digit",
+																}
+															)}
+														</p>
+													</div>
+												</div>
+											);
+										})}
 								</div>
 							</CardContent>
 						</Card>
@@ -1072,6 +1376,110 @@ export default function CompanyDetailPage({
 							</a>
 						</Button>
 						<Button onClick={() => setPdfViewerUrl(null)}>Close</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* Interview Round Modal */}
+			<Dialog open={showInterviewModal} onOpenChange={setShowInterviewModal}>
+				<DialogContent className="sm:max-w-[425px]">
+					<DialogHeader>
+						<DialogTitle className="flex items-center gap-2">
+							<CalendarIcon className="h-5 w-5" />
+							{editingInterviewIndex === null
+								? "Schedule Interview"
+								: "Edit Interview"}
+						</DialogTitle>
+						<DialogDescription>
+							Select the date and time for the interview round.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="space-y-4 py-4">
+						<div className="space-y-2">
+							<Label>Date</Label>
+							<div className="flex justify-center border rounded-md p-3 bg-muted/30">
+								<CalendarComponent
+									selected={interviewModalDate}
+									onSelect={setInterviewModalDate}
+								/>
+							</div>
+						</div>
+						<div className="space-y-2">
+							<Label>Time</Label>
+							<div className="flex gap-2">
+								<Select
+									value={interviewModalHour}
+									onValueChange={setInterviewModalHour}
+								>
+									<SelectTrigger className="w-[80px]">
+										<SelectValue placeholder="Hour" />
+									</SelectTrigger>
+									<SelectContent>
+										{Array.from({ length: 12 }, (_, i) => {
+											const hour = (i + 1).toString().padStart(2, "0");
+											return (
+												<SelectItem key={hour} value={hour}>
+													{hour}
+												</SelectItem>
+											);
+										})}
+									</SelectContent>
+								</Select>
+								<span className="flex items-center text-muted-foreground">
+									:
+								</span>
+								<Select
+									value={interviewModalMinute}
+									onValueChange={setInterviewModalMinute}
+								>
+									<SelectTrigger className="w-[80px]">
+										<SelectValue placeholder="Min" />
+									</SelectTrigger>
+									<SelectContent>
+										{["00", "15", "30", "45"].map((min) => (
+											<SelectItem key={min} value={min}>
+												{min}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+								<Select
+									value={interviewModalPeriod}
+									onValueChange={(v: "AM" | "PM") => setInterviewModalPeriod(v)}
+								>
+									<SelectTrigger className="w-[80px]">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="AM">AM</SelectItem>
+										<SelectItem value="PM">PM</SelectItem>
+									</SelectContent>
+								</Select>
+							</div>
+						</div>
+						<div className="space-y-2">
+							<Label>Notes (optional)</Label>
+							<Textarea
+								placeholder="e.g., Technical round with engineering team"
+								value={interviewModalNotes}
+								onChange={(e) => setInterviewModalNotes(e.target.value)}
+								rows={3}
+							/>
+						</div>
+					</div>
+					<DialogFooter>
+						<Button
+							variant="outline"
+							onClick={() => setShowInterviewModal(false)}
+						>
+							Cancel
+						</Button>
+						<Button
+							onClick={saveInterviewFromModal}
+							disabled={!interviewModalDate}
+						>
+							{editingInterviewIndex === null ? "Add" : "Update"} Interview
+						</Button>
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>

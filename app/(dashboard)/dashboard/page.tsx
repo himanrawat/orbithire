@@ -19,7 +19,6 @@ import {
 	Bell,
 	ChevronRight,
 	Sparkles,
-	Upload,
 	Building2,
 	User,
 	CheckCircle2,
@@ -33,6 +32,13 @@ import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import type { Profile } from "@/lib/types/database";
 
 // Data types
+type Stats = {
+	totalResumes: number;
+	totalCoverLetters: number;
+	activeFollowUps: number;
+	pendingReminders: number;
+};
+
 type Company = {
 	id: string;
 	name: string;
@@ -54,24 +60,32 @@ type RecentItem = {
 
 type FollowUp = {
 	id: string;
+	companyId: string;
 	company: string;
+	companyStatus: string;
+	message: string;
 	sentAt: string;
 	nextReminder: string;
 	status: string;
 	reminderCount: number;
+	interviewAt: string | null;
 };
 
-// Empty initial state - will be populated from Supabase
-const stats = {
-	totalResumes: 0,
-	totalCoverLetters: 0,
-	activeFollowUps: 0,
-	pendingReminders: 0,
+// Get reminder message based on company status
+const getFollowUpMessage = (status: string): string => {
+	switch (status) {
+		case "saved":
+			return "Time to submit your application!";
+		case "applied":
+			return "Follow up with the recruiter";
+		case "interviewing":
+			return "Prepare for your upcoming interview";
+		case "offered":
+			return "Don't forget to respond to the offer";
+		default:
+			return "Check on this application";
+	}
 };
-
-const companies: Company[] = [];
-const recentItems: RecentItem[] = [];
-const followUps: FollowUp[] = [];
 
 const statusColors: Record<string, string> = {
 	saved: "bg-secondary text-secondary-foreground",
@@ -85,20 +99,33 @@ const statusColors: Record<string, string> = {
 export default function DashboardPage() {
 	const [profile, setProfile] = useState<Profile | null>(null);
 	const [loadingProfile, setLoadingProfile] = useState(false);
+	const [stats, setStats] = useState<Stats>({
+		totalResumes: 0,
+		totalCoverLetters: 0,
+		activeFollowUps: 0,
+		pendingReminders: 0,
+	});
+	const [companies, setCompanies] = useState<Company[]>([]);
+	const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
+	const [followUps, setFollowUps] = useState<FollowUp[]>([]);
+	const [loadingData, setLoadingData] = useState(true);
 
 	useEffect(() => {
-		const loadProfile = async () => {
+		const loadAllData = async () => {
 			setLoadingProfile(true);
+			setLoadingData(true);
 			const supabase = getSupabaseBrowserClient();
 			const {
 				data: { user },
 			} = await supabase.auth.getUser();
 			if (!user) {
 				setLoadingProfile(false);
+				setLoadingData(false);
 				return;
 			}
 
-			const { data } = await supabase
+			// Load profile
+			const { data: profileData } = await supabase
 				.from("profiles")
 				.select(
 					"id, full_name, headline, avatar_url, skills, experience_summary, extended_profile, target_job_titles"
@@ -106,12 +133,193 @@ export default function DashboardPage() {
 				.eq("id", user.id)
 				.single();
 
-			setProfile(data as Profile | null);
+			setProfile(profileData as Profile | null);
 			setLoadingProfile(false);
+
+			// Load stats in parallel
+			const [resumeCount, coverLetterCount, activeFollowUpsCount, pendingRemindersCount] = await Promise.all([
+				supabase.from("resumes").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+				supabase.from("cover_letters").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+				supabase.from("follow_ups").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "active"),
+				supabase.from("follow_ups").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "active").lte("next_reminder_at", new Date().toISOString()),
+			]);
+
+			console.log("[Dashboard] Stats queries results:", {
+				resumeCount: { count: resumeCount.count, error: resumeCount.error },
+				coverLetterCount: { count: coverLetterCount.count, error: coverLetterCount.error },
+				activeFollowUpsCount: { count: activeFollowUpsCount.count, error: activeFollowUpsCount.error },
+				pendingRemindersCount: { count: pendingRemindersCount.count, error: pendingRemindersCount.error },
+				currentTime: new Date().toISOString(),
+			});
+
+			setStats({
+				totalResumes: resumeCount.count || 0,
+				totalCoverLetters: coverLetterCount.count || 0,
+				activeFollowUps: activeFollowUpsCount.count || 0,
+				pendingReminders: pendingRemindersCount.count || 0,
+			});
+
+			// Load companies with counts
+			const { data: companiesData } = await supabase
+				.from("companies")
+				.select("id, name, status, applied_at, updated_at")
+				.eq("user_id", user.id)
+				.order("updated_at", { ascending: false })
+				.limit(5);
+
+			if (companiesData) {
+				const companiesWithCounts = await Promise.all(
+					companiesData.map(async (company) => {
+						const [resumeRes, coverLetterRes] = await Promise.all([
+							supabase.from("resumes").select("id", { count: "exact", head: true }).eq("company_id", company.id),
+							supabase.from("cover_letters").select("id", { count: "exact", head: true }).eq("company_id", company.id),
+						]);
+						return {
+							id: company.id,
+							name: company.name,
+							status: company.status || "saved",
+							resumes: resumeRes.count || 0,
+							coverLetters: coverLetterRes.count || 0,
+							lastActivity: new Date(company.updated_at).toLocaleDateString(),
+							appliedAt: company.applied_at ? new Date(company.applied_at).toLocaleDateString() : null,
+						};
+					})
+				);
+				setCompanies(companiesWithCounts);
+			}
+
+			// Load recent items (resumes + cover letters)
+			const [resumesRes, coverLettersRes] = await Promise.all([
+				supabase.from("resumes").select("id, title, template, country, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
+				supabase.from("cover_letters").select("id, title, template, country, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
+			]);
+
+			const allItems: RecentItem[] = [
+				...(resumesRes.data || []).map((r) => ({
+					id: r.id,
+					type: "resume" as const,
+					title: r.title,
+					template: r.template || "default",
+					country: r.country || "US",
+					createdAt: new Date(r.created_at).toLocaleDateString(),
+					_sortDate: new Date(r.created_at),
+				})),
+				...(coverLettersRes.data || []).map((c) => ({
+					id: c.id,
+					type: "cover_letter" as const,
+					title: c.title,
+					template: c.template || "professional",
+					country: c.country || "US",
+					createdAt: new Date(c.created_at).toLocaleDateString(),
+					_sortDate: new Date(c.created_at),
+				})),
+			];
+			allItems.sort((a, b) => (b as any)._sortDate.getTime() - (a as any)._sortDate.getTime());
+			   setRecentItems(allItems.slice(0, 5).map((item) => item as RecentItem));
+
+			// Load follow-ups with company names
+			const { data: followUpsData, error: followUpsError } = await supabase
+				.from("follow_ups")
+				.select("id, company_id, sent_at, next_reminder_at, status, reminder_count, message, companies(name, status, interview_at)")
+				.eq("user_id", user.id)
+				.eq("status", "active")
+				.order("next_reminder_at", { ascending: true })
+				.limit(5);
+
+			console.log("[Dashboard] Follow-ups query:", {
+				userId: user.id,
+				data: followUpsData,
+				error: followUpsError,
+				count: followUpsData?.length || 0,
+			});
+
+			// Also log all follow-ups without status filter to see what exists
+			const { data: allFollowUps, error: allFollowUpsError } = await supabase
+				.from("follow_ups")
+				.select("id, company_id, status, next_reminder_at, sent_at")
+				.eq("user_id", user.id);
+			
+			console.log("[Dashboard] ALL follow-ups (no status filter):", {
+				data: allFollowUps,
+				error: allFollowUpsError,
+				count: allFollowUps?.length || 0,
+			});
+
+			if (followUpsData) {
+				setFollowUps(
+					followUpsData.map((f: any) => ({
+						id: f.id,
+						companyId: f.company_id,
+						company: f.companies?.name || "Unknown Company",
+						companyStatus: f.companies?.status || "saved",
+						message: f.message || getFollowUpMessage(f.companies?.status || "saved"),
+						sentAt: new Date(f.sent_at).toLocaleDateString(),
+						nextReminder: f.next_reminder_at ? new Date(f.next_reminder_at).toLocaleDateString() : "Not set",
+						status: f.status,
+						reminderCount: f.reminder_count || 0,
+						interviewAt: f.companies?.interview_at || null,
+					}))
+				);
+			}
+
+			   // setLoadingData(false); // removed useless assignment
 		};
 
-		void loadProfile();
+		void loadAllData();
 	}, []);
+
+	// Snooze follow-up (adds 3 days to next_reminder_at)
+	const handleSnooze = async (followUpId: string) => {
+		const supabase = getSupabaseBrowserClient();
+		const newDate = new Date();
+		newDate.setDate(newDate.getDate() + 3);
+
+		const { error } = await supabase
+			.from("follow_ups")
+			.update({
+				next_reminder_at: newDate.toISOString(),
+				updated_at: new Date().toISOString(),
+			})
+			.eq("id", followUpId);
+
+		if (!error) {
+			setFollowUps((prev) =>
+				prev.map((f) =>
+					f.id === followUpId
+						? { ...f, nextReminder: newDate.toLocaleDateString() }
+						: f
+				)
+			);
+			// Update pending reminders count
+			setStats((prev) => ({
+				...prev,
+				pendingReminders: Math.max(0, prev.pendingReminders - 1),
+			}));
+		}
+	};
+
+	// Mark follow-up as completed
+	const handleMarkComplete = async (followUpId: string) => {
+		const supabase = getSupabaseBrowserClient();
+
+		const { error } = await supabase
+			.from("follow_ups")
+			.update({
+				status: "completed",
+				response_received: true,
+				updated_at: new Date().toISOString(),
+			})
+			.eq("id", followUpId);
+
+		if (!error) {
+			setFollowUps((prev) => prev.filter((f) => f.id !== followUpId));
+			setStats((prev) => ({
+				...prev,
+				activeFollowUps: Math.max(0, prev.activeFollowUps - 1),
+				pendingReminders: Math.max(0, prev.pendingReminders - 1),
+			}));
+		}
+	};
 
 	const profileCompletion = useMemo(() => {
 		let extended: any = {};
@@ -217,12 +425,6 @@ export default function DashboardPage() {
 								<Link href="/companies/new">
 									<Plus className="mr-2 h-4 w-4" />
 									New Company
-								</Link>
-							</Button>
-							<Button variant="outline" asChild>
-								<Link href="/upload">
-									<Upload className="mr-2 h-4 w-4" />
-									Upload Resume
 								</Link>
 							</Button>
 						</CardContent>
@@ -467,59 +669,59 @@ export default function DashboardPage() {
 
 					{/* Sidebar */}
 					<div className="space-y-6">
-						{/* Profile Completion */}
-						<motion.div
-							initial={{ opacity: 0, y: 20 }}
-							animate={{ opacity: 1, y: 0 }}
-							transition={{ delay: 0.2 }}
-						>
-							<Card className="border-border/50 bg-card/80 backdrop-blur">
-								<CardHeader>
-									<CardTitle className="flex items-center gap-2 text-lg">
-										<User className="h-5 w-5" />
-										Profile Completion
-									</CardTitle>
-								</CardHeader>
-								<CardContent>
-									<div className="mb-4">
-										<div className="mb-2 flex items-center justify-between">
-											<span className="text-sm font-medium">
-												{profileCompletion.percentage}% Complete
-											</span>
-											<span className="text-sm text-muted-foreground">
-												{profileCompletion.percentage === 100
-													? "All done!"
-													: "Keep going"}
-											</span>
-										</div>
-										<div className="h-2 overflow-hidden rounded-full bg-secondary">
-											<div
-												className="h-full bg-primary transition-all"
-												style={{ width: `${profileCompletion.percentage}%` }}
-											/>
-										</div>
-									</div>
-									<div className="space-y-2">
-										{profileCompletion.items.map(({ label, completed }) => (
-											<div
-												key={label}
-												className="flex items-center justify-between text-sm"
-											>
-												<span className="capitalize">{label}</span>
-												{completed ? (
-													<CheckCircle2 className="h-4 w-4 text-green-500" />
-												) : (
-													<AlertCircle className="h-4 w-4 text-orange-500" />
-												)}
+						{/* Profile Completion - only show when not 100% */}
+						{profileCompletion.percentage < 100 && (
+							<motion.div
+								initial={{ opacity: 0, y: 20 }}
+								animate={{ opacity: 1, y: 0 }}
+								transition={{ delay: 0.2 }}
+							>
+								<Card className="border-border/50 bg-card/80 backdrop-blur">
+									<CardHeader>
+										<CardTitle className="flex items-center gap-2 text-lg">
+											<User className="h-5 w-5" />
+											Profile Completion
+										</CardTitle>
+									</CardHeader>
+									<CardContent>
+										<div className="mb-4">
+											<div className="mb-2 flex items-center justify-between">
+												<span className="text-sm font-medium">
+													{profileCompletion.percentage}% Complete
+												</span>
+												<span className="text-sm text-muted-foreground">
+													Keep going
+												</span>
 											</div>
-										))}
-									</div>
-									<Button className="mt-4 w-full" variant="outline" asChild>
-										<Link href="/profile">Complete Profile</Link>
-									</Button>
-								</CardContent>
-							</Card>
-						</motion.div>
+											<div className="h-2 overflow-hidden rounded-full bg-secondary">
+												<div
+													className="h-full bg-primary transition-all"
+													style={{ width: `${profileCompletion.percentage}%` }}
+												/>
+											</div>
+										</div>
+										<div className="space-y-2">
+											{profileCompletion.items.map(({ label, completed }) => (
+												<div
+													key={label}
+													className="flex items-center justify-between text-sm"
+												>
+													<span className="capitalize">{label}</span>
+													{completed ? (
+														<CheckCircle2 className="h-4 w-4 text-green-500" />
+													) : (
+														<AlertCircle className="h-4 w-4 text-orange-500" />
+													)}
+												</div>
+											))}
+										</div>
+										<Button className="mt-4 w-full" variant="outline" asChild>
+											<Link href="/profile">Complete Profile</Link>
+										</Button>
+									</CardContent>
+								</Card>
+							</motion.div>
+						)}
 
 						{/* Upcoming Follow-ups */}
 						<motion.div
@@ -547,19 +749,41 @@ export default function DashboardPage() {
 												>
 													<div className="flex items-center justify-between">
 														<p className="font-medium">{followUp.company}</p>
-														<span className="text-xs text-muted-foreground">
-															Reminder #{followUp.reminderCount}
+														<span className={cn(
+															"text-xs px-2 py-0.5 rounded-full capitalize",
+															statusColors[followUp.companyStatus] || statusColors.saved
+														)}>
+															{followUp.companyStatus}
 														</span>
 													</div>
-													<div className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
-														<Calendar className="h-3 w-3" />
-														<span>Next: {followUp.nextReminder}</span>
-													</div>
+													<p className="mt-1 text-sm text-primary font-medium">
+														{followUp.message}
+													</p>
+													{followUp.interviewAt ? (
+														<div className="mt-1 flex items-center gap-1 text-sm font-medium text-green-600 dark:text-green-400">
+															<Calendar className="h-3 w-3" />
+															<span>
+																Interview: {new Date(followUp.interviewAt).toLocaleString("en-US", {
+																	weekday: "short",
+																	month: "short",
+																	day: "numeric",
+																	hour: "numeric",
+																	minute: "2-digit",
+																})}
+															</span>
+														</div>
+													) : (
+														<div className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+															<Calendar className="h-3 w-3" />
+															<span>Next: {followUp.nextReminder}</span>
+														</div>
+													)}
 													<div className="mt-2 flex gap-2">
 														<Button
 															size="sm"
 															variant="outline"
 															className="h-7 text-xs"
+															onClick={() => handleSnooze(followUp.id)}
 														>
 															Snooze
 														</Button>
@@ -567,6 +791,7 @@ export default function DashboardPage() {
 															size="sm"
 															variant="outline"
 															className="h-7 text-xs"
+															onClick={() => handleMarkComplete(followUp.id)}
 														>
 															Mark Complete
 														</Button>

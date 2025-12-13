@@ -502,12 +502,12 @@ export default function GeneratePage() {
 	};
 
 	return (
-		<div className="min-h-screen">
+		<div className="">
 			<GridBackground />
 
 			<div className="relative">
 				{/* Progress indicator */}
-				<div className="mb-6 flex items-center justify-center gap-2">
+				<div className="my-6 flex items-center justify-center gap-2">
 					{["job-details", "select-template", "preview"].map((s, i) => (
 						<div key={s} className="flex items-center">
 							<div
