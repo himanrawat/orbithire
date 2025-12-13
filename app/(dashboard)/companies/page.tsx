@@ -4,10 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import {
-	Card,
-	CardContent,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { GridBackground } from "@/components/ui/aceternity";
 import {
@@ -74,9 +71,12 @@ export default function CompaniesPage() {
 	const [error, setError] = useState<string | null>(null);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [statusFilter, setStatusFilter] = useState("all");
-	
+
 	// Delete modal state
-	const [deleteModal, setDeleteModal] = useState<{ open: boolean; company: Company | null }>({
+	const [deleteModal, setDeleteModal] = useState<{
+		open: boolean;
+		company: Company | null;
+	}>({
 		open: false,
 		company: null,
 	});
@@ -108,7 +108,8 @@ export default function CompaniesPage() {
 	const filteredCompanies = companies.filter((company) => {
 		const matchesSearch =
 			company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			(company.job_title?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
+			(company.job_title?.toLowerCase().includes(searchQuery.toLowerCase()) ??
+				false);
 		const matchesStatus =
 			statusFilter === "all" || company.status === statusFilter;
 		return matchesSearch && matchesStatus;
@@ -135,7 +136,9 @@ export default function CompaniesPage() {
 			}
 
 			// Remove from local state
-			setCompanies((prev) => prev.filter((c) => c.id !== deleteModal.company!.id));
+			setCompanies((prev) =>
+				prev.filter((c) => c.id !== deleteModal.company!.id)
+			);
 			setDeleteModal({ open: false, company: null });
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to delete");
@@ -356,7 +359,12 @@ export default function CompaniesPage() {
 			</div>
 
 			{/* Delete Confirmation Modal */}
-			<Dialog open={deleteModal.open} onOpenChange={(open) => setDeleteModal({ open, company: open ? deleteModal.company : null })}>
+			<Dialog
+				open={deleteModal.open}
+				onOpenChange={(open) =>
+					setDeleteModal({ open, company: open ? deleteModal.company : null })
+				}
+			>
 				<DialogContent>
 					<DialogHeader>
 						<DialogTitle className="flex items-center gap-2 text-destructive">
@@ -366,8 +374,9 @@ export default function CompaniesPage() {
 						<DialogDescription>
 							Are you sure you want to delete the application for{" "}
 							<strong>{deleteModal.company?.job_title}</strong> at{" "}
-							<strong>{deleteModal.company?.name}</strong>? This will also delete all
-							associated resumes and cover letters. This action cannot be undone.
+							<strong>{deleteModal.company?.name}</strong>? This will also
+							delete all associated resumes and cover letters. This action
+							cannot be undone.
 						</DialogDescription>
 					</DialogHeader>
 					<DialogFooter>

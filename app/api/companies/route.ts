@@ -123,7 +123,8 @@ export async function POST(request: NextRequest) {
 				recruiter_name: recruiterName,
 				salary_range: salaryRange,
 				notes,
-				applied_at: appliedAt || (status === "applied" ? new Date().toISOString() : null),
+				applied_at:
+					appliedAt || (status === "applied" ? new Date().toISOString() : null),
 				follow_up_date: followUpDate,
 			})
 			.select()

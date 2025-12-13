@@ -97,7 +97,8 @@ export async function PATCH(
 		if (industry !== undefined) updateData.industry = industry;
 		if (status !== undefined) updateData.status = status;
 		if (jobTitle !== undefined) updateData.job_title = jobTitle;
-		if (jobDescription !== undefined) updateData.job_description = jobDescription;
+		if (jobDescription !== undefined)
+			updateData.job_description = jobDescription;
 		if (jobUrl !== undefined) updateData.job_url = jobUrl;
 		if (recruiterName !== undefined) updateData.recruiter_name = recruiterName;
 		if (salaryRange !== undefined) updateData.salary_range = salaryRange;
@@ -162,10 +163,7 @@ export async function DELETE(
 			.single();
 
 		if (fetchError || !company) {
-			return NextResponse.json(
-				{ error: "Company not found" },
-				{ status: 404 }
-			);
+			return NextResponse.json({ error: "Company not found" }, { status: 404 });
 		}
 
 		// Delete associated cover letters first (they reference resumes)

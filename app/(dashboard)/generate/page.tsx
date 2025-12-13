@@ -52,7 +52,13 @@ import { sampleResume, type JSONResume } from "@/lib/sampleResume";
 import { TemplateGallery } from "@/components/TemplateGallery";
 import { ResumePreview, type ResumeTemplate } from "@/components/ResumePreview";
 
-type ApplicationStatus = "saved" | "applied" | "interviewing" | "offered" | "rejected" | "withdrawn";
+type ApplicationStatus =
+	| "saved"
+	| "applied"
+	| "interviewing"
+	| "offered"
+	| "rejected"
+	| "withdrawn";
 
 type Step = "job-details" | "select-template" | "generating" | "preview";
 
@@ -469,7 +475,8 @@ export default function GeneratePage() {
 					recruiterName: form.recruiterName.trim() || null,
 					salaryRange: trackForm.salaryRange.trim() || null,
 					notes: trackForm.notes.trim() || null,
-					appliedAt: trackForm.status === "applied" ? trackForm.appliedAt : null,
+					appliedAt:
+						trackForm.status === "applied" ? trackForm.appliedAt : null,
 					followUpDate: trackForm.followUpDate || null,
 					resume: finalResume,
 					coverLetter: editedCoverLetter,
@@ -486,7 +493,9 @@ export default function GeneratePage() {
 			setShowTrackModal(false);
 			router.push("/companies");
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to save application");
+			setError(
+				err instanceof Error ? err.message : "Failed to save application"
+			);
 		} finally {
 			setIsSaving(false);
 		}
@@ -1169,7 +1178,8 @@ export default function GeneratePage() {
 							Track Application
 						</DialogTitle>
 						<DialogDescription>
-							Save your resume and cover letter for {form.jobTitle} at {form.companyName}
+							Save your resume and cover letter for {form.jobTitle} at{" "}
+							{form.companyName}
 						</DialogDescription>
 					</DialogHeader>
 
