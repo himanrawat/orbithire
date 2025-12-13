@@ -394,6 +394,14 @@ function renderModernTemplate(resume: JSONResume): string {
 			font-size: 24pt;
 			color: #94a3b8;
 		}
+		.profile-photo {
+			width: 80px;
+			height: 80px;
+			border-radius: 50%;
+			margin: 0 auto 16px;
+			object-fit: cover;
+			border: 2px solid #475569;
+		}
 		.sidebar-name {
 			font-size: 14pt;
 			font-weight: 700;
@@ -516,7 +524,10 @@ function renderModernTemplate(resume: JSONResume): string {
 <body>
 	<div class="container">
 		<div class="sidebar">
-			<div class="photo-placeholder">${basics.name?.charAt(0) || "?"}</div>
+			${basics.image 
+				? `<img src="${basics.image}" alt="${basics.name}" class="profile-photo" />`
+				: `<div class="photo-placeholder">${basics.name?.charAt(0) || "?"}</div>`
+			}
 			<div class="sidebar-name">${basics.name}</div>
 			${basics.label ? `<div class="sidebar-label">${basics.label}</div>` : ""}
 			

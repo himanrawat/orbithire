@@ -78,6 +78,7 @@ interface GeneratedContent {
 		location: string;
 		linkedin?: string;
 		website?: string;
+		image?: string;
 		experience: Array<{
 			company: string;
 			title: string;
@@ -345,6 +346,7 @@ export default function GeneratePage() {
 			basics: {
 				name: profile.name,
 				label: editedLabel,
+				image: profile.image,
 				email: profile.email,
 				phone: profile.phone,
 				url: profile.website,

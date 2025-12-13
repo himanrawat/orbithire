@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import OpenAI from "openai";
+import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { serverEnv } from "@/lib/config";
 import {
 	RESUME_SYSTEM_PROMPT,
@@ -10,6 +11,59 @@ import {
 } from "@/lib/prompts/resume";
 
 export const runtime = "nodejs";
+
+// Initialize R2 client for fetching profile photos
+const r2Client =
+	serverEnv.r2Endpoint &&
+	serverEnv.r2Bucket &&
+	serverEnv.r2AccessKeyId &&
+	serverEnv.r2SecretAccessKey
+		? new S3Client({
+				region: "auto",
+				endpoint: serverEnv.r2Endpoint,
+				credentials: {
+					accessKeyId: serverEnv.r2AccessKeyId,
+					secretAccessKey: serverEnv.r2SecretAccessKey,
+				},
+		  })
+		: null;
+
+/**
+ * Fetch profile photo from R2 and return as base64 data URL
+ */
+async function fetchPhotoAsBase64(avatarKey: string | null): Promise<string | undefined> {
+	if (!avatarKey || !r2Client || !serverEnv.r2Bucket) return undefined;
+	
+	// Skip if it's already a URL (legacy data)
+	if (avatarKey.startsWith("http") || avatarKey.startsWith("data:")) {
+		return avatarKey;
+	}
+
+	try {
+		const response = await r2Client.send(
+			new GetObjectCommand({
+				Bucket: serverEnv.r2Bucket,
+				Key: avatarKey,
+			})
+		);
+
+		if (!response.Body) return undefined;
+
+		// Convert stream to buffer
+		const chunks: Uint8Array[] = [];
+		for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {
+			chunks.push(chunk);
+		}
+		const buffer = Buffer.concat(chunks);
+		const contentType = response.ContentType || "image/jpeg";
+		
+		// Return as base64 data URL
+		return `data:${contentType};base64,${buffer.toString("base64")}`;
+	} catch (err) {
+		console.error("Failed to fetch photo from R2:", err);
+		return undefined;
+	}
+}
 
 interface GenerateRequest {
 	jobTitle: string;
@@ -300,6 +354,9 @@ export async function POST(req: NextRequest) {
 			coverLetter = coverLetterCompletion.choices[0]?.message?.content || "";
 		}
 
+		// Fetch profile photo as base64 for embedding in resume HTML
+		const imageBase64 = await fetchPhotoAsBase64(profile.avatar_url);
+
 		return NextResponse.json({
 			success: true,
 			resume: {
@@ -317,6 +374,7 @@ export async function POST(req: NextRequest) {
 				location: profile.location,
 				linkedin: profile.linkedin_url,
 				website: profile.portfolio_url || profile.website,
+				image: imageBase64,
 				experience: candidateProfile.experience,
 				education: candidateProfile.education,
 				skills: candidateProfile.skills,
