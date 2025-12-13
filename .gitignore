@@ -14,3 +14,6 @@ coverage
 
 # Backup files
 _backup/
+
+# Claude Code settings
+.claude/
