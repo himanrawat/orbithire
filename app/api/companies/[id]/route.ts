@@ -193,7 +193,12 @@ export async function PATCH(
 
 		// Create follow-up for status changes (except rejected/withdrawn which need no follow-up)
 		// Follow-up reminders are created for: saved, applied, interviewing, offered
-		const statusesNeedingFollowUp = ["saved", "applied", "interviewing", "offered"];
+		const statusesNeedingFollowUp = [
+			"saved",
+			"applied",
+			"interviewing",
+			"offered",
+		];
 		if (
 			status !== undefined &&
 			currentCompany?.status !== status &&
@@ -202,7 +207,7 @@ export async function PATCH(
 			// Determine reminder cadence based on status
 			let reminderDays = 3;
 			let reminderMessage = "";
-			
+
 			switch (status) {
 				case "saved":
 					reminderDays = 2; // Remind in 2 days to apply
@@ -254,7 +259,10 @@ export async function PATCH(
 			if (followUpError) {
 				console.error("[Company API] Error creating follow-up:", followUpError);
 			} else {
-				console.log("[Company API] Follow-up created successfully:", followUpData);
+				console.log(
+					"[Company API] Follow-up created successfully:",
+					followUpData
+				);
 			}
 		}
 

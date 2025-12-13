@@ -137,18 +137,47 @@ export default function DashboardPage() {
 			setLoadingProfile(false);
 
 			// Load stats in parallel
-			const [resumeCount, coverLetterCount, activeFollowUpsCount, pendingRemindersCount] = await Promise.all([
-				supabase.from("resumes").select("id", { count: "exact", head: true }).eq("user_id", user.id),
-				supabase.from("cover_letters").select("id", { count: "exact", head: true }).eq("user_id", user.id),
-				supabase.from("follow_ups").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "active"),
-				supabase.from("follow_ups").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "active").lte("next_reminder_at", new Date().toISOString()),
+			const [
+				resumeCount,
+				coverLetterCount,
+				activeFollowUpsCount,
+				pendingRemindersCount,
+			] = await Promise.all([
+				supabase
+					.from("resumes")
+					.select("id", { count: "exact", head: true })
+					.eq("user_id", user.id),
+				supabase
+					.from("cover_letters")
+					.select("id", { count: "exact", head: true })
+					.eq("user_id", user.id),
+				supabase
+					.from("follow_ups")
+					.select("id", { count: "exact", head: true })
+					.eq("user_id", user.id)
+					.eq("status", "active"),
+				supabase
+					.from("follow_ups")
+					.select("id", { count: "exact", head: true })
+					.eq("user_id", user.id)
+					.eq("status", "active")
+					.lte("next_reminder_at", new Date().toISOString()),
 			]);
 
 			console.log("[Dashboard] Stats queries results:", {
 				resumeCount: { count: resumeCount.count, error: resumeCount.error },
-				coverLetterCount: { count: coverLetterCount.count, error: coverLetterCount.error },
-				activeFollowUpsCount: { count: activeFollowUpsCount.count, error: activeFollowUpsCount.error },
-				pendingRemindersCount: { count: pendingRemindersCount.count, error: pendingRemindersCount.error },
+				coverLetterCount: {
+					count: coverLetterCount.count,
+					error: coverLetterCount.error,
+				},
+				activeFollowUpsCount: {
+					count: activeFollowUpsCount.count,
+					error: activeFollowUpsCount.error,
+				},
+				pendingRemindersCount: {
+					count: pendingRemindersCount.count,
+					error: pendingRemindersCount.error,
+				},
 				currentTime: new Date().toISOString(),
 			});
 
@@ -171,8 +200,14 @@ export default function DashboardPage() {
 				const companiesWithCounts = await Promise.all(
 					companiesData.map(async (company) => {
 						const [resumeRes, coverLetterRes] = await Promise.all([
-							supabase.from("resumes").select("id", { count: "exact", head: true }).eq("company_id", company.id),
-							supabase.from("cover_letters").select("id", { count: "exact", head: true }).eq("company_id", company.id),
+							supabase
+								.from("resumes")
+								.select("id", { count: "exact", head: true })
+								.eq("company_id", company.id),
+							supabase
+								.from("cover_letters")
+								.select("id", { count: "exact", head: true })
+								.eq("company_id", company.id),
 						]);
 						return {
 							id: company.id,
@@ -181,7 +216,9 @@ export default function DashboardPage() {
 							resumes: resumeRes.count || 0,
 							coverLetters: coverLetterRes.count || 0,
 							lastActivity: new Date(company.updated_at).toLocaleDateString(),
-							appliedAt: company.applied_at ? new Date(company.applied_at).toLocaleDateString() : null,
+							appliedAt: company.applied_at
+								? new Date(company.applied_at).toLocaleDateString()
+								: null,
 						};
 					})
 				);
@@ -190,8 +227,18 @@ export default function DashboardPage() {
 
 			// Load recent items (resumes + cover letters)
 			const [resumesRes, coverLettersRes] = await Promise.all([
-				supabase.from("resumes").select("id, title, template, country, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
-				supabase.from("cover_letters").select("id, title, template, country, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
+				supabase
+					.from("resumes")
+					.select("id, title, template, country, created_at")
+					.eq("user_id", user.id)
+					.order("created_at", { ascending: false })
+					.limit(5),
+				supabase
+					.from("cover_letters")
+					.select("id, title, template, country, created_at")
+					.eq("user_id", user.id)
+					.order("created_at", { ascending: false })
+					.limit(5),
 			]);
 
 			const allItems: RecentItem[] = [
@@ -214,13 +261,18 @@ export default function DashboardPage() {
 					_sortDate: new Date(c.created_at),
 				})),
 			];
-			allItems.sort((a, b) => (b as any)._sortDate.getTime() - (a as any)._sortDate.getTime());
-			   setRecentItems(allItems.slice(0, 5).map((item) => item as RecentItem));
+			allItems.sort(
+				(a, b) =>
+					(b as any)._sortDate.getTime() - (a as any)._sortDate.getTime()
+			);
+			setRecentItems(allItems.slice(0, 5).map((item) => item as RecentItem));
 
 			// Load follow-ups with company names
 			const { data: followUpsData, error: followUpsError } = await supabase
 				.from("follow_ups")
-				.select("id, company_id, sent_at, next_reminder_at, status, reminder_count, message, companies(name, status, interview_at)")
+				.select(
+					"id, company_id, sent_at, next_reminder_at, status, reminder_count, message, companies(name, status, interview_at)"
+				)
 				.eq("user_id", user.id)
 				.eq("status", "active")
 				.order("next_reminder_at", { ascending: true })
@@ -238,7 +290,7 @@ export default function DashboardPage() {
 				.from("follow_ups")
 				.select("id, company_id, status, next_reminder_at, sent_at")
 				.eq("user_id", user.id);
-			
+
 			console.log("[Dashboard] ALL follow-ups (no status filter):", {
 				data: allFollowUps,
 				error: allFollowUpsError,
@@ -252,9 +304,12 @@ export default function DashboardPage() {
 						companyId: f.company_id,
 						company: f.companies?.name || "Unknown Company",
 						companyStatus: f.companies?.status || "saved",
-						message: f.message || getFollowUpMessage(f.companies?.status || "saved"),
+						message:
+							f.message || getFollowUpMessage(f.companies?.status || "saved"),
 						sentAt: new Date(f.sent_at).toLocaleDateString(),
-						nextReminder: f.next_reminder_at ? new Date(f.next_reminder_at).toLocaleDateString() : "Not set",
+						nextReminder: f.next_reminder_at
+							? new Date(f.next_reminder_at).toLocaleDateString()
+							: "Not set",
 						status: f.status,
 						reminderCount: f.reminder_count || 0,
 						interviewAt: f.companies?.interview_at || null,
@@ -262,7 +317,7 @@ export default function DashboardPage() {
 				);
 			}
 
-			   // setLoadingData(false); // removed useless assignment
+			// setLoadingData(false); // removed useless assignment
 		};
 
 		void loadAllData();
@@ -749,10 +804,13 @@ export default function DashboardPage() {
 												>
 													<div className="flex items-center justify-between">
 														<p className="font-medium">{followUp.company}</p>
-														<span className={cn(
-															"text-xs px-2 py-0.5 rounded-full capitalize",
-															statusColors[followUp.companyStatus] || statusColors.saved
-														)}>
+														<span
+															className={cn(
+																"text-xs px-2 py-0.5 rounded-full capitalize",
+																statusColors[followUp.companyStatus] ||
+																	statusColors.saved
+															)}
+														>
 															{followUp.companyStatus}
 														</span>
 													</div>
@@ -763,13 +821,17 @@ export default function DashboardPage() {
 														<div className="mt-1 flex items-center gap-1 text-sm font-medium text-green-600 dark:text-green-400">
 															<Calendar className="h-3 w-3" />
 															<span>
-																Interview: {new Date(followUp.interviewAt).toLocaleString("en-US", {
-																	weekday: "short",
-																	month: "short",
-																	day: "numeric",
-																	hour: "numeric",
-																	minute: "2-digit",
-																})}
+																Interview:{" "}
+																{new Date(followUp.interviewAt).toLocaleString(
+																	"en-US",
+																	{
+																		weekday: "short",
+																		month: "short",
+																		day: "numeric",
+																		hour: "numeric",
+																		minute: "2-digit",
+																	}
+																)}
 															</span>
 														</div>
 													) : (

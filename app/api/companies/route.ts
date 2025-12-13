@@ -151,8 +151,11 @@ export async function POST(request: NextRequest) {
 			interviewing: { days: 1, message: "Prepare for interview" },
 			offered: { days: 2, message: "Respond to offer" },
 		};
-		
-		const config = followUpConfig[status] || { days: 3, message: "Check on this application" };
+
+		const config = followUpConfig[status] || {
+			days: 3,
+			message: "Check on this application",
+		};
 		const followUpReminderDate = new Date();
 		followUpReminderDate.setDate(followUpReminderDate.getDate() + config.days);
 
@@ -184,7 +187,10 @@ export async function POST(request: NextRequest) {
 			console.error("[Company POST] Error creating follow-up:", followUpError);
 			// Don't fail the request, just log the error
 		} else {
-			console.log("[Company POST] Follow-up created successfully:", followUpData);
+			console.log(
+				"[Company POST] Follow-up created successfully:",
+				followUpData
+			);
 			// Update company's follow_up_date
 			await supabase
 				.from("companies")
