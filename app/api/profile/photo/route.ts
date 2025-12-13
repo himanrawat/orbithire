@@ -2,7 +2,11 @@ import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { randomUUID } from "node:crypto";
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import {
+	S3Client,
+	PutObjectCommand,
+	GetObjectCommand,
+} from "@aws-sdk/client-s3";
 import { serverEnv } from "@/lib/config";
 
 export const runtime = "nodejs";
@@ -41,7 +45,9 @@ function resolveExtension(file: Blob & { name?: string }) {
 /**
  * Fetch image from R2 and return as Buffer
  */
-async function fetchPhotoFromR2(key: string): Promise<{ buffer: Buffer; contentType: string } | null> {
+async function fetchPhotoFromR2(
+	key: string
+): Promise<{ buffer: Buffer; contentType: string } | null> {
 	if (!r2Client || !serverEnv.r2Bucket) return null;
 
 	try {
@@ -74,42 +80,38 @@ async function fetchPhotoFromR2(key: string): Promise<{ buffer: Buffer; contentT
  * Create Supabase client for server-side operations
  */
 function createSupabaseClient() {
-	return createServerClient(
-		serverEnv.supabaseUrl,
-		serverEnv.supabaseAnonKey,
-		{
-			cookies: {
-				get(name: string) {
-					return cookies().get(name)?.value;
-				},
-				set(name: string, value: string, options: any) {
-					cookies().set({
-						name,
-						value,
-						httpOnly: true,
-						secure: true,
-						sameSite: "lax",
-						domain: serverEnv.authCookieDomain,
-						path: "/",
-						...options,
-					});
-				},
-				remove(name: string, options: any) {
-					cookies().set({
-						name,
-						value: "",
-						expires: new Date(0),
-						httpOnly: true,
-						secure: true,
-						sameSite: "lax",
-						domain: serverEnv.authCookieDomain,
-						path: "/",
-						...options,
-					});
-				},
+	return createServerClient(serverEnv.supabaseUrl, serverEnv.supabaseAnonKey, {
+		cookies: {
+			get(name: string) {
+				return cookies().get(name)?.value;
 			},
-		}
-	);
+			set(name: string, value: string, options: any) {
+				cookies().set({
+					name,
+					value,
+					httpOnly: true,
+					secure: true,
+					sameSite: "lax",
+					domain: serverEnv.authCookieDomain,
+					path: "/",
+					...options,
+				});
+			},
+			remove(name: string, options: any) {
+				cookies().set({
+					name,
+					value: "",
+					expires: new Date(0),
+					httpOnly: true,
+					secure: true,
+					sameSite: "lax",
+					domain: serverEnv.authCookieDomain,
+					path: "/",
+					...options,
+				});
+			},
+		},
+	});
 }
 
 /**
@@ -216,10 +218,7 @@ export async function POST(req: NextRequest) {
 
 	const buffer = Buffer.from(await file.arrayBuffer());
 	if (!buffer.length) {
-		return NextResponse.json(
-			{ error: "Upload is empty." },
-			{ status: 400 }
-		);
+		return NextResponse.json({ error: "Upload is empty." }, { status: 400 });
 	}
 
 	if (buffer.length > MAX_IMAGE_BYTES) {
@@ -271,8 +270,5 @@ export async function POST(req: NextRequest) {
 	// Return proxy URL instead of signed URL - this never expires
 	const proxyUrl = "/api/profile/photo";
 
-	return NextResponse.json(
-		{ ok: true, key, url: proxyUrl },
-		{ status: 200 }
-	);
+	return NextResponse.json({ ok: true, key, url: proxyUrl }, { status: 200 });
 }
