@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -76,7 +77,7 @@ const trackerItems = [
 	},
 ];
 
-export default function LandingPage() {
+function LandingPageContent() {
 	const user = null;
 	const searchParams = useSearchParams();
 
@@ -314,5 +315,13 @@ export default function LandingPage() {
 				</div>
 			</footer>
 		</div>
+	);
+}
+
+export default function LandingPage() {
+	return (
+		<Suspense fallback={<div className="min-h-screen" />}>
+			<LandingPageContent />
+		</Suspense>
 	);
 }

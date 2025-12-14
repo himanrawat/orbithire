@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -26,7 +26,7 @@ const features = [
 	"Smart follow-up reminders",
 ];
 
-export default function SignInPage() {
+function SignInContent() {
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
 	const router = useRouter();
@@ -179,5 +179,13 @@ export default function SignInPage() {
 				</div>
 			</div>
 		</div>
+	);
+}
+
+export default function SignInPage() {
+	return (
+		<Suspense fallback={<div className="min-h-screen" />}>
+			<SignInContent />
+		</Suspense>
 	);
 }
