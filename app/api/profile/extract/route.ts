@@ -745,8 +745,12 @@ async function extractPdfText(data: Uint8Array) {
 
 	const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
 
-	// Disable worker for server-side usage - run everything on main thread
-	pdfjsLib.GlobalWorkerOptions.workerSrc = "";
+	// Set worker source path for server-side usage
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	const workerPath = eval(
+		'require.resolve("pdfjs-dist/legacy/build/pdf.worker.mjs")'
+	);
+	pdfjsLib.GlobalWorkerOptions.workerSrc = workerPath;
 
 	const loadingTask = pdfjsLib.getDocument({
 		data,
