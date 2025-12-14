@@ -45,8 +45,16 @@ export async function POST(req: NextRequest) {
 		});
 
 		if (error) {
+			console.error("[signup] Supabase error:", error);
 			return NextResponse.json({ error: error.message }, { status: 400 });
 		}
+
+		// Debug logging
+		console.log("[signup] Supabase response:", {
+			hasSession: !!data.session,
+			hasUser: !!data.user,
+			userConfirmedAt: data.user?.confirmed_at,
+		});
 
 		// If session exists, user is signed in immediately (email confirmation disabled)
 		// Otherwise, they need to confirm their email first
