@@ -28,9 +28,6 @@ import {
 	CheckCircle2,
 	AlertCircle,
 	Loader2,
-	Sparkles,
-	Zap,
-	Server,
 	Eye,
 	EyeOff,
 	Bell,
@@ -39,37 +36,20 @@ import {
 	RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ProviderSelector } from "@/components/settings/ProviderSelector";
+import { ModelDropdown } from "@/components/settings/ModelDropdown";
+import { DeprecationWarning } from "@/components/settings/DeprecationWarning";
+import { getProviderModels, type ModelInfo } from "@/lib/ai/providers/registry";
 
-type Provider = "openai" | "groq" | "custom";
-type ModelInfo = { id: string; owned_by?: string | null };
-
-const providerConfig = {
-	openai: {
-		name: "OpenAI",
-		description: "GPT-4, GPT-3.5 Turbo, and more",
-		icon: Sparkles,
-		color: "from-green-500 to-emerald-600",
-	},
-	groq: {
-		name: "Groq",
-		description: "Ultra-fast inference with LLaMA & Mixtral",
-		icon: Zap,
-		color: "from-orange-500 to-red-600",
-	},
-	custom: {
-		name: "Custom",
-		description: "Use your own OpenAI-compatible endpoint",
-		icon: Server,
-		color: "from-purple-500 to-indigo-600",
-	},
-};
+type Provider = "openai" | "groq" | "anthropic" | "gemini" | "custom";
 
 export default function SettingsPage() {
 	const [provider, setProvider] = useState<Provider>("groq");
 	const [apiKey, setApiKey] = useState("");
 	const [apiKeyPreview, setApiKeyPreview] = useState<string | null>(null);
 	const [baseUrl, setBaseUrl] = useState("");
-	const [models, setModels] = useState<ModelInfo[]>([]);
+	const [selectedModel, setSelectedModel] = useState("");
+	const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [loadingSettings, setLoadingSettings] = useState(true);
@@ -79,6 +59,8 @@ export default function SettingsPage() {
 	const [showApiKey, setShowApiKey] = useState(false);
 	const [hasStoredKey, setHasStoredKey] = useState(false);
 	const [connectionVerified, setConnectionVerified] = useState(false);
+	const [deprecationWarning, setDeprecationWarning] = useState<string | null>(null);
+	const [wasAutoUpgraded, setWasAutoUpgraded] = useState(false);
 
 	// Load saved settings on mount
 	const loadSettings = useCallback(async () => {
@@ -91,7 +73,14 @@ export default function SettingsPage() {
 				setHasStoredKey(data.hasApiKey || false);
 				setApiKeyPreview(data.apiKeyPreview || null);
 				setBaseUrl(data.baseUrl || "");
+				setSelectedModel(data.defaultModel || "");
 				setConnectionVerified(data.connectionVerified || false);
+				setDeprecationWarning(data.deprecationWarning || null);
+				setWasAutoUpgraded(data.wasAutoUpgraded || false);
+
+				// Load available models from registry for this provider
+				const models = getProviderModels(data.provider || "groq");
+				setAvailableModels(models);
 			}
 		} catch (err) {
 			console.error("Failed to load settings:", err);
@@ -117,6 +106,7 @@ export default function SettingsPage() {
 					provider,
 					apiKey: apiKey.trim() || undefined,
 					baseUrl: baseUrl.trim() || undefined,
+					defaultModel: selectedModel || undefined,
 				}),
 			});
 			const data = await res.json();
@@ -127,6 +117,8 @@ export default function SettingsPage() {
 			setApiKey(""); // Clear the input after saving
 			setSaveSuccess(true);
 			setTimeout(() => setSaveSuccess(false), 3000);
+			// Reload settings to get any auto-upgrades
+			await loadSettings();
 		} catch (err: unknown) {
 			const message = err instanceof Error ? err.message : "Failed to save";
 			setError(message);
@@ -135,11 +127,10 @@ export default function SettingsPage() {
 		}
 	}
 
-	async function fetchModels() {
+	async function testConnection() {
 		setLoading(true);
 		setError(null);
 		setSuccess(false);
-		setModels([]);
 		try {
 			const res = await fetch("/api/llm/models", {
 				method: "POST",
@@ -152,9 +143,9 @@ export default function SettingsPage() {
 			});
 			const data = await res.json();
 			if (!res.ok) {
-				throw new Error(data?.error || "Failed to fetch models");
+				throw new Error(data?.error || "Failed to connect to provider");
 			}
-			setModels(data.models || []);
+			setAvailableModels(data.models || []);
 			setSuccess(true);
 
 			// Update verification status
@@ -166,7 +157,7 @@ export default function SettingsPage() {
 			setConnectionVerified(true);
 		} catch (err: unknown) {
 			const message =
-				err instanceof Error ? err.message : "Unable to fetch models";
+				err instanceof Error ? err.message : "Unable to connect to provider";
 			setError(message);
 			// Update verification status on failure
 			await fetch("/api/settings", {
@@ -180,8 +171,17 @@ export default function SettingsPage() {
 		}
 	}
 
+	// Update available models when provider changes
+	useEffect(() => {
+		const models = getProviderModels(provider);
+		setAvailableModels(models);
+		// Clear selected model if it doesn't exist in new provider
+		if (selectedModel && !models.find((m) => m.id === selectedModel)) {
+			setSelectedModel("");
+		}
+	}, [provider, selectedModel]);
+
 	const showBaseUrl = provider === "custom";
-	const ProviderIcon = providerConfig[provider].icon;
 
 	return (
 		<SidebarProvider>
@@ -232,6 +232,17 @@ export default function SettingsPage() {
 							</p>
 						</motion.div>
 
+						{/* Deprecation Warning */}
+						{deprecationWarning && wasAutoUpgraded && (
+							<DeprecationWarning
+								message={deprecationWarning}
+								onDismiss={() => {
+									setDeprecationWarning(null);
+									setWasAutoUpgraded(false);
+								}}
+							/>
+						)}
+
 						<div className="grid gap-6">
 							{/* Provider Selection */}
 							<motion.div
@@ -251,48 +262,11 @@ export default function SettingsPage() {
 										</CardDescription>
 									</CardHeader>
 									<CardContent>
-										<div className="grid gap-3 sm:grid-cols-3">
-											{(Object.keys(providerConfig) as Provider[]).map((p) => {
-												const config = providerConfig[p];
-												const Icon = config.icon;
-												const isSelected = provider === p;
-												return (
-													<button
-														key={p}
-														onClick={() => setProvider(p)}
-														className={cn(
-															"relative flex flex-col items-start gap-2 rounded-xl border-2 p-4 text-left transition-all hover:border-primary/50",
-															isSelected
-																? "border-primary bg-primary/5"
-																: "border-border hover:bg-muted/50"
-														)}
-													>
-														<div
-															className={cn(
-																"flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br text-white",
-																config.color
-															)}
-														>
-															<Icon className="h-5 w-5" />
-														</div>
-														<div>
-															<p className="font-semibold">{config.name}</p>
-															<p className="text-xs text-muted-foreground">
-																{config.description}
-															</p>
-														</div>
-														{isSelected && (
-															<motion.div
-																layoutId="provider-check"
-																className="absolute right-3 top-3"
-															>
-																<CheckCircle2 className="h-5 w-5 text-primary" />
-															</motion.div>
-														)}
-													</button>
-												);
-											})}
-										</div>
+										<ProviderSelector
+											value={provider}
+											onChange={(p) => setProvider(p as Provider)}
+											disabled={loading || saving}
+										/>
 									</CardContent>
 								</Card>
 							</motion.div>
@@ -316,9 +290,18 @@ export default function SettingsPage() {
 											)}
 										</CardTitle>
 										<CardDescription>
-											Enter your API key to connect to{" "}
-											{providerConfig[provider].name}. Your key is securely
-											stored and used for AI resume generation.
+											Enter your API key for{" "}
+											{provider === "openai"
+												? "OpenAI"
+												: provider === "groq"
+												? "Groq"
+												: provider === "anthropic"
+												? "Anthropic"
+												: provider === "gemini"
+												? "Google Gemini"
+												: "your provider"}
+											. Your key is securely stored and used for AI resume
+											generation.
 											{apiKeyPreview && hasStoredKey && (
 												<span className="ml-1 font-mono text-xs">
 													(Current: {apiKeyPreview})
@@ -393,11 +376,21 @@ export default function SettingsPage() {
 													)}
 												</AnimatePresence>
 
+												{/* Model Selection */}
+												<div className="space-y-2">
+													<ModelDropdown
+														models={availableModels}
+														value={selectedModel}
+														onChange={setSelectedModel}
+														disabled={loading || saving}
+													/>
+												</div>
+
 												<div className="flex flex-wrap items-center gap-3 pt-2">
 													<Button
 														onClick={saveSettings}
 														disabled={
-															saving || (!apiKey.trim() && !baseUrl.trim())
+															saving || (!apiKey.trim() && !selectedModel)
 														}
 														variant="default"
 													>
@@ -415,8 +408,8 @@ export default function SettingsPage() {
 													</Button>
 
 													<Button
-														onClick={fetchModels}
-														disabled={loading}
+														onClick={testConnection}
+														disabled={loading || !apiKey.trim()}
 														variant="outline"
 													>
 														{loading ? (
@@ -469,70 +462,6 @@ export default function SettingsPage() {
 													</AnimatePresence>
 												</div>
 											</>
-										)}
-									</CardContent>
-								</Card>
-							</motion.div>
-							{/* Available Models */}
-							<motion.div
-								initial={{ opacity: 0, y: 20 }}
-								animate={{ opacity: 1, y: 0 }}
-								transition={{ delay: 0.3 }}
-							>
-								<Card>
-									<CardHeader>
-										<div className="flex items-center justify-between">
-											<div>
-												<CardTitle className="flex items-center gap-2 text-lg">
-													<Cpu className="h-5 w-5" />
-													Available Models
-												</CardTitle>
-												<CardDescription>
-													Models available from {providerConfig[provider].name}
-												</CardDescription>
-											</div>
-											{models.length > 0 && (
-												<span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-													{models.length} models
-												</span>
-											)}
-										</div>
-									</CardHeader>
-									<CardContent>
-										{models.length === 0 ? (
-											<div className="flex flex-col items-center justify-center py-8 text-center">
-												<div className="mb-3 rounded-full bg-muted p-3">
-													<Cpu className="h-6 w-6 text-muted-foreground" />
-												</div>
-												<p className="text-sm text-muted-foreground">
-													No models fetched yet. Click &quot;Test
-													Connection&quot; to load available models.
-												</p>
-											</div>
-										) : (
-											<div className="grid gap-2 sm:grid-cols-2">
-												{models.slice(0, 20).map((model, index) => (
-													<motion.div
-														key={model.id}
-														initial={{ opacity: 0, y: 10 }}
-														animate={{ opacity: 1, y: 0 }}
-														transition={{ delay: index * 0.03 }}
-														className="flex items-center justify-between rounded-lg border bg-card p-3 text-sm"
-													>
-														<code className="truncate text-xs">{model.id}</code>
-														{model.owned_by && (
-															<span className="ml-2 shrink-0 text-xs text-muted-foreground">
-																{model.owned_by}
-															</span>
-														)}
-													</motion.div>
-												))}
-												{models.length > 20 && (
-													<div className="col-span-full text-center text-sm text-muted-foreground">
-														+{models.length - 20} more models
-													</div>
-												)}
-											</div>
 										)}
 									</CardContent>
 								</Card>

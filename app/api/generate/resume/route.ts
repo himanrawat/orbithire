@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import OpenAI from "openai";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { serverEnv } from "@/lib/config";
 import {
@@ -9,6 +8,8 @@ import {
 	buildCoverLetterPrompt,
 	COVER_LETTER_SYSTEM_PROMPT,
 } from "@/lib/prompts/resume";
+import { createProvider } from "@/lib/ai/providerFactory";
+import type { ProviderInitConfig } from "@/lib/ai/providers/baseProvider";
 
 export const runtime = "nodejs";
 
@@ -82,7 +83,7 @@ interface GenerateRequest {
 async function getAIConfig(
 	supabase: ReturnType<typeof createServerClient>,
 	userId: string
-): Promise<{ apiKey: string; baseURL?: string; model: string } | null> {
+): Promise<ProviderInitConfig | null> {
 	// First try to get user's saved settings
 	const { data: settings } = await supabase
 		.from("user_settings")
@@ -97,27 +98,45 @@ async function getAIConfig(
 
 	// If user has their own key, use it
 	if (apiKey) {
-		if (provider === "groq" && !baseURL) {
-			baseURL = "https://api.groq.com/openai/v1";
-			model = model || "llama-3.1-70b-versatile";
-		} else if (provider === "openai" && !baseURL) {
-			baseURL = undefined; // OpenAI SDK uses default
-			model = model || "gpt-4o-mini";
+		// Set defaults for model if not specified
+		if (!model) {
+			if (provider === "groq") model = "llama-3.3-70b-versatile";
+			else if (provider === "openai") model = "gpt-4o-mini";
+			else if (provider === "anthropic") model = "claude-3-5-sonnet-20241022";
+			else if (provider === "gemini") model = "gemini-1.5-flash";
 		}
-		return { apiKey, baseURL, model: model || "llama-3.1-70b-versatile" };
+
+		return {
+			provider,
+			apiKey,
+			baseURL,
+			model,
+		};
 	}
 
 	// Fall back to environment variables
 	if (provider === "groq" && process.env.GROQ_API_KEY) {
 		return {
+			provider: "groq",
 			apiKey: process.env.GROQ_API_KEY,
 			baseURL: "https://api.groq.com/openai/v1",
-			model: "llama-3.1-70b-versatile",
+			model: model || "llama-3.3-70b-versatile",
 		};
 	}
 
+	if (provider === "openai" && process.env.OPENAI_API_KEY) {
+		return {
+			provider: "openai",
+			apiKey: process.env.OPENAI_API_KEY,
+			baseURL: process.env.OPENAI_BASE_URL || undefined,
+			model: model || "gpt-4o-mini",
+		};
+	}
+
+	// Generic fallbacks
 	if (process.env.OPENAI_API_KEY) {
 		return {
+			provider: "openai",
 			apiKey: process.env.OPENAI_API_KEY,
 			baseURL: process.env.OPENAI_BASE_URL || undefined,
 			model: "gpt-4o-mini",
@@ -126,9 +145,10 @@ async function getAIConfig(
 
 	if (process.env.GROQ_API_KEY) {
 		return {
+			provider: "groq",
 			apiKey: process.env.GROQ_API_KEY,
 			baseURL: "https://api.groq.com/openai/v1",
-			model: "llama-3.1-70b-versatile",
+			model: "llama-3.3-70b-versatile",
 		};
 	}
 
@@ -261,6 +281,7 @@ export async function POST(req: NextRequest) {
 			entries: (section.entries || []).map((entry: any) => ({
 				title: entry.title || "",
 				description: entry.description || "",
+				url: entry.url || "",
 			})),
 		})),
 	};
@@ -279,14 +300,9 @@ export async function POST(req: NextRequest) {
 		);
 	}
 
-	const openai = new OpenAI({
-		apiKey: aiConfig.apiKey,
-		baseURL: aiConfig.baseURL,
-	});
-	const model = aiConfig.model;
-
-	// Check if provider supports response_format (OpenAI does, Groq doesn't)
-	const isOpenAICompatible = !aiConfig.baseURL?.includes("groq");
+	// Create provider instance using factory
+	const provider = await createProvider(aiConfig);
+	const model = aiConfig.model || "gpt-4o-mini";
 
 	try {
 		// ============================================
@@ -299,22 +315,13 @@ export async function POST(req: NextRequest) {
 			companyName
 		);
 
-		const resumeCompletionParams: OpenAI.ChatCompletionCreateParams = {
-			model,
-			messages: [
-				{ role: "system", content: RESUME_SYSTEM_PROMPT },
-				{ role: "user", content: resumePrompt },
-			],
-			temperature: 0.3, // Lower for more consistent JSON
-			max_tokens: 4500,
-		};
-
 		// LOG 1: Input structure going to AI
 		console.log("=".repeat(80));
 		console.log("📤 INPUT TO AI - Resume Generation");
 		console.log("=".repeat(80));
+		console.log("Provider:", aiConfig.provider);
 		console.log("Model:", model);
-		console.log("Temperature:", resumeCompletionParams.temperature);
+		console.log("Temperature:", 0.3);
 		console.log("\n--- SYSTEM PROMPT (first 500 chars) ---");
 		console.log(RESUME_SYSTEM_PROMPT.substring(0, 500) + "...");
 		console.log("\n--- USER PROMPT (first 1000 chars) ---");
@@ -333,18 +340,27 @@ export async function POST(req: NextRequest) {
 				highlightsCount: exp.highlights.length
 			})),
 			skills: candidateProfile.skills,
+			customSections: candidateProfile.customSections.map((section) => ({
+				title: section.title,
+				entries: section.entries.map((entry: any) => ({
+					title: entry.title,
+					hasUrl: !!entry.url,
+					descriptionPreview: entry.description?.slice(0, 60) || ""
+				}))
+			}))
 		}, null, 2));
 		console.log("=".repeat(80));
 
-		// Only add response_format for OpenAI-compatible APIs (not Groq)
-		if (isOpenAICompatible) {
-			resumeCompletionParams.response_format = { type: "json_object" };
-		}
-
-		const resumeCompletion = await openai.chat.completions.create(
-			resumeCompletionParams
-		);
-		const resumeContent = resumeCompletion.choices[0]?.message?.content || "";
+		// Use provider abstraction for completion
+		const resumeCompletion = await provider.generateCompletion({
+			model,
+			systemPrompt: RESUME_SYSTEM_PROMPT,
+			userPrompt: resumePrompt,
+			temperature: 0.3,
+			maxTokens: 4500,
+			responseFormat: "json",
+		});
+		const resumeContent = resumeCompletion.content;
 
 		// LOG 2: Raw AI response
 		console.log("\n" + "=".repeat(80));
@@ -420,6 +436,47 @@ export async function POST(req: NextRequest) {
 			) {
 				resumeData.extractedKeywords = [];
 			}
+
+			// Ensure each experience has highlights; fall back to profile highlights if missing
+			const missingExperience: string[] = [];
+			for (const exp of candidateProfile.experience) {
+				const aiHighlights = resumeData.workHighlights?.[exp.company];
+				if (!aiHighlights || aiHighlights.length === 0) {
+					missingExperience.push(exp.company);
+					if (!resumeData.workHighlights) resumeData.workHighlights = {};
+					resumeData.workHighlights[exp.company] = exp.highlights;
+				}
+			}
+			if (missingExperience.length) {
+				console.warn(
+					"[generate/resume] Missing AI highlights for companies, used profile highlights:",
+					missingExperience
+				);
+			}
+
+			// Ensure custom section highlights align with provided sections/entries
+			const customFallbacks: string[] = [];
+			if (!resumeData.customSectionHighlights) {
+				resumeData.customSectionHighlights = {};
+			}
+			for (const section of candidateProfile.customSections || []) {
+				const aiSectionHighlights =
+					resumeData.customSectionHighlights[section.title] || [];
+				const ensuredHighlights = [...aiSectionHighlights];
+				(section.entries || []).forEach((entry: any, index: number) => {
+					if (!ensuredHighlights[index]) {
+						customFallbacks.push(`${section.title}#${index + 1}`);
+						ensuredHighlights[index] = entry.description || entry.title || "";
+					}
+				});
+				resumeData.customSectionHighlights[section.title] = ensuredHighlights;
+			}
+			if (customFallbacks.length) {
+				console.warn(
+					"[generate/resume] Missing AI highlights for custom sections, used profile entries:",
+					customFallbacks
+				);
+			}
 		} catch (parseError: unknown) {
 			const errorMessage =
 				parseError instanceof Error
@@ -469,17 +526,16 @@ export async function POST(req: NextRequest) {
 				{ extractedKeywords: resumeData.extractedKeywords || [] }
 			);
 
-			const coverLetterCompletion = await openai.chat.completions.create({
+			const coverLetterCompletion = await provider.generateCompletion({
 				model,
-				messages: [
-					{ role: "system", content: COVER_LETTER_SYSTEM_PROMPT },
-					{ role: "user", content: coverLetterPrompt },
-				],
-				temperature: 0.5, // Slightly lower for more focused prose
-				max_tokens: 1200,
+				systemPrompt: COVER_LETTER_SYSTEM_PROMPT,
+				userPrompt: coverLetterPrompt,
+				temperature: 0.5,
+				maxTokens: 1200,
+				responseFormat: "text",
 			});
 
-			coverLetter = coverLetterCompletion.choices[0]?.message?.content || "";
+			coverLetter = coverLetterCompletion.content;
 
 			// Clean any markdown formatting from cover letter
 			coverLetter = coverLetter

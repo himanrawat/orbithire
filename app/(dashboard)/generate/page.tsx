@@ -241,6 +241,7 @@ export default function GeneratePage() {
 			name: string;
 			description: string;
 			highlights: string[];
+			url?: string;
 		}>
 	>([]);
 
@@ -306,6 +307,7 @@ export default function GeneratePage() {
 					return section.entries.map((entry: any, index: number) => ({
 						name: entry.title,
 						description: entry.description || "",
+						url: entry.url || "",
 						highlights:
 							optimizedHighlights.length > index
 								? [optimizedHighlights[index]]
@@ -340,6 +342,7 @@ export default function GeneratePage() {
 			name: proj.name,
 			description: proj.description,
 			highlights: proj.highlights,
+			url: proj.url || undefined,
 			keywords: [],
 		}));
 
@@ -433,7 +436,7 @@ export default function GeneratePage() {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					resume: finalResume,
-					template: selectedTemplateId,
+					templateId: selectedTemplateId,
 				}),
 			});
 
@@ -756,10 +759,10 @@ export default function GeneratePage() {
 											</CardDescription>
 										</div>
 										<div className="flex gap-2">
-											<Button variant="outline" onClick={handleOpenPreview}>
+											{/* <Button variant="outline" onClick={handleOpenPreview}>
 												<Eye className="mr-2 h-4 w-4" />
 												Full Preview
-											</Button>
+											</Button> */}
 											<Button onClick={handleDownloadPDF}>
 												<Download className="mr-2 h-4 w-4" />
 												Download PDF
@@ -1079,6 +1082,24 @@ export default function GeneratePage() {
 																		setEditedProjects(updated);
 																	}}
 																	className="mt-1"
+																/>
+															</div>
+															<div className="mb-3">
+																<Label className="text-xs">
+																	Project Link (optional)
+																</Label>
+																<Input
+																	value={proj.url || ""}
+																	onChange={(e) => {
+																		const updated = [...editedProjects];
+																		updated[projIndex] = {
+																			...proj,
+																			url: e.target.value,
+																		};
+																		setEditedProjects(updated);
+																	}}
+																	className="mt-1"
+																	placeholder="https://..."
 																/>
 															</div>
 															<div>

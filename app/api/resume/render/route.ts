@@ -11,7 +11,10 @@ interface RenderRequest {
 // Format date helper
 function formatDate(date: string): string {
 	if (!date) return "";
+	const normalized = date.toString().trim().toLowerCase();
+	if (normalized === "present" || normalized === "current") return "Present";
 	const d = new Date(date);
+	if (Number.isNaN(d.getTime())) return "";
 	return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 }
 

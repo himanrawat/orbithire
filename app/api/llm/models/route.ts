@@ -1,73 +1,61 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
+import { createProvider, testProviderConfig } from "@/lib/ai/providerFactory";
+import { getProviderModels, type ModelInfo } from "@/lib/ai/providers/registry";
 
-type Provider = "openai" | "groq" | "custom";
+type Provider = "openai" | "groq" | "anthropic" | "gemini" | "custom";
 
 export const runtime = "nodejs";
 
-function getDefaults(provider: Provider, baseUrl?: string) {
-	if (provider === "groq") {
-		return {
-			baseURL: baseUrl || "https://api.groq.com/openai/v1",
-			fallbackKey: process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || "",
-		};
-	}
-
-	if (provider === "custom") {
-		return {
-			baseURL: baseUrl || "",
-			fallbackKey: "",
-		};
-	}
-
-	return {
-		baseURL: baseUrl || process.env.OPENAI_BASE_URL || undefined,
-		fallbackKey: process.env.OPENAI_API_KEY || "",
-	};
-}
-
+/**
+ * POST /api/llm/models - Test connection and fetch available models
+ * Returns categorized models from our registry
+ */
 export async function POST(req: NextRequest) {
 	const body = (await req.json().catch(() => null)) || {};
 	const provider: Provider = body.provider || "openai";
 	const apiKey: string | undefined = body.apiKey;
 	const baseURL: string | undefined = body.baseUrl;
 
-	const defaults = getDefaults(provider, baseURL);
-	const resolvedKey = apiKey || defaults.fallbackKey;
-
-	if (!resolvedKey) {
+	if (!apiKey) {
 		return NextResponse.json(
-			{ error: "API key is required (provided in request or env)." },
+			{ error: "API key is required" },
 			{ status: 400 }
 		);
 	}
 
-	try {
-		const client = new OpenAI({
-			apiKey: resolvedKey,
-			baseURL: defaults.baseURL,
-		});
+	// Test the provider configuration
+	const testResult = await testProviderConfig({
+		provider,
+		apiKey,
+		baseURL,
+	});
 
-		const modelsResponse = await client.models.list();
-		const models =
-			modelsResponse.data?.map((m: any) => ({
-				id: m.id,
-				owned_by: m.owned_by,
-			})) || [];
-
-		return NextResponse.json({
-			ok: true,
-			provider,
-			baseURL: defaults.baseURL,
-			models,
-			// Token quota is generally not exposed by providers; return null to reflect that.
-			tokenInfo: null,
-		});
-	} catch (error) {
-		console.error("Model fetch error:", error);
+	if (!testResult.success) {
 		return NextResponse.json(
-			{ error: "Unable to fetch models with the provided key/base URL." },
-			{ status: 500 }
+			{
+				error: testResult.error || "Failed to connect to provider",
+				ok: false,
+			},
+			{ status: 400 }
 		);
 	}
+
+	// Get categorized models from registry
+	const allModels = getProviderModels(provider);
+
+	// Categorize models
+	const categorized = {
+		recommended: allModels.filter((m) => m.category === "recommended"),
+		alternative: allModels.filter((m) => m.category === "alternative"),
+		experimental: allModels.filter((m) => m.category === "experimental"),
+		deprecated: allModels.filter((m) => m.category === "deprecated"),
+		specialized: allModels.filter((m) => m.category === "specialized"),
+	};
+
+	return NextResponse.json({
+		ok: true,
+		provider,
+		models: allModels,
+		categorized,
+	});
 }

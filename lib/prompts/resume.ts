@@ -967,6 +967,7 @@ WORKHIGHLIGHTS FORMAT (CRITICAL):
 - Use the exact company name from the candidate profile
 - Each key maps to an array of 3-5 optimized bullet strings
 - Weave 1-2 extractedKeywords into each company's bullets (only if truthful)
+- COVERAGE: Return highlights for EVERY experience in the candidate profile; do not drop companies. If you lack details, rewrite the existing bullets with better wording.
 - Reorder bullets so most job-relevant come first
 
 SKILLS ORDERING:
@@ -977,8 +978,9 @@ SKILLS ORDERING:
 CUSTOM SECTIONS:
 - If candidate has custom sections (e.g., Projects), include customSectionHighlights
 - Keys must match the section titles from the profile${
-		customNames.length > 0 ? `: ${customNames.join(", ")}` : ""
-	}
+	customNames.length > 0 ? `: ${customNames.join(", ")}` : ""
+}
+- COVERAGE: Include an entry for every item in each custom section. Keep the same count as the input; if AI cannot improve, reuse the original description.
 - Optimize descriptions with action verbs and impact
 
 METRIC TRUTH (NON-NEGOTIABLE):

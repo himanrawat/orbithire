@@ -1,11 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { serverEnv } from "@/lib/config";
+import { getProvider } from "@/lib/ai/providers/registry";
+import { autoUpgradeDeprecatedModel } from "@/lib/ai/modelUpgrade";
 
 export const runtime = "nodejs";
 
 interface SettingsPayload {
-	provider: "openai" | "groq" | "custom";
+	provider: "openai" | "groq" | "anthropic" | "gemini" | "custom";
 	apiKey?: string;
 	baseUrl?: string;
 	defaultModel?: string;
@@ -64,7 +66,35 @@ export async function GET(req: NextRequest) {
 			connectionVerified: false,
 			defaultTemplate: "modern",
 			defaultCountry: "US",
+			deprecationWarning: null,
 		});
+	}
+
+	// Check for deprecated model and auto-upgrade
+	let deprecationWarning: string | null = null;
+	let currentModel = settings.ai_default_model;
+	let upgradedModel: string | null = null;
+
+	if (settings.ai_provider && settings.ai_default_model) {
+		const upgradeResult = autoUpgradeDeprecatedModel(
+			settings.ai_provider,
+			settings.ai_default_model
+		);
+
+		if (upgradeResult.wasDeprecated) {
+			deprecationWarning = upgradeResult.message || null;
+			upgradedModel = upgradeResult.upgradedModel || null;
+
+			// Auto-upgrade the model in database
+			if (upgradedModel) {
+				await supabase
+					.from("user_settings")
+					.update({ ai_default_model: upgradedModel })
+					.eq("user_id", user.id);
+
+				currentModel = upgradedModel;
+			}
+		}
 	}
 
 	return NextResponse.json({
@@ -75,11 +105,13 @@ export async function GET(req: NextRequest) {
 			? `...${settings.ai_api_key_encrypted.slice(-4)}`
 			: null,
 		baseUrl: settings.ai_base_url,
-		defaultModel: settings.ai_default_model,
+		defaultModel: currentModel,
 		connectionVerified: settings.ai_connection_verified,
 		lastVerifiedAt: settings.ai_last_verified_at,
 		defaultTemplate: settings.default_template,
 		defaultCountry: settings.default_country,
+		deprecationWarning,
+		wasAutoUpgraded: !!upgradedModel,
 	});
 }
 
@@ -118,6 +150,17 @@ export async function POST(req: NextRequest) {
 	}
 
 	const { provider, apiKey, baseUrl, defaultModel } = body;
+
+	// Validate provider exists in registry
+	const providerConfig = getProvider(provider);
+	if (!providerConfig && provider !== "custom") {
+		return NextResponse.json(
+			{
+				error: `Invalid provider: ${provider}. Valid providers are: openai, groq, anthropic, gemini, custom`,
+			},
+			{ status: 400 }
+		);
+	}
 
 	// Build update object
 	const updateData: Record<string, unknown> = {
