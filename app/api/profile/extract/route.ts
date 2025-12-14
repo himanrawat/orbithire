@@ -744,6 +744,10 @@ async function extractPdfText(data: Uint8Array) {
 	ensurePdfJsNodeGlobals();
 
 	const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+
+	// Disable worker for server-side usage - run everything on main thread
+	pdfjsLib.GlobalWorkerOptions.workerSrc = "";
+
 	const loadingTask = pdfjsLib.getDocument({
 		data,
 		isEvalSupported: false,
