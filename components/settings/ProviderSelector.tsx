@@ -13,26 +13,26 @@ const providers = [
 	{
 		id: "openai",
 		name: "OpenAI",
-		icon: Sparkles,
-		gradient: "from-green-500 to-emerald-600",
+		icon: "/OpenAI-dark.svg",
+		bg: "bg-black",
 	},
 	{
 		id: "groq",
 		name: "Groq",
-		icon: Zap,
-		gradient: "from-orange-500 to-red-600",
+		icon: "/groq-logo.svg",
+		bg: "bg-[#F43E01]",
 	},
 	{
 		id: "anthropic",
 		name: "Anthropic",
-		icon: Cpu,
-		gradient: "from-purple-500 to-indigo-600",
+		icon: "/Anthropic_light.svg",
+		bg: "bg-[#d97757]",
 	},
 	{
 		id: "gemini",
 		name: "Gemini",
-		icon: Globe,
-		gradient: "from-blue-500 to-cyan-600",
+		icon: "/gemini.svg",
+		bg: "",
 	},
 ];
 
@@ -64,19 +64,20 @@ export function ProviderSelector({
 					>
 						<div
 							className={cn(
-								"p-3 rounded-full mb-2",
-								`bg-gradient-to-br ${provider.gradient}`,
+								`p-2 rounded-full mb-2 w-12 h-12 flex items-center justify-center ${provider.bg}`,
 								!isSelected && "opacity-75"
 							)}
 						>
-							<Icon className="h-6 w-6 text-white" />
+							<img
+								src={provider.icon}
+								alt={provider.name}
+								className="h-full w-full"
+							/>
 						</div>
 						<span
 							className={cn(
 								"text-sm font-medium",
-								isSelected
-									? "text-primary"
-									: "text-gray-700 dark:text-gray-300"
+								isSelected ? "text-primary" : "text-gray-700 dark:text-gray-300"
 							)}
 						>
 							{provider.name}
