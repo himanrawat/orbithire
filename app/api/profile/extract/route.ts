@@ -730,7 +730,9 @@ async function parseImageWithLlm(file: File) {
 
 async function extractPdfText(data: Uint8Array): Promise<string> {
 	// pdf-parse works in Node.js/Lambda without worker issues
-	const pdfParse = (await import("pdf-parse")) as unknown as (buffer: Buffer) => Promise<{ text: string }>;
+	const pdfParse = (await import("pdf-parse")) as unknown as (
+		buffer: Buffer
+	) => Promise<{ text: string }>;
 	const buffer = Buffer.from(data);
 	const result = await pdfParse(buffer);
 	return normalizeExtractedText(result.text);
