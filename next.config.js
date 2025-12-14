@@ -8,6 +8,7 @@ const nextConfig = {
     serverComponentsExternalPackages: [
       "@napi-rs/canvas",
       "pdfjs-dist",
+      "pdf-parse",
       // JSONResume themes - these use fs.readFileSync to load assets
       "jsonresume-theme-even",
       "jsonresume-theme-elegant",

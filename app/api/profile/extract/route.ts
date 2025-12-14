@@ -728,11 +728,43 @@ async function parseImageWithLlm(file: File) {
 	return parsed;
 }
 
+function ensurePdfJsNodeGlobals() {
+	// pdfjs (used by pdf-parse) checks these globals at runtime in Node/Lambda
+	if ((globalThis as any).DOMMatrix) return;
+
+	try {
+		// eslint-disable-next-line @typescript-eslint/no-require-imports
+		const canvas = require("@napi-rs/canvas");
+		(globalThis as any).DOMMatrix = canvas.DOMMatrix;
+		(globalThis as any).ImageData = canvas.ImageData;
+		(globalThis as any).Path2D = canvas.Path2D;
+	} catch {
+		// Canvas not available - create minimal stubs for text extraction
+		(globalThis as any).DOMMatrix = class DOMMatrix {
+			constructor() {
+				return this;
+			}
+		};
+		(globalThis as any).ImageData = class ImageData {
+			constructor() {
+				return this;
+			}
+		};
+		(globalThis as any).Path2D = class Path2D {
+			constructor() {
+				return this;
+			}
+		};
+	}
+}
+
 async function extractPdfText(data: Uint8Array): Promise<string> {
+	// Ensure browser API polyfills are set before importing pdf-parse
+	ensurePdfJsNodeGlobals();
+
 	// pdf-parse works in Node.js/Lambda without worker issues
-	const pdfParse = (await import("pdf-parse")) as unknown as (
-		buffer: Buffer
-	) => Promise<{ text: string }>;
+	const pdfParseModule = await import("pdf-parse");
+	const pdfParse = (pdfParseModule as any).default || pdfParseModule;
 	const buffer = Buffer.from(data);
 	const result = await pdfParse(buffer);
 	return normalizeExtractedText(result.text);
