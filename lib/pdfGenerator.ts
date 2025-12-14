@@ -1,4 +1,5 @@
-import puppeteer from "puppeteer";
+import puppeteer from "puppeteer-core";
+import chromium from "@sparticuz/chromium";
 
 export interface PDFGenerationResult {
 	success: boolean;
@@ -18,13 +19,9 @@ export async function generatePDFFromHTML(
 
 	try {
 		browser = await puppeteer.launch({
+			args: chromium.args,
+			executablePath: await chromium.executablePath(),
 			headless: true,
-			args: [
-				"--no-sandbox",
-				"--disable-setuid-sandbox",
-				"--disable-dev-shm-usage",
-				"--disable-gpu",
-			],
 		});
 
 		const page = await browser.newPage();
