@@ -7,7 +7,6 @@ const nextConfig = {
     // JSONResume themes read CSS/template files from disk which breaks when bundled
     serverComponentsExternalPackages: [
       "@napi-rs/canvas",
-      "pdfjs-dist",
       "pdf-parse",
       // JSONResume themes - these use fs.readFileSync to load assets
       "jsonresume-theme-even",

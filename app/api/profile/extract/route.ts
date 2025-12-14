@@ -762,11 +762,12 @@ async function extractPdfText(data: Uint8Array): Promise<string> {
 	// Ensure browser API polyfills are set before importing pdf-parse
 	ensurePdfJsNodeGlobals();
 
-	// pdf-parse works in Node.js/Lambda without worker issues
-	const pdfParseModule = await import("pdf-parse");
-	const pdfParse = (pdfParseModule as any).default || pdfParseModule;
+	// pdf-parse v2.x uses a class-based API
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	const { PDFParse, VerbosityLevel } = require("pdf-parse");
 	const buffer = Buffer.from(data);
-	const result = await pdfParse(buffer);
+	const parser = new PDFParse({ data: buffer, verbosity: VerbosityLevel.ERRORS });
+	const result = await parser.getText();
 	return normalizeExtractedText(result.text);
 }
 
