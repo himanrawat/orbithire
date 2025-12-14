@@ -728,47 +728,26 @@ async function parseImageWithLlm(file: File) {
 	return parsed;
 }
 
-function ensurePdfJsNodeGlobals() {
-	// pdfjs (used by pdf-parse) checks these globals at runtime in Node/Lambda
-	if ((globalThis as any).DOMMatrix) return;
-
-	try {
-		// eslint-disable-next-line @typescript-eslint/no-require-imports
-		const canvas = require("@napi-rs/canvas");
-		(globalThis as any).DOMMatrix = canvas.DOMMatrix;
-		(globalThis as any).ImageData = canvas.ImageData;
-		(globalThis as any).Path2D = canvas.Path2D;
-	} catch {
-		// Canvas not available - create minimal stubs for text extraction
-		(globalThis as any).DOMMatrix = class DOMMatrix {
-			constructor() {
-				return this;
-			}
-		};
-		(globalThis as any).ImageData = class ImageData {
-			constructor() {
-				return this;
-			}
-		};
-		(globalThis as any).Path2D = class Path2D {
-			constructor() {
-				return this;
-			}
-		};
-	}
-}
-
 async function extractPdfText(data: Uint8Array): Promise<string> {
-	// Ensure browser API polyfills are set before importing pdf-parse
-	ensurePdfJsNodeGlobals();
-
-	// pdf-parse v2.x uses a class-based API
+	// Use pdf2json - pure Node.js, no workers needed (Lambda compatible)
 	// eslint-disable-next-line @typescript-eslint/no-require-imports
-	const { PDFParse, VerbosityLevel } = require("pdf-parse");
-	const buffer = Buffer.from(data);
-	const parser = new PDFParse({ data: buffer, verbosity: VerbosityLevel.ERRORS });
-	const result = await parser.getText();
-	return normalizeExtractedText(result.text);
+	const PDFParser = require("pdf2json");
+
+	return new Promise((resolve, reject) => {
+		const pdfParser = new PDFParser(null, true); // needRawText = true
+
+		pdfParser.on("pdfParser_dataError", (errData: any) => {
+			reject(new Error(errData.parserError || "PDF parsing failed"));
+		});
+
+		pdfParser.on("pdfParser_dataReady", () => {
+			const text = pdfParser.getRawTextContent();
+			resolve(normalizeExtractedText(text));
+		});
+
+		const buffer = Buffer.from(data);
+		pdfParser.parseBuffer(buffer);
+	});
 }
 
 async function bufferToText(
