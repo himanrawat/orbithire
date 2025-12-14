@@ -1,13 +1,11 @@
 "use client";
 
-import { FormEvent, Suspense, useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { NavBar } from "@/components/NavBar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
 	Card,
 	CardContent,
@@ -16,79 +14,130 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { GridBackground } from "@/components/ui/aceternity";
-import { Loader2, ArrowRight, Sparkles } from "lucide-react";
+import { Sparkles, ArrowRight, Loader2, CheckCircle2 } from "lucide-react";
 import { sanitizeRedirect } from "@/lib/auth-utils";
 
 const steps = [
 	{
 		number: "1",
-		title: "Create your account",
-		description: "Sign up in seconds with just your email",
+		title: "Create your profile",
+		description: "Add your experience, skills, and career goals once.",
 	},
 	{
 		number: "2",
 		title: "Paste a job description",
-		description: "Get a tailored resume and cover letter instantly",
+		description: "Our AI analyzes it and tailors your resume instantly.",
 	},
 	{
 		number: "3",
-		title: "Stay organized",
-		description: "Track applications and never miss a follow-up",
+		title: "Apply with confidence",
+		description: "Get ATS-optimized resumes that land more interviews.",
 	},
 ];
 
-function SignUpContent() {
-	const [error, setError] = useState<string | null>(null);
-	const [notice, setNotice] = useState<string | null>(null);
-	const [loading, setLoading] = useState(false);
+function SignUpForm() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
+	const [email, setEmail] = useState("");
+	const [password, setPassword] = useState("");
+	const [confirmPassword, setConfirmPassword] = useState("");
+	const [error, setError] = useState("");
+	const [notice, setNotice] = useState("");
+	const [loading, setLoading] = useState(false);
+	const [success, setSuccess] = useState(false);
 
-	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-		event.preventDefault();
-		setError(null);
-		setNotice(null);
+	const signinHref = `/signin${
+		searchParams.get("redirect")
+			? `?redirect=${encodeURIComponent(searchParams.get("redirect")!)}`
+			: ""
+	}`;
+
+	const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+		e.preventDefault();
+		setError("");
+		setNotice("");
+
+		if (password !== confirmPassword) {
+			setError("Passwords do not match");
+			return;
+		}
+
+		if (password.length < 8) {
+			setError("Password must be at least 8 characters");
+			return;
+		}
+
 		setLoading(true);
 
-		const formData = new FormData(event.currentTarget);
-		const email = (formData.get("email") || "").toString().trim();
-		const password = (formData.get("password") || "").toString();
+		try {
+			const res = await fetch("/api/auth/signup", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ email, password }),
+			});
 
-		const response = await fetch("/api/auth/signup", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ email, password }),
-		});
+			const data = await res.json();
 
-		const body = await response.json().catch(() => ({}));
+			if (!res.ok) {
+				setError(data.error || "Signup failed");
+				return;
+			}
 
-		if (!response.ok) {
-			setError(body.error || "Unable to sign up. Please try again.");
+			setSuccess(true);
+		} catch {
+			setError("Something went wrong");
+		} finally {
 			setLoading(false);
-			return;
 		}
+	};
 
-		if (body.requiresEmailConfirmation) {
-			setNotice(
-				"Check your email to confirm your account, then sign in to continue."
-			);
-			setLoading(false);
-			return;
-		}
-
-		// Cookies are set by the API route, just navigate
-		const redirect = sanitizeRedirect(
-			searchParams.get("redirect"),
-			"/onboarding"
+	if (success) {
+		return (
+			<div className="min-h-screen">
+				<NavBar user={null} />
+				<GridBackground />
+				<div className="container relative flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4 py-12">
+					<motion.div
+						initial={{ opacity: 0, scale: 0.95 }}
+						animate={{ opacity: 1, scale: 1 }}
+						transition={{ duration: 0.3 }}
+					>
+						<Card className="w-full max-w-md border-border/50 bg-card/80 backdrop-blur text-center">
+							<CardHeader className="space-y-4 pb-2">
+								<div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-500/10">
+									<CheckCircle2 className="h-8 w-8 text-green-500" />
+								</div>
+								<CardTitle className="text-2xl font-bold">
+									Check your email
+								</CardTitle>
+								<CardDescription className="text-base">
+									We sent a confirmation link to{" "}
+									<span className="font-medium text-foreground">{email}</span>
+								</CardDescription>
+							</CardHeader>
+							<CardContent className="space-y-4 pt-2">
+								<p className="text-sm text-muted-foreground">
+									Click the link in your email to confirm your account, then
+									sign in.
+								</p>
+							</CardContent>
+							<CardFooter className="flex flex-col space-y-4">
+								<Button asChild className="w-full">
+									<Link href="/signin">
+										Go to Sign In
+										<ArrowRight className="ml-2 h-4 w-4" />
+									</Link>
+								</Button>
+							</CardFooter>
+						</Card>
+					</motion.div>
+				</div>
+			</div>
 		);
-		router.push(redirect);
 	}
-
-	const redirect = searchParams.get("redirect");
-	const signinHref = redirect
-		? `/signin?redirect=${encodeURIComponent(redirect)}`
-		: "/signin";
 
 	return (
 		<div className="min-h-screen">
@@ -163,9 +212,10 @@ function SignUpContent() {
 										<Label htmlFor="email">Email</Label>
 										<Input
 											id="email"
-											name="email"
 											type="email"
 											placeholder="you@example.com"
+											value={email}
+											onChange={(e) => setEmail(e.target.value)}
 											required
 											disabled={loading}
 										/>
@@ -174,9 +224,23 @@ function SignUpContent() {
 										<Label htmlFor="password">Password</Label>
 										<Input
 											id="password"
-											name="password"
 											type="password"
 											placeholder="At least 8 characters"
+											value={password}
+											onChange={(e) => setPassword(e.target.value)}
+											required
+											disabled={loading}
+											minLength={8}
+										/>
+									</div>
+									<div className="space-y-2">
+										<Label htmlFor="confirmPassword">Confirm Password</Label>
+										<Input
+											id="confirmPassword"
+											type="password"
+											placeholder="Confirm your password"
+											value={confirmPassword}
+											onChange={(e) => setConfirmPassword(e.target.value)}
 											required
 											disabled={loading}
 											minLength={8}
@@ -228,8 +292,8 @@ function SignUpContent() {
 
 export default function SignUpPage() {
 	return (
-		<Suspense fallback={<div className="min-h-screen" />}>
-			<SignUpContent />
+		<Suspense fallback={<div>Loading...</div>}>
+			<SignUpForm />
 		</Suspense>
 	);
 }

@@ -43,7 +43,11 @@ async function main() {
 
 	console.log(`Templates to process: ${TEMPLATE_IDS.join(", ")}\n`);
 
-	const results = await generateAllTemplateThumbnails(force);
+	// Use NEXT_PUBLIC_APP_URL if set, otherwise default to localhost
+	const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+	console.log(`Using base URL: ${baseUrl}\n`);
+
+	const results = await generateAllTemplateThumbnails(force, baseUrl);
 
 	// Summary
 	console.log("\n📊 Summary:");

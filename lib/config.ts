@@ -43,13 +43,19 @@ export const serverEnv = {
 	get r2PublicBaseUrl() {
 		return process.env.R2_PUBLIC_BASE_URL || process.env.R2_ENDPOINT;
 	},
-	// Use NEXT_PUBLIC_APP_URL first (for local dev), then SITE_URL (for production)
+	// In production, require SITE_URL to be set. In development, allow localhost fallback.
 	get siteUrl() {
-		return (
-			process.env.NEXT_PUBLIC_APP_URL ||
-			process.env.SITE_URL ||
-			"http://localhost:3000"
-		);
+		const url = process.env.NEXT_PUBLIC_APP_URL || process.env.SITE_URL;
+
+		if (!url) {
+			if (process.env.NODE_ENV === "production") {
+				throw new Error(
+					"Missing SITE_URL or NEXT_PUBLIC_APP_URL in production"
+				);
+			}
+			return "http://localhost:3000";
+		}
+		return url;
 	},
 	get authCookieDomain() {
 		return (

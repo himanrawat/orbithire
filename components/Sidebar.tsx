@@ -13,11 +13,8 @@ import {
 	User,
 	Settings,
 	FileText,
-	FolderOpen,
 	ChevronLeft,
 	ChevronRight,
-	Bell,
-	LogOut,
 	Menu,
 } from "lucide-react";
 

@@ -5,7 +5,6 @@ import { createEdgeSupabaseClient } from "@/lib/supabase-edge";
 const PROTECTED_PATHS = [
 	"/dashboard",
 	"/profile",
-	"/onboarding",
 	"/generate",
 	"/upload",
 	"/companies",
@@ -69,7 +68,9 @@ export async function middleware(req: NextRequest) {
 	// Resume host: allow public, but push signed-in users away from auth/landing
 	if (hostname === "resume.himanshurawat.in") {
 		if (authenticated && (path === "/" || isAuthPage)) {
-			return NextResponse.redirect(new URL("https://dashboard.himanshurawat.in"));
+			return NextResponse.redirect(
+				new URL("https://dashboard.himanshurawat.in")
+			);
 		}
 		return response;
 	}

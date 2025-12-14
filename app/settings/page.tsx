@@ -30,8 +30,6 @@ import {
 	Loader2,
 	Eye,
 	EyeOff,
-	Bell,
-	LogOut,
 	Save,
 	RefreshCw,
 } from "lucide-react";
@@ -195,20 +193,6 @@ export default function SettingsPage() {
 					<div className="flex items-center gap-2">
 						<ThemeToggle />
 					</div>
-				</header>
-
-				{/* Desktop Top Bar */}
-				<header className="sticky top-0 z-30 hidden h-14 items-center justify-end gap-4 border-b bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:flex">
-					<Button variant="ghost" size="icon">
-						<Bell className="h-5 w-5" />
-					</Button>
-					<ThemeToggle />
-					<Button variant="ghost" size="sm" asChild>
-						<Link href="/api/auth/logout">
-							<LogOut className="mr-2 h-4 w-4" />
-							Sign out
-						</Link>
-					</Button>
 				</header>
 
 				<div className="relative min-h-screen bg-background">

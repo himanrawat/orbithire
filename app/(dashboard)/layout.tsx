@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import {
 	SidebarProvider,
 	SidebarLayout,
@@ -12,6 +13,14 @@ import Link from "next/link";
 import { Bell, LogOut } from "lucide-react";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
+	const router = useRouter();
+
+	const handleLogout = async () => {
+		await fetch("/api/auth/logout", { method: "POST" });
+		router.push("/signin");
+		router.refresh();
+	};
+
 	return (
 		<SidebarProvider>
 			<SidebarLayout>
@@ -32,11 +41,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 						<Bell className="h-5 w-5" />
 					</Button>
 					<ThemeToggle />
-					<Button variant="ghost" size="sm" asChild>
-						<Link href="/api/auth/logout">
-							<LogOut className="mr-2 h-4 w-4" />
-							Sign out
-						</Link>
+					<Button variant="ghost" size="sm" onClick={handleLogout}>
+						<LogOut className="mr-2 h-4 w-4" />
+						Sign out
 					</Button>
 				</header>
 

@@ -38,15 +38,25 @@ export function sanitizeRedirect(raw: string | null, fallback = ""): string {
 	// Validate absolute URLs
 	try {
 		const url = new URL(trimmed);
+
+		// Build allowed hosts list - only include localhost in development
+		const productionHosts = [
+			"dashboard.himanshurawat.in",
+			"resume.himanshurawat.in",
+			"himanshurawat.in",
+			"www.himanshurawat.in",
+		];
+
+		const devHosts =
+			typeof window !== "undefined" && window.location.hostname === "localhost"
+				? ["localhost:3000", "127.0.0.1:3000"]
+				: [];
+
 		const allowedHosts = new Set(
 			[
 				typeof window !== "undefined" ? window.location.host : null,
-				"localhost:3000",
-				"127.0.0.1:3000",
-				"dashboard.himanshurawat.in",
-				"resume.himanshurawat.in",
-				"himanshurawat.in",
-				"www.himanshurawat.in",
+				...productionHosts,
+				...devHosts,
 			].filter(Boolean)
 		);
 
