@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { NavBar } from "@/components/NavBar";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import {
 	Clock,
 	Sparkles,
 } from "lucide-react";
+import { sanitizeRedirect } from "@/lib/auth-utils";
 
 const features = [
 	{
@@ -76,6 +78,12 @@ const trackerItems = [
 
 export default function LandingPage() {
 	const user = null;
+	const searchParams = useSearchParams();
+
+	const safeRedirect = sanitizeRedirect(searchParams.get("redirect"), "");
+	const redirectQuery = safeRedirect
+		? `?redirect=${encodeURIComponent(safeRedirect)}`
+		: "";
 
 	return (
 		<div className="min-h-screen">
@@ -119,7 +127,7 @@ export default function LandingPage() {
 						</p>
 						<div className="flex flex-wrap items-center justify-center gap-4">
 							<Button size="lg" asChild>
-								<Link href="/signup">
+								<Link href={`/signup${redirectQuery}`}>
 									Get started free
 									<ArrowRight className="ml-2 h-4 w-4" />
 								</Link>
@@ -275,7 +283,7 @@ export default function LandingPage() {
 						</p>
 						<div className="flex flex-wrap items-center justify-center gap-4">
 							<Button size="lg" asChild>
-								<Link href="/signup">
+								<Link href={`/signup${redirectQuery}`}>
 									Create free account
 									<ArrowRight className="ml-2 h-4 w-4" />
 								</Link>

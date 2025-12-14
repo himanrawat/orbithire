@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, Suspense, useState, useEffect } from "react";
+import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/card";
 import { GridBackground } from "@/components/ui/aceternity";
 import { Loader2, ArrowRight, Sparkles } from "lucide-react";
+import { sanitizeRedirect } from "@/lib/auth-utils";
 
 const steps = [
 	{
@@ -38,40 +39,16 @@ const steps = [
 ];
 
 export default function SignUpPage() {
-	return (
-		<Suspense fallback={<div className="min-h-screen" />}>
-			<SignUpContent />
-		</Suspense>
-	);
-}
-
-/**
- * Check if any Supabase session cookie exists (client-side).
- */
-function hasSupabaseSessionCookie(): boolean {
-	if (typeof document === "undefined") return false;
-	const cookies = document.cookie;
-	return /sb-[^=]+-auth-token/.test(cookies) || 
-	       cookies.includes("sb-access-token") || 
-	       cookies.includes("sb-refresh-token");
-}
-
-function SignUpContent() {
 	const [error, setError] = useState<string | null>(null);
+	const [notice, setNotice] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
 	const router = useRouter();
 	const searchParams = useSearchParams();
 
-	// Redirect to dashboard if already signed in
-	useEffect(() => {
-		if (hasSupabaseSessionCookie()) {
-			router.replace("/dashboard");
-		}
-	}, [router]);
-
 	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 		setError(null);
+		setNotice(null);
 		setLoading(true);
 
 		const formData = new FormData(event.currentTarget);
@@ -84,18 +61,34 @@ function SignUpContent() {
 			body: JSON.stringify({ email, password }),
 		});
 
+		const body = await response.json().catch(() => ({}));
+
 		if (!response.ok) {
-			const body = await response.json().catch(() => ({}));
 			setError(body.error || "Unable to sign up. Please try again.");
 			setLoading(false);
 			return;
 		}
 
-		// Use router.refresh() to update middleware state, then navigate
-		const redirect = searchParams.get("redirect") || "/onboarding";
-		router.refresh();
+		if (body.requiresEmailConfirmation) {
+			setNotice(
+				"Check your email to confirm your account, then sign in to continue."
+			);
+			setLoading(false);
+			return;
+		}
+
+		// Cookies are set by the API route, just navigate
+		const redirect = sanitizeRedirect(
+			searchParams.get("redirect"),
+			"/onboarding"
+		);
 		router.push(redirect);
 	}
+
+	const redirect = searchParams.get("redirect");
+	const signinHref = redirect
+		? `/signin?redirect=${encodeURIComponent(redirect)}`
+		: "/signin";
 
 	return (
 		<div className="min-h-screen">
@@ -120,7 +113,8 @@ function SignUpContent() {
 									Start landing more interviews
 								</h2>
 								<p className="mt-2 text-muted-foreground">
-									Join thousands of job seekers who have streamlined their application process.
+									Join thousands of job seekers who have streamlined their
+									application process.
 								</p>
 							</div>
 							<div className="space-y-4">
@@ -193,6 +187,11 @@ function SignUpContent() {
 											{error}
 										</div>
 									)}
+									{notice && (
+										<div className="rounded-md bg-primary/10 p-3 text-sm text-primary">
+											{notice}
+										</div>
+									)}
 								</CardContent>
 								<CardFooter className="flex flex-col space-y-4">
 									<Button type="submit" className="w-full" disabled={loading}>
@@ -211,7 +210,7 @@ function SignUpContent() {
 									<p className="text-center text-sm text-muted-foreground">
 										Already have an account?{" "}
 										<Link
-											href="/signin"
+											href={signinHref}
 											className="font-medium text-primary underline-offset-4 hover:underline"
 										>
 											Sign in

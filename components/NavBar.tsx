@@ -2,69 +2,39 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Rocket } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { hasSupabaseSessionCookie, sanitizeRedirect } from "@/lib/auth-utils";
 
 type User = {
 	name: string;
 	avatarUrl?: string;
 };
 
-/**
- * Check if any Supabase session cookie exists (client-side).
- * This avoids making an API call when the user is definitely not signed in.
- */
-function hasSupabaseSessionCookie(): boolean {
-	if (typeof document === "undefined") return false;
-	const cookies = document.cookie;
-	// Look for sb-*-auth-token pattern (Supabase auth cookies)
-	return /sb-[^=]+-auth-token/.test(cookies) || 
-	       cookies.includes("sb-access-token") || 
-	       cookies.includes("sb-refresh-token");
-}
-
 export function NavBar({ user }: { user?: User | null }) {
 	const [resolvedUser, setResolvedUser] = useState<User | null>(user ?? null);
+	const searchParams = useSearchParams();
 
 	useEffect(() => {
 		if (user) return;
-		
-		// Optimization: Skip API call if no session cookie exists
+
+		// Skip API call if no session cookie exists
 		if (!hasSupabaseSessionCookie()) {
 			return;
 		}
-		
+
 		const loadUser = async () => {
 			try {
-				const apiProfile = await fetch("/api/profile")
-					.then(async (res) => {
-						if (!res.ok) return null;
-						const body = await res.json().catch(() => ({}));
-						return body.profile || null;
-					})
-					.catch(() => null);
-
-				if (apiProfile) {
-					setResolvedUser({
-						name:
-							apiProfile.full_name ||
-							apiProfile.email ||
-							apiProfile.location ||
-							"",
-						avatarUrl: apiProfile.avatar_url || undefined,
-					});
-					return;
-				}
-
 				const supabase = getSupabaseBrowserClient();
 				const {
 					data: { user: authUser },
 				} = await supabase.auth.getUser();
 				if (!authUser) return;
 
-				// Try to pull profile name/photo; fallback to email
+				// Try to get profile data, fallback to auth user email
 				const { data: profile } = await supabase
 					.from("profiles")
 					.select("full_name, avatar_url")
@@ -80,13 +50,17 @@ export function NavBar({ user }: { user?: User | null }) {
 					avatarUrl: profile?.avatar_url || undefined,
 				});
 			} catch {
-				// Ignore failures; remain unauthenticated in UI.
+				// Ignore failures
 			}
 		};
 		void loadUser();
 	}, [user]);
 
 	const navUser = resolvedUser || user;
+	const redirect = searchParams.get("redirect");
+	const redirectQuery = redirect
+		? `?redirect=${encodeURIComponent(sanitizeRedirect(redirect, ""))}`
+		: "";
 
 	return (
 		<header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -116,10 +90,10 @@ export function NavBar({ user }: { user?: User | null }) {
 					) : (
 						<>
 							<Button variant="ghost" size="sm" asChild>
-								<Link href="/signin">Sign in</Link>
+								<Link href={`/signin${redirectQuery}`}>Sign in</Link>
 							</Button>
 							<Button size="sm" asChild>
-								<Link href="/signup">Get started</Link>
+								<Link href={`/signup${redirectQuery}`}>Get started</Link>
 							</Button>
 						</>
 					)}

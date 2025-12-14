@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, Suspense, useState, useEffect } from "react";
+import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/card";
 import { GridBackground } from "@/components/ui/aceternity";
 import { Loader2, ArrowRight, CheckCircle2 } from "lucide-react";
+import { sanitizeRedirect } from "@/lib/auth-utils";
 
 const features = [
 	"Tailored resumes from job descriptions",
@@ -26,36 +27,10 @@ const features = [
 ];
 
 export default function SignInPage() {
-	return (
-		<Suspense fallback={<div className="min-h-screen" />}>
-			<SignInContent />
-		</Suspense>
-	);
-}
-
-/**
- * Check if any Supabase session cookie exists (client-side).
- */
-function hasSupabaseSessionCookie(): boolean {
-	if (typeof document === "undefined") return false;
-	const cookies = document.cookie;
-	return /sb-[^=]+-auth-token/.test(cookies) || 
-	       cookies.includes("sb-access-token") || 
-	       cookies.includes("sb-refresh-token");
-}
-
-function SignInContent() {
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
 	const router = useRouter();
 	const searchParams = useSearchParams();
-
-	// Redirect to dashboard if already signed in
-	useEffect(() => {
-		if (hasSupabaseSessionCookie()) {
-			router.replace("/dashboard");
-		}
-	}, [router]);
 
 	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
@@ -79,11 +54,18 @@ function SignInContent() {
 			return;
 		}
 
-		// Use router.refresh() to update middleware state, then navigate
-		const redirect = searchParams.get("redirect") || "/dashboard";
-		router.refresh();
+		// Cookies are set by the API route, just navigate
+		const redirect = sanitizeRedirect(
+			searchParams.get("redirect"),
+			"/dashboard"
+		);
 		router.push(redirect);
 	}
+
+	const redirect = searchParams.get("redirect");
+	const signupHref = redirect
+		? `/signup?redirect=${encodeURIComponent(redirect)}`
+		: "/signup";
 
 	return (
 		<div className="min-h-screen">
@@ -155,7 +137,7 @@ function SignInContent() {
 									<p className="text-center text-sm text-muted-foreground">
 										Don&apos;t have an account?{" "}
 										<Link
-											href="/signup"
+											href={signupHref}
 											className="font-medium text-primary underline-offset-4 hover:underline"
 										>
 											Create one

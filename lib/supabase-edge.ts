@@ -10,11 +10,13 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import type { NextRequest, NextResponse } from "next/server";
 
+const isProduction = process.env.NODE_ENV === "production";
+
 /**
  * Edge-safe environment configuration.
  * Returns empty strings if env vars are missing (caller must handle).
  */
-export const edgeEnv = {
+const edgeEnv = {
 	get supabaseUrl() {
 		return process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 	},
@@ -28,13 +30,6 @@ export const edgeEnv = {
 		);
 	},
 };
-
-/**
- * Check if required edge environment variables are configured.
- */
-export function isEdgeConfigured(): boolean {
-	return !!(edgeEnv.supabaseUrl && edgeEnv.supabaseAnonKey);
-}
 
 /**
  * Create a Supabase client for use in Edge middleware.
@@ -51,7 +46,7 @@ export function createEdgeSupabaseClient(req: NextRequest, res: NextResponse) {
 					name,
 					value,
 					httpOnly: true,
-					secure: true,
+					secure: isProduction,
 					sameSite: "lax",
 					domain: edgeEnv.authCookieDomain,
 					path: "/",
@@ -64,7 +59,7 @@ export function createEdgeSupabaseClient(req: NextRequest, res: NextResponse) {
 					value: "",
 					expires: new Date(0),
 					httpOnly: true,
-					secure: true,
+					secure: isProduction,
 					sameSite: "lax",
 					domain: edgeEnv.authCookieDomain,
 					path: "/",
