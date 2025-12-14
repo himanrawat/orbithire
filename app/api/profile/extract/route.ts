@@ -728,84 +728,12 @@ async function parseImageWithLlm(file: File) {
 	return parsed;
 }
 
-function ensurePdfJsNodeGlobals() {
-	// pdfjs checks these globals at runtime in Node/Lambda
-	if ((globalThis as any).DOMMatrix) return;
-
-	// eslint-disable-next-line @typescript-eslint/no-var-requires
-	const canvas = require("@napi-rs/canvas");
-
-	(globalThis as any).DOMMatrix = canvas.DOMMatrix;
-	(globalThis as any).ImageData = canvas.ImageData;
-	(globalThis as any).Path2D = canvas.Path2D;
-}
-
-async function extractPdfText(data: Uint8Array) {
-	ensurePdfJsNodeGlobals();
-
-	const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
-
-	// Set worker source path for server-side usage
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
-	const workerPath = eval(
-		'require.resolve("pdfjs-dist/legacy/build/pdf.worker.mjs")'
-	);
-	pdfjsLib.GlobalWorkerOptions.workerSrc = workerPath;
-
-	const loadingTask = pdfjsLib.getDocument({
-		data,
-		isEvalSupported: false,
-		useSystemFonts: true,
-		verbosity: pdfjsLib.VerbosityLevel?.ERRORS,
-	});
-	const doc = await loadingTask.promise;
-	const pages: string[] = [];
-
-	for (let i = 1; i <= doc.numPages; i += 1) {
-		const page = await doc.getPage(i);
-		const content = await page.getTextContent();
-
-		const lineMap = new Map<
-			number,
-			{ y: number; items: { x: number; text: string }[] }
-		>();
-		const yBucket = 2; // bucket y to merge nearby fragments on the same line
-
-		for (const item of content.items as any[]) {
-			const str = (item?.str || "").trim();
-			if (!str) continue;
-
-			const transform = Array.isArray(item?.transform) ? item.transform : [];
-			const xRaw = transform[4];
-			const yRaw = transform[5];
-			const x = typeof xRaw === "number" ? xRaw : 0;
-			const y = typeof yRaw === "number" ? yRaw : 0;
-			const yKey = Math.round(y / yBucket) * yBucket;
-
-			if (!lineMap.has(yKey)) {
-				lineMap.set(yKey, { y: yKey, items: [] });
-			}
-			lineMap.get(yKey)!.items.push({ x, text: str });
-		}
-
-		const lines = Array.from(lineMap.values())
-			.sort((a, b) => b.y - a.y) // PDF coords origin bottom-left
-			.map((line) =>
-				line.items
-					.sort((a, b) => a.x - b.x)
-					.map((i) => i.text.trim())
-					.filter(Boolean)
-					.join(" ")
-			)
-			.map((line) => line.replace(/\s+/g, " ").trim())
-			.filter(Boolean);
-
-		pages.push(lines.join("\n"));
-		await page.cleanup();
-	}
-
-	await doc.cleanup();
-	return normalizeExtractedText(pages.filter(Boolean).join("\n\n"));
+async function extractPdfText(data: Uint8Array): Promise<string> {
+	// pdf-parse works in Node.js/Lambda without worker issues
+	const pdfParse = (await import("pdf-parse")) as unknown as (buffer: Buffer) => Promise<{ text: string }>;
+	const buffer = Buffer.from(data);
+	const result = await pdfParse(buffer);
+	return normalizeExtractedText(result.text);
 }
 
 async function bufferToText(
