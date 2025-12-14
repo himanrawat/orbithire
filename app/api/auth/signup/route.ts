@@ -36,11 +36,17 @@ export async function POST(req: NextRequest) {
 			}
 		);
 
+		// Use production URL for email confirmation in production, localhost in dev
+		const emailRedirectTo =
+			process.env.NODE_ENV === "production"
+				? "https://resume.himanshurawat.in/signin"
+				: `${serverEnv.siteUrl}/signin`;
+
 		const { data, error } = await supabase.auth.signUp({
 			email,
 			password,
 			options: {
-				emailRedirectTo: serverEnv.siteUrl,
+				emailRedirectTo,
 			},
 		});
 
