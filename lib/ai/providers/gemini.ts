@@ -84,15 +84,21 @@ export class GeminiProvider implements AIProvider {
 			const content = response.text();
 
 			// Gemini doesn't always return usage data in the same format
-			const usage = response.usageMetadata || {};
+			const usage = response.usageMetadata as
+				| {
+						promptTokenCount?: number;
+						candidatesTokenCount?: number;
+						totalTokenCount?: number;
+				  }
+				| undefined;
 
 			return {
 				content,
 				model: params.model,
 				usage: {
-					promptTokens: usage.promptTokenCount || 0,
-					completionTokens: usage.candidatesTokenCount || 0,
-					totalTokens: usage.totalTokenCount || 0,
+					promptTokens: usage?.promptTokenCount || 0,
+					completionTokens: usage?.candidatesTokenCount || 0,
+					totalTokens: usage?.totalTokenCount || 0,
 				},
 			};
 		} catch (error: any) {

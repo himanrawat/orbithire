@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { serverEnv } from "@/lib/config";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 /**
  * GET /api/settings/apikey - Get decrypted API key for internal use
