@@ -1,10 +1,5 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import {
-	createEdgeSupabaseClient,
-	isEdgeConfigured,
-	edgeEnv,
-} from "./lib/supabase-edge";
 
 const PROTECTED_PATHS = [
 	"/dashboard",
@@ -17,27 +12,39 @@ const PROTECTED_PATHS = [
 	"/settings",
 ];
 
-export async function middleware(req: NextRequest) {
-	const res = NextResponse.next();
+/**
+ * Fast cookie-presence check for session detection.
+ * Real validation happens in server/API routes.
+ * Only checks for Supabase cookies (sb-*), ignores Cloudflare (cf_*) etc.
+ */
+function hasSupabaseSessionCookie(req: NextRequest): boolean {
+	// Check for standard Supabase auth cookies
+	const hasStandardCookie =
+		!!req.cookies.get("sb-access-token")?.value ||
+		!!req.cookies.get("sb-refresh-token")?.value;
+
+	if (hasStandardCookie) return true;
+
+	// Fallback: check for project-specific Supabase cookies (sb-<ref>-auth-token)
+	const allCookies = req.cookies.getAll();
+	return allCookies.some(
+		(cookie) =>
+			cookie.name.startsWith("sb-") &&
+			(cookie.name.includes("-auth-token") ||
+				cookie.name.includes("-access-token") ||
+				cookie.name.includes("-refresh-token"))
+	);
+}
+
+export function middleware(req: NextRequest) {
 	const path = req.nextUrl.pathname;
 	const hostname = req.nextUrl.hostname.toLowerCase();
 	const pathWithQuery = `${path}${req.nextUrl.search}`;
 
-	// Edge-safe: Check if Supabase is configured before proceeding
-	if (!isEdgeConfigured()) {
-		// In development, log and continue. In production, this should not happen.
-		console.error(
-			"[Middleware] Missing Supabase env vars. Ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set."
-		);
-		// Allow the request to continue - API routes will handle auth properly
-		return res;
+	// ✅ Critical: never run middleware for API routes - they handle their own auth
+	if (path.startsWith("/api")) {
+		return NextResponse.next();
 	}
-
-	const supabase = createEdgeSupabaseClient(req, res);
-
-	const {
-		data: { user },
-	} = await supabase.auth.getUser();
 
 	const isProtectedRoute = PROTECTED_PATHS.some(
 		(protectedPath) =>
@@ -45,65 +52,61 @@ export async function middleware(req: NextRequest) {
 	);
 	const isAuthPage = path === "/signin" || path === "/signup";
 
+	// "best-effort" session detection (real validation happens in server/API routes)
+	const maybeSignedIn = hasSupabaseSessionCookie(req);
+
 	// Protect dashboard host
 	if (hostname === "dashboard.himanshurawat.in") {
-		if (!user) {
+		if (!maybeSignedIn) {
 			const redirectUrl = new URL("https://resume.himanshurawat.in");
 			redirectUrl.searchParams.set("auth", "required");
 			redirectUrl.searchParams.set("redirect", req.nextUrl.href);
-			return NextResponse.redirect(redirectUrl, { headers: res.headers });
+			return NextResponse.redirect(redirectUrl);
 		}
-		return res;
+		return NextResponse.next();
 	}
 
 	// Root host redirects based on session
 	if (hostname === "himanshurawat.in" || hostname === "www.himanshurawat.in") {
-		const redirectUrl = new URL(
-			user
-				? "https://dashboard.himanshurawat.in"
-				: "https://resume.himanshurawat.in"
+		return NextResponse.redirect(
+			new URL(
+				maybeSignedIn
+					? "https://dashboard.himanshurawat.in"
+					: "https://resume.himanshurawat.in"
+			)
 		);
-		return NextResponse.redirect(redirectUrl, { headers: res.headers });
 	}
 
-	// Resume host: allow public, auto-redirect signed-in users away from auth pages
+	// Resume host: allow public, but push signed-in users away from auth/landing
 	if (hostname === "resume.himanshurawat.in") {
-		if (user && (path === "/" || isAuthPage)) {
+		if (maybeSignedIn && (path === "/" || isAuthPage)) {
 			return NextResponse.redirect(
-				new URL("https://dashboard.himanshurawat.in"),
-				{
-					headers: res.headers,
-				}
+				new URL("https://dashboard.himanshurawat.in")
 			);
 		}
-		return res;
+		return NextResponse.next();
 	}
 
 	// Local/protected routes: bounce unauthenticated users with redirect param
-	if (!user && isProtectedRoute) {
+	if (!maybeSignedIn && isProtectedRoute) {
 		const redirectUrl = new URL("/signin", req.nextUrl.origin);
 		redirectUrl.searchParams.set("redirect", pathWithQuery);
-		return NextResponse.redirect(redirectUrl, { headers: res.headers });
+		return NextResponse.redirect(redirectUrl);
 	}
 
 	// If signed in and hitting the landing page locally, send to dashboard
-	if (user && path === "/") {
-		return NextResponse.redirect(new URL("/dashboard", req.nextUrl.origin), {
-			headers: res.headers,
-		});
+	if (maybeSignedIn && path === "/") {
+		return NextResponse.redirect(new URL("/dashboard", req.nextUrl.origin));
 	}
 
 	// If already signed in, keep auth pages gated to dashboard
-	if (user && isAuthPage) {
-		return NextResponse.redirect(new URL("/dashboard", req.nextUrl.origin), {
-			headers: res.headers,
-		});
+	if (maybeSignedIn && isAuthPage) {
+		return NextResponse.redirect(new URL("/dashboard", req.nextUrl.origin));
 	}
 
-	// Default: continue
-	return res;
+	return NextResponse.next();
 }
 
 export const config = {
-	matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+	matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };
