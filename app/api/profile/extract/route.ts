@@ -385,65 +385,6 @@ function extractEducation(block: SectionBlock): ExtractedEducation[] {
 	});
 }
 
-// function extractCustomSections(blocks: SectionBlock[]) {
-// 	const splitCustomEntries = (lines: string[]) => {
-// 		const entries: string[] = [];
-// 		let currentTitle: string | null = null;
-// 		let currentBody: string[] = [];
-
-// 		const looksHeading = (line: string) =>
-// 			!/^-/.test(line) &&
-// 			(/[–—-]/.test(line) ||
-// 				/^[A-Z][A-Za-z0-9 .,&'()/-]{3,}$/.test(line.trim()) ||
-// 				/\bcase study\b/i.test(line));
-
-// 		const flush = () => {
-// 			if (currentTitle || currentBody.length) {
-// 				const combined = [currentTitle, ...currentBody]
-// 					.filter(Boolean)
-// 					.join("\n")
-// 					.trim();
-// 				if (combined) entries.push(combined);
-// 			}
-// 			currentTitle = null;
-// 			currentBody = [];
-// 		};
-
-// 		for (const raw of lines) {
-// 			const line = raw.trim();
-// 			if (!line) {
-// 				flush();
-// 				continue;
-// 			}
-// 			const isHeading = looksHeading(line);
-// 			if (isHeading) {
-// 				flush();
-// 				currentTitle = line;
-// 			} else {
-// 				currentBody.push(
-// 					line.startsWith("-") || line.startsWith("•") ? line : `- ${line}`
-// 				);
-// 			}
-// 		}
-// 		flush();
-// 		return entries;
-// 	};
-
-// 	return blocks
-// 		.filter(
-// 			(block) =>
-// 				!["summary", "experience", "education", "skills", "body"].includes(
-// 					block.title
-// 				)
-// 		)
-// 		.map<ExtractedCustomSection>((block) => ({
-// 			id: randomId(),
-// 			title: block.title.replace(/\b\w/g, (c) => c.toUpperCase()),
-// 			entries: splitCustomEntries(block.lines),
-// 		}))
-// 		.filter((section) => section.entries.length > 0);
-// }
-
 function extractCustomSections(blocks: SectionBlock[]) {
 	const splitCustomEntries = (lines: string[]) => {
 		const entries: Array<{ id: string; title: string; description: string }> =
@@ -545,23 +486,6 @@ function extractContact(rawText: string, lines: string[]) {
 
 const LLM_TEXT_LIMIT = 40000;
 
-// type ProfileDraft = {
-// 	profile: {
-// 		full_name: string;
-// 		email: string;
-// 		phone: string;
-// 		location?: string;
-// 		portfolio?: string;
-// 		github_url?: string;
-// 		linkedin_url?: string;
-// 		summary: string;
-// 	};
-// 	skills: string[];
-// 	work_experience: ExtractedExperience[];
-// 	education: ExtractedEducation[];
-// 	customSections: ExtractedCustomSection[];
-// };
-
 type ProfileDraft = {
 	profile: {
 		full_name: string;
@@ -578,146 +502,6 @@ type ProfileDraft = {
 	education: ExtractedEducation[];
 	customSections: ExtractedCustomSection[];
 };
-
-// async function enhanceWithLlm(rawText: string, draft: ProfileDraft) {
-// 	const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
-// 	if (!apiKey) return null;
-
-// 	const useGroq = Boolean(process.env.GROQ_API_KEY);
-// 	const client = new OpenAI({
-// 		apiKey,
-// 		baseURL: useGroq ? "https://api.groq.com/openai/v1" : undefined,
-// 	});
-// 	const primaryModel =
-// 		process.env.LLM_MODEL ||
-// 		(useGroq ? "llama-3.3-70b-versatile" : "gpt-4o-mini");
-// 	const fallbackModel = "gpt-4o-mini";
-
-// 	const truncatedText =
-// 		rawText.length > LLM_TEXT_LIMIT
-// 			? rawText.slice(0, LLM_TEXT_LIMIT)
-// 			: rawText;
-
-// 	const payload = {
-// 		rawText: truncatedText,
-// 		draft,
-// 		schema: {
-// 			profile: ["full_name", "email", "phone", "summary"],
-// 			skills: "string[]",
-// 			work_experience: [
-// 				"role",
-// 				"company",
-// 				"location",
-// 				"start_date",
-// 				"end_date",
-// 				"description",
-// 			],
-// 			education: [
-// 				"institution",
-// 				"degree",
-// 				"location",
-// 				"start_date",
-// 				"end_date",
-// 			],
-// 			customSections: ["title", "entries[]"],
-// 		},
-// 		instructions: [
-// 			// Output format
-// 			"Return ONLY a single JSON object.",
-// 			'The top-level shape must be exactly: {"profile":{...},"skills":[...],"work_experience":[...],"education":[...],"customSections":[...]}.',
-// 			"Use ONLY the fields described in `schema`. Do not add any extra top-level keys or extra properties on objects.",
-// 			"The JSON must be valid and directly parseable with JSON.parse, with no surrounding text or comments.",
-
-// 			// Relationship between rawText and draft
-// 			"Use `rawText` as the source of truth for what appears in the resume.",
-// 			"Use `draft` as the authoritative base structure and IDs.",
-// 			"When a field in `draft` is non-empty, you MUST NOT change its meaning: you may only normalize whitespace (trim spaces, fix double spaces) or fix obvious OCR artifacts.",
-// 			"You MUST NOT alter or upgrade non-empty values for: degree titles, institution names, company names, role titles, or date ranges that appear in `draft`.",
-// 			"If `draft` has a non-empty value and `rawText` appears to disagree, keep the draft value.",
-
-// 			// When you are allowed to fill or change fields
-// 			"Only fill a field from the resume text when the draft value is empty.",
-// 			"If you cannot find a value explicitly in `rawText`, leave that field as an empty string or empty array.",
-// 			"Do NOT infer or guess missing data (for example, do not guess a location, degree level, company name, or dates).",
-// 			"Never invent new skills, tools, technologies, locations, companies, degrees, or projects that are not clearly present in `rawText`.",
-
-// 			// Array lengths & IDs
-// 			"For work_experience, education and customSections, do NOT remove entries that are present in `draft`.",
-// 			"Keep the same order as `draft` for existing entries.",
-// 			"You may add a new entry ONLY if you clearly see an additional distinct item in `rawText` that is not already represented in `draft`, and you must copy it verbatim from the text.",
-// 			"When you add a new entry, set its `id` to an empty string; never change the `id` of existing draft entries.",
-// 			"For existing entries, always keep the same `id` as in `draft`.",
-
-// 			// Summary, descriptions, bullets
-// 			"Do NOT shorten, summarize, or paraphrase any text taken from the resume.",
-// 			"Preserve all sentences and important phrases as they appear in `rawText`.",
-// 			"Preserve bullet lists as separate lines starting with '- ' and do NOT merge multiple bullets into one paragraph.",
-// 			"For descriptions, keep the original wording and order of bullets and sentences.",
-
-// 			// Skills
-// 			"For `skills`, only include skills that are explicitly present in `rawText` or in `draft`.",
-// 			"Do NOT group skills into new categories or rename them; keep their wording as close as possible to the original.",
-// 			"If you are unsure whether a word is a skill, leave it out.",
-
-// 			// Custom sections
-// 			"For `customSections`, keep the same sections as in `draft` when they exist.",
-// 			"Preserve URLs exactly as they appear in the text.",
-// 			"Keep titles/headings separate from descriptions: when a block has a clear title line and then body text, put the title in `title` and put the remaining lines in `entries`.",
-// 			"Within `entries`, preserve line breaks and bullets as in the original text as much as possible.",
-
-// 			// Uncertainty
-// 			"If you are uncertain about any value, leave it empty rather than guessing.",
-// 			"If a piece of information is not clearly present in `rawText` and not in `draft`, do NOT create it.",
-// 		].join(" "),
-// 	};
-
-// 	async function run(model: string) {
-// 		return client.chat.completions.create({
-// 			model,
-// 			messages: [
-// 				{
-// 					role: "system",
-// 					content:
-// 						"You are a resume parser. Normalize fields into the provided schema. Do not fabricate data. Keep the structure faithful to the text.",
-// 				},
-// 				{
-// 					role: "user",
-// 					content: JSON.stringify(payload),
-// 				},
-// 			],
-// 			response_format: { type: "json_object" },
-// 			temperature: 0,
-// 			max_tokens: 1200,
-// 		});
-// 	}
-
-// 	let response;
-// 	try {
-// 		response = await run(primaryModel);
-// 	} catch (err: any) {
-// 		const code = err?.code || err?.error?.code;
-// 		if (code === "model_decommissioned" && !process.env.LLM_MODEL) {
-// 			console.warn(
-// 				`Model ${primaryModel} decommissioned; retrying with ${fallbackModel}`
-// 			);
-// 			response = await run(fallbackModel);
-// 		} else {
-// 			throw err;
-// 		}
-// 	}
-
-// 	const content = response.choices?.[0]?.message?.content;
-// 	if (!content) return null;
-
-// 	try {
-// 		return JSON.parse(content);
-// 	} catch (err) {
-// 		console.error("LLM parse error", err);
-// 		return null;
-// 	}
-// }
-
-// Key changes to fix custom sections issue:
 
 async function enhanceWithLlm(rawText: string, draft: ProfileDraft) {
 	const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
@@ -944,10 +728,21 @@ async function parseImageWithLlm(file: File) {
 	return parsed;
 }
 
-async function extractPdfText(data: Uint8Array) {
-	// pdfjs-dist runs server-side; worker is disabled via isEvalSupported flag.
-	// Use the legacy build entry to avoid bundling issues.
+function ensurePdfJsNodeGlobals() {
+	// pdfjs checks these globals at runtime in Node/Lambda
+	if ((globalThis as any).DOMMatrix) return;
+
 	// eslint-disable-next-line @typescript-eslint/no-var-requires
+	const canvas = require("@napi-rs/canvas");
+
+	(globalThis as any).DOMMatrix = canvas.DOMMatrix;
+	(globalThis as any).ImageData = canvas.ImageData;
+	(globalThis as any).Path2D = canvas.Path2D;
+}
+
+async function extractPdfText(data: Uint8Array) {
+	ensurePdfJsNodeGlobals();
+
 	const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
 	const loadingTask = pdfjsLib.getDocument({
 		data,
