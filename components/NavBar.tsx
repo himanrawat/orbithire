@@ -12,11 +12,30 @@ type User = {
 	avatarUrl?: string;
 };
 
+/**
+ * Check if any Supabase session cookie exists (client-side).
+ * This avoids making an API call when the user is definitely not signed in.
+ */
+function hasSupabaseSessionCookie(): boolean {
+	if (typeof document === "undefined") return false;
+	const cookies = document.cookie;
+	// Look for sb-*-auth-token pattern (Supabase auth cookies)
+	return /sb-[^=]+-auth-token/.test(cookies) || 
+	       cookies.includes("sb-access-token") || 
+	       cookies.includes("sb-refresh-token");
+}
+
 export function NavBar({ user }: { user?: User | null }) {
 	const [resolvedUser, setResolvedUser] = useState<User | null>(user ?? null);
 
 	useEffect(() => {
 		if (user) return;
+		
+		// Optimization: Skip API call if no session cookie exists
+		if (!hasSupabaseSessionCookie()) {
+			return;
+		}
+		
 		const loadUser = async () => {
 			try {
 				const apiProfile = await fetch("/api/profile")

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, Suspense, useState } from "react";
+import { FormEvent, Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -33,11 +33,29 @@ export default function SignInPage() {
 	);
 }
 
+/**
+ * Check if any Supabase session cookie exists (client-side).
+ */
+function hasSupabaseSessionCookie(): boolean {
+	if (typeof document === "undefined") return false;
+	const cookies = document.cookie;
+	return /sb-[^=]+-auth-token/.test(cookies) || 
+	       cookies.includes("sb-access-token") || 
+	       cookies.includes("sb-refresh-token");
+}
+
 function SignInContent() {
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
 	const router = useRouter();
 	const searchParams = useSearchParams();
+
+	// Redirect to dashboard if already signed in
+	useEffect(() => {
+		if (hasSupabaseSessionCookie()) {
+			router.replace("/dashboard");
+		}
+	}, [router]);
 
 	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
@@ -61,7 +79,9 @@ function SignInContent() {
 			return;
 		}
 
+		// Use router.refresh() to update middleware state, then navigate
 		const redirect = searchParams.get("redirect") || "/dashboard";
+		router.refresh();
 		router.push(redirect);
 	}
 
