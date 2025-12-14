@@ -247,6 +247,7 @@ export async function GET(req: NextRequest) {
 		.single();
 
 	if (error) {
+		console.error("[profile/get] Error fetching profile:", error);
 		return NextResponse.json(
 			{
 				error:
