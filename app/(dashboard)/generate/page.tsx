@@ -64,6 +64,7 @@ type Step = "job-details" | "select-template" | "generating" | "preview";
 
 interface GeneratedContent {
 	resume: {
+		extractedKeywords?: string[];
 		label: string;
 		summary: string;
 		workHighlights: Record<string, string[]>;

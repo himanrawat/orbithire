@@ -1,13 +1,18 @@
 /**
- * AI prompt templates for Harvard-style ATS-friendly resume and cover letter generation
- * Based on Harvard Office of Career Services guidelines
+ * Harvard-style ATS-friendly Resume & Cover Letter Prompt Builder
+ * MERGED BEST VERSION - Full rewritten file (clean + consistent)
  *
- * Enhanced with:
- * - International resume considerations
- * - GPA and academic details support
- * - Multiple roles per company handling
- * - Multilingual support
- * - Recruiter-side explanation features
+ * Features:
+ * - International resume considerations (region, language, photo policies)
+ * - GPA and academic details with smart thresholds
+ * - Multiple roles per company with promotion handling
+ * - Multilingual support (10 languages)
+ * - Recruiter-side explanation/audit features
+ * - Skill evidence mapping (proves each skill)
+ * - Constraints matching (location, notice period)
+ * - JD title extraction rules
+ * - Safe date parsing (no "Invalid Date")
+ * - Cover letter generation
  * - Modular architecture
  */
 
@@ -15,22 +20,15 @@
 // TYPE DEFINITIONS
 // ============================================================================
 
-/**
- * Regional resume format preferences
- * Different regions have varying conventions for resume content
- */
 export type ResumeRegion =
-	| "us" // Standard US format (no photo, no personal details)
-	| "uk" // Similar to US but may include nationality for work rights
-	| "eu" // May include photo, nationality, sometimes DOB
-	| "asia" // Often includes photo, personal details, may be longer
-	| "latam" // Similar to EU conventions
-	| "middle-east" // May include photo, nationality, religion
-	| "international"; // Adaptive format based on job location
+	| "us"
+	| "uk"
+	| "eu"
+	| "asia"
+	| "latam"
+	| "middle-east"
+	| "international";
 
-/**
- * Language codes for multilingual resume generation
- */
 export type ResumeLanguage =
 	| "en"
 	| "es"
@@ -43,14 +41,21 @@ export type ResumeLanguage =
 	| "ko"
 	| "ar";
 
-/**
- * Work arrangement type
- */
 export type WorkArrangement = "onsite" | "remote" | "hybrid";
 
-/**
- * Enhanced education entry with GPA and academic details
- */
+export type LanguageProficiency =
+	| "native"
+	| "fluent"
+	| "professional"
+	| "intermediate"
+	| "basic";
+
+export interface AcademicProject {
+	name: string;
+	description: string;
+	technologies?: string[];
+}
+
 export interface EducationEntry {
 	institution: string;
 	degree: string;
@@ -58,20 +63,20 @@ export interface EducationEntry {
 	startDate?: string;
 	endDate?: string;
 	gpa?: number;
-	gpaScale?: number; // e.g., 4.0, 5.0, 10.0
-	honors?: string[]; // e.g., ["Cum Laude", "Dean's List", "Phi Beta Kappa"]
+	gpaScale?: number;
+	honors?: string[];
 	relevantCoursework?: string[];
 	thesis?: string;
-	academicProjects?: Array<{
-		name: string;
-		description: string;
-		technologies?: string[];
-	}>;
+	academicProjects?: AcademicProject[];
 }
 
-/**
- * Enhanced experience entry supporting multiple roles and work arrangements
- */
+export interface PreviousTitle {
+	title: string;
+	startDate: string;
+	endDate: string;
+	highlights: string[];
+}
+
 export interface ExperienceEntry {
 	company: string;
 	title: string;
@@ -80,32 +85,23 @@ export interface ExperienceEntry {
 	location?: string;
 	workArrangement?: WorkArrangement;
 	highlights: string[];
-	// For promotions/multiple roles at same company
-	previousTitles?: Array<{
-		title: string;
-		startDate: string;
-		endDate: string;
-		highlights: string[];
-	}>;
+	previousTitles?: PreviousTitle[];
 }
 
-/**
- * International/personal details (for non-US formats)
- */
+export interface LanguageSkill {
+	language: string;
+	proficiency: LanguageProficiency;
+}
+
 export interface InternationalDetails {
 	nationality?: string;
-	workAuthorization?: string; // e.g., "US Citizen", "H1B Visa", "EU Work Permit"
-	languages?: Array<{
-		language: string;
-		proficiency: "native" | "fluent" | "professional" | "intermediate" | "basic";
-	}>;
+	workAuthorization?: string;
+	languages?: LanguageSkill[];
 	willingToRelocate?: boolean;
 	availableFrom?: string;
+	noticePeriod?: string; // e.g., "Immediate", "15 days", "30 days"
 }
 
-/**
- * Custom section entry
- */
 export interface CustomSectionEntry {
 	title: string;
 	description: string;
@@ -113,17 +109,11 @@ export interface CustomSectionEntry {
 	url?: string;
 }
 
-/**
- * Custom section
- */
 export interface CustomSection {
 	title: string;
 	entries: CustomSectionEntry[];
 }
 
-/**
- * Complete profile schema with all enhancements
- */
 export interface ResumeProfile {
 	name: string;
 	headline?: string;
@@ -133,7 +123,7 @@ export interface ResumeProfile {
 	location?: string;
 	linkedIn?: string;
 	portfolio?: string;
-	profilePhotoUrl?: string; // For international formats that include photos
+	profilePhotoUrl?: string;
 
 	experience: ExperienceEntry[];
 	education: EducationEntry[];
@@ -143,22 +133,16 @@ export interface ResumeProfile {
 	internationalDetails?: InternationalDetails;
 }
 
-/**
- * Options for resume generation
- */
 export interface ResumeGenerationOptions {
 	region?: ResumeRegion;
 	language?: ResumeLanguage;
 	includePhoto?: boolean;
-	includeExplanations?: boolean; // For recruiter-side audit trail
+	includeExplanations?: boolean;
 	maxPages?: 1 | 2;
-	isRecentGraduate?: boolean; // Affects GPA inclusion threshold
-	gpaThreshold?: number; // Minimum GPA to include (default: 3.5 for 4.0 scale)
+	isRecentGraduate?: boolean;
+	gpaThreshold?: number;
 }
 
-/**
- * Cover letter profile (simplified for cover letters)
- */
 export interface CoverLetterProfile {
 	name: string;
 	headline?: string;
@@ -168,16 +152,13 @@ export interface CoverLetterProfile {
 	internationalDetails?: InternationalDetails;
 }
 
-/**
- * Options for cover letter generation
- */
 export interface CoverLetterGenerationOptions {
 	language?: ResumeLanguage;
 	includeExplanations?: boolean;
 }
 
 // ============================================================================
-// ACTION VERBS BY LANGUAGE (for multilingual support)
+// ACTION VERBS BY LANGUAGE
 // ============================================================================
 
 export const ACTION_VERBS: Record<ResumeLanguage, string[]> = {
@@ -357,387 +338,264 @@ export const ACTION_VERBS: Record<ResumeLanguage, string[]> = {
 // SYSTEM PROMPTS
 // ============================================================================
 
-export const RESUME_SYSTEM_PROMPT = `You are an expert resume optimization specialist following Harvard Office of Career Services standards. Your job is to transform candidate profiles into powerful, results-driven resumes tailored specifically for each job description.
+export const RESUME_SYSTEM_PROMPT = `
+You are an expert resume optimization specialist following Harvard Office of Career Services standards.
+Your job is to transform candidate profiles into powerful, ATS-friendly, results-driven resumes tailored specifically for each job description.
 
-## HARVARD RESUME PRINCIPLES:
+═══════════════════════════════════════════════════════════════
+HARD CONSTRAINTS (NON-NEGOTIABLE)
+═══════════════════════════════════════════════════════════════
 
-### 1. RESULTS OVER DUTIES (Critical)
-- Every bullet must show IMPACT and ACHIEVEMENT, never just responsibilities
-- BAD: "Responsible for managing social media accounts"
-- GOOD: "Grew Instagram following by 45% (2K to 2.9K) in 3 months through targeted content strategy"
-- Transform every duty into a quantified accomplishment
+1) TRUTHFULNESS — NEVER FABRICATE
+   - Never invent skills, tools, titles, companies, dates, or metrics
+   - If a metric is not present in the input, do NOT fabricate it
+   - If impact exists but numbers do not, quantify using scope words WITHOUT numbers
+     • BAD: "Increased sales by 40%" (when no data exists)
+     • GOOD: "Significantly increased sales through targeted outreach strategy"
 
-### 2. KEYWORD INTEGRATION
-- Extract 5-10 critical keywords/phrases from the job description
-- Weave these EXACT terms naturally into bullets and summary
-- Front-load keywords in bullet points for ATS scanning
-- Match job title terminology precisely
+2) ATS FORMAT REQUIREMENTS
+   - No tables, columns, icons, graphics, emojis, or fancy formatting
+   - Use only standard ATS-friendly section headings
+   - Clean, simple structure that parses correctly
 
-### 3. ACTION VERBS FIRST
-- Start EVERY bullet with a strong action verb (Led, Architected, Spearheaded, Optimized, Delivered)
-- Never start with dates, "I", or passive constructions
-- Use present tense for current roles, past tense for previous roles
+3) NO PERSONAL PRONOUNS
+   - Never use "I", "me", "my", "we", "our" in bullet points
 
-### 4. QUANTIFY EVERYTHING
-- Include metrics: percentages, dollar amounts, team sizes, timeframes
-- If exact numbers unknown, use reasonable estimates based on context
-- Examples: "Managed $50K budget", "Led team of 5", "Reduced processing time by 30%"
+4) TENSE CONSISTENCY
+   - Present tense for current roles
+   - Past tense for previous roles
 
-### 5. NO PERSONAL PRONOUNS
-- Never use "I", "me", "my", "we", "our" in bullet points
-- Write in implied first person (subject understood)
+5) DATE HANDLING
+   - Never output "Invalid Date"
+   - If endDate is missing → use "Present"
+   - If date is malformed or missing → keep blank or use "Present"
 
-### 6. CONCISE & SCANNABLE
-- Each bullet: 10-15 words maximum
-- Employers scan resumes in 6-7 seconds - make every word count
-- Remove filler words: "various", "helped with", "assisted in"
+═══════════════════════════════════════════════════════════════
+HARVARD QUALITY RULES
+═══════════════════════════════════════════════════════════════
 
-### 7. TAILORED TO THIS SPECIFIC ROLE
-- Prioritize experiences that directly match job requirements
-- Reorder bullets within each role to lead with most relevant
-- Emphasize transferable skills that map to their needs
+A) RESULTS OVER DUTIES
+   Every bullet must show IMPACT and ACHIEVEMENT, never just responsibilities.
+   • BAD: "Responsible for managing social media accounts"
+   • GOOD: "Grew Instagram following 45% (2K to 2.9K) in 3 months through targeted content strategy"
 
-Your output must be:
-- Truthful (never fabricate - enhance and reframe what exists)
-- Results-focused (achievements with metrics, not duties)
-- Keyword-rich (incorporating job posting language)
-- Concise (impactful, scannable bullets)
-- ATS-optimized (clean formatting, standard sections)`;
+B) ACTION VERBS FIRST
+   - Start EVERY bullet with a strong action verb
+   - Never start with dates, pronouns, or passive constructions
 
-export const COVER_LETTER_SYSTEM_PROMPT = `You are an expert career coach following Harvard Office of Career Services standards for cover letters. Your letters serve as both a writing sample and a compelling argument for why this candidate is the ideal fit.
+C) CONCISE & SCANNABLE
+   - 10–15 words per bullet maximum
+   - Remove filler words: "various", "helped with", "assisted in", "worked on"
 
-## HARVARD COVER LETTER PRINCIPLES:
+D) RELEVANCE ORDERING
+   - Reorder bullets within each role so the most job-relevant come first
 
-### 1. READER-CENTRIC FOCUS (Critical)
-- The hiring manager thinks: "How can this person help OUR organization?"
-- Focus on what you can do FOR THEM, not what you want from them
-- Every paragraph must answer: "Why should we hire YOU for THIS position?"
+═══════════════════════════════════════════════════════════════
+KEYWORD & ATS MATCH RULES
+═══════════════════════════════════════════════════════════════
 
-### 2. AVOID "I" OVERLOAD
-- Do NOT start every sentence with "I"
-- Vary sentence structure: "My experience in...", "During my tenure...", "This role excites me because..."
-- Balance self-promotion with company-focused language
+1) Extract 8–12 critical keywords/phrases from the job description
+2) Place 3–4 keywords in summary, 1–2 per role (where truthful)
+3) Use EXACT spelling from the job description
+4) No keyword stuffing — integration must be natural
 
-### 3. EVIDENCE-BASED CLAIMS
-- Never just claim a skill - PROVE it with a specific example
-- BAD: "I have strong leadership skills"
-- GOOD: "As Project Lead at XYZ, I guided a team of 6 engineers to deliver a product 2 weeks ahead of schedule, resulting in $30K cost savings"
-- Include 2-3 specific, quantified examples that match job requirements
+═══════════════════════════════════════════════════════════════
+SKILL PROOF RULE
+═══════════════════════════════════════════════════════════════
 
-### 4. USE THEIR LANGUAGE
-- Mirror keywords and phrases from the job posting
-- Reference specific aspects of their mission, values, or recent work
-- Show you've researched THIS company, not just the role
+Do NOT list a technical skill unless demonstrated in at least one:
+• Experience bullet • Project entry • Custom section entry • Certification
 
-### 5. STRUCTURE (3-4 paragraphs, under 350 words)
-- Opening: Hook + specific position + why THIS company + your value proposition
-- Body 1-2: 2-3 evidence-backed examples proving you meet their key requirements
-- Closing: Enthusiasm + confidence + call to action
+Provide skillEvidence mapping: skill → where it's proven.
 
-### 6. PROFESSIONAL BUT CONFIDENT
-- Avoid overly formal/flowery language - clear and direct
-- No negative comments about past employers
-- Express genuine enthusiasm without being sycophantic
-- End with confidence: "I would welcome the opportunity to discuss..." not "I hope to hear from you"
+OUTPUT MUST BE VALID JSON ONLY.
+`;
 
-Your output must be:
-- Reader-centric (focused on their needs)
-- Evidence-based (specific examples with metrics)
-- Keyword-aligned (using job posting language)
-- Concise (3-4 paragraphs, under 350 words)
-- Professionally confident (not desperate or arrogant)`;
+export const COVER_LETTER_SYSTEM_PROMPT = `
+You are an expert career coach following Harvard Office of Career Services standards for cover letters.
+
+═══════════════════════════════════════════════════════════════
+HARD CONSTRAINTS
+═══════════════════════════════════════════════════════════════
+
+1) TRUTHFULNESS - Never invent tools, metrics, titles, or experiences
+2) LENGTH - 3–4 paragraphs, under 350 words
+3) AVOID GENERIC OPENINGS - Never start with "I am writing to apply..."
+4) OUTPUT FORMAT - Plain text only (no markdown, no JSON)
+
+═══════════════════════════════════════════════════════════════
+READER-CENTRIC FOCUS
+═══════════════════════════════════════════════════════════════
+
+Focus on what you deliver FOR THEM, not what you want from them.
+• BAD: "I am looking for a challenging opportunity to grow my skills"
+• GOOD: "Your team's recent launch of [Product X] aligns with my 3 years scaling similar platforms"
+
+═══════════════════════════════════════════════════════════════
+"I" CONTROL
+═══════════════════════════════════════════════════════════════
+
+Do NOT start more than 2 sentences per paragraph with "I".
+Vary: "My experience...", "During my tenure at...", "Leading a team of..."
+
+OUTPUT MUST BE PLAIN TEXT ONLY.
+`;
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+/** Safe date parsing - returns timestamp or null */
+function safeDateParse(input?: string): number | null {
+	if (!input) return null;
+	const t = Date.parse(input);
+	return Number.isFinite(t) ? t : null;
+}
+
+/** Minimal JSON string escape */
+function escapeJsonString(input: string): string {
+	return input
+		.replace(/\\/g, "\\\\")
+		.replace(/"/g, '\\"')
+		.replace(/\n/g, "\\n")
+		.replace(/\r/g, "\\r")
+		.replace(/\t/g, "\\t");
+}
+
+/** Get action verbs for a specific language */
+export function getActionVerbs(language: ResumeLanguage = "en"): string[] {
+	return ACTION_VERBS[language] || ACTION_VERBS.en;
+}
+
+/** Get recommended GPA threshold based on scale */
+export function getGpaThreshold(scale: number = 4): number {
+	const thresholds: Record<number, number> = {
+		4: 3.5,
+		5: 4.4,
+		10: 8.5,
+		100: 85,
+	};
+	return thresholds[scale] || scale * 0.875;
+}
+
+/** Determine if candidate qualifies as recent graduate (within 2 years) */
+export function isRecentGraduate(education: EducationEntry[]): boolean {
+	const twoYearsAgo = new Date();
+	twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+	const cutoff = twoYearsAgo.getTime();
+
+	return education.some((edu) => {
+		if (!edu.endDate) return true; // currently enrolled
+		const t = safeDateParse(edu.endDate);
+		if (t === null) return false; // unknown date -> don't assume recent
+		return t >= cutoff;
+	});
+}
 
 // ============================================================================
 // MODULAR HELPER FUNCTIONS
 // ============================================================================
 
-/**
- * Builds a standalone keyword extraction prompt
- * Can be used independently or as part of the resume generation pipeline
- */
+/** Builds keyword extraction prompt (standalone use) */
 export function buildKeywordExtractionPrompt(jobDescription: string): string {
-	return `Analyze the following job description and extract critical keywords for ATS optimization.
+	return `Extract ATS-critical keywords from the job description below.
 
-## JOB DESCRIPTION:
+JOB DESCRIPTION:
 ${jobDescription}
 
-## YOUR TASK:
-Extract and categorize keywords from this job posting:
-
+Return STRICT JSON:
 {
-  "mustHaveSkills": ["Technical skills, tools, or certifications explicitly required"],
-  "keyResponsibilities": ["Core duties and deliverables mentioned"],
-  "softSkills": ["Leadership qualities, work style, cultural fit indicators"],
-  "industryTerms": ["Specific terminology, jargon, or domain knowledge"],
-  "toolsAndTechnologies": ["Software, platforms, frameworks mentioned"],
-  "prioritizedKeywords": ["Top 8-12 keywords ranked by importance for ATS matching"]
+  "jobTitleFromJD": "Exact job title if present (check for 'Job Title:'), otherwise empty string",
+  "companyName": "Company name if present, otherwise empty string",
+  "mustHave": ["Technical skills, tools, certifications explicitly REQUIRED"],
+  "goodToHave": ["Preferred/bonus qualifications"],
+  "toolsTech": ["Software, platforms, frameworks, languages, databases"],
+  "process": ["Methodologies: Agile, Scrum, Kanban, SAFe, CI/CD, Unit testing"],
+  "domain": ["Industry terms, domain knowledge"],
+  "softSkills": ["Leadership, communication, collaboration, requirements gathering"],
+  "responsibilities": ["Core duties as verb phrases"],
+  "constraints": {
+    "location": "If JD specifies (e.g., Bangalore only) else empty string",
+    "noticePeriod": "If JD specifies (e.g., Immediate) else empty string"
+  },
+  "prioritized": ["8-12 most critical keywords, ranked"],
+  "synonyms": { "keyword": ["variant1", "variant2"] }
 }
 
-Return ONLY the JSON object, no markdown code blocks.`;
+RULES:
+1. Exact spelling — Preserve exact casing/spelling from JD in: jobTitleFromJD, prioritized, toolsTech (only when term exists in JD)
+2. Title extraction — If JD contains "Job Title:" use the text after it as jobTitleFromJD (trim)
+3. No invention — Only extract what's explicitly in the JD
+4. Prioritization — Required > preferred, repeated > mentioned once
+5. Synonyms — Include common variants even if not in JD (PostgreSQL ↔ Postgres, REST/JSON ↔ REST APIs). Do NOT add completely new technologies.
+6. Responsibilities as verbs — "Design scalable systems", "Lead cross-functional teams"
+7. Constraints — If JD contains "Location:" or "Notice Period:" capture them
+
+Return ONLY the JSON object.`;
 }
 
-/**
- * Builds regional-specific instructions based on target region
- */
+/** Builds regional-specific instructions */
 export function buildRegionalInstructions(
 	region: ResumeRegion,
 	includePhoto: boolean = false
 ): string {
 	const instructions: Record<ResumeRegion, string> = {
-		us: `
-### REGIONAL FORMAT: United States
+		us: `### REGIONAL FORMAT: United States
 - Do NOT include photo, age, marital status, or nationality
-- Keep to 1 page (2 pages only for senior roles with 10+ years experience)
-- Work authorization should only be mentioned if specifically requested
+- Keep to 1 page (2 pages only for 10+ years experience)
 - Focus on achievements and metrics over personal details`,
 
-		uk: `
-### REGIONAL FORMAT: United Kingdom
+		uk: `### REGIONAL FORMAT: United Kingdom
 - Do NOT include photo, age, or marital status
-- May include nationality/work rights if relevant for visa requirements
-- Keep to 1-2 pages
-- Use British English spelling (colour, organisation, programme)`,
+- May include nationality/work rights if relevant
+- Use British English spelling`,
 
-		eu: `
-### REGIONAL FORMAT: European Union
-- ${includePhoto ? "Include professional photo if provided" : "Photo optional based on country norms"}
-- May include nationality for work authorization clarity
-- CV format acceptable (can be 2+ pages for senior roles)
-- Include language proficiencies prominently
-- Consider Europass format compatibility if requested`,
-
-		asia: `
-### REGIONAL FORMAT: Asia
-- ${includePhoto ? "Include professional photo if provided" : "Photo commonly expected in many Asian countries"}
-- Personal details (DOB, nationality) may be included based on local norms
-- CV format with comprehensive detail is acceptable
-- Include language proficiencies prominently
-- Adapt formality level to cultural expectations`,
-
-		latam: `
-### REGIONAL FORMAT: Latin America
-- ${includePhoto ? "Include professional photo if provided" : "Photo often expected"}
-- Personal details may be included based on country norms
-- CV format acceptable
-- Use Spanish/Portuguese language conventions if specified
-- Include language proficiencies`,
-
-		"middle-east": `
-### REGIONAL FORMAT: Middle East
-- ${includePhoto ? "Include professional photo if provided" : "Photo commonly expected"}
-- Personal details often expected (nationality, visa status)
-- CV format with comprehensive detail
+		eu: `### REGIONAL FORMAT: European Union
+- ${includePhoto ? "Include professional photo if provided" : "Photo optional"}
+- May include nationality for work authorization
 - Include language proficiencies prominently`,
 
-		international: `
-### REGIONAL FORMAT: International/Adaptive
-- Adapt format to the job location's conventions
+		asia: `### REGIONAL FORMAT: Asia
+- ${
+			includePhoto
+				? "Include professional photo if provided"
+				: "Photo commonly expected"
+		}
+- Personal details may be included based on local norms
+- Include language proficiencies prominently`,
+
+		latam: `### REGIONAL FORMAT: Latin America
+- ${
+			includePhoto
+				? "Include professional photo if provided"
+				: "Photo often expected"
+		}
+- Use Spanish/Portuguese conventions if specified
+- Include language proficiencies`,
+
+		"middle-east": `### REGIONAL FORMAT: Middle East
+- ${
+			includePhoto
+				? "Include professional photo if provided"
+				: "Photo commonly expected"
+		}
+- Personal details often expected (nationality, visa status)
+- Include language proficiencies prominently`,
+
+		international: `### REGIONAL FORMAT: International/Adaptive
 - When in doubt, follow US format (most universally accepted)
 - Include work authorization/visa status if relevant
-- Highlight international experience and language skills
-- Quantified achievements and active language are universal positives`,
+- Highlight international experience and language skills`,
 	};
 
 	return instructions[region] || instructions.international;
 }
 
-/**
- * Formats education section with GPA and academic details
- */
-export function formatEducationSection(
-	education: EducationEntry[],
-	options: ResumeGenerationOptions = {}
-): string {
-	const { isRecentGraduate = false, gpaThreshold = 3.5 } = options;
-
-	return education
-		.map((edu) => {
-			let eduText = `- ${edu.degree} in ${edu.field} from ${edu.institution}`;
-
-			if (edu.endDate) {
-				const dateRange = edu.startDate ? `${edu.startDate} - ${edu.endDate}` : edu.endDate;
-				eduText += ` (${dateRange})`;
-			}
-
-			// Include GPA if above threshold
-			if (edu.gpa !== undefined) {
-				const scale = edu.gpaScale || 4;
-				const normalizedGpa = (edu.gpa / scale) * 4; // Normalize to 4.0 scale
-				const shouldIncludeGpa =
-					isRecentGraduate || normalizedGpa >= gpaThreshold;
-
-				if (shouldIncludeGpa) {
-					eduText += ` | GPA: ${edu.gpa}/${scale}`;
-				}
-			}
-
-			// Include honors
-			if (edu.honors && edu.honors.length > 0) {
-				eduText += ` | ${edu.honors.join(", ")}`;
-			}
-
-			// Include relevant coursework for recent graduates
-			if (
-				isRecentGraduate &&
-				edu.relevantCoursework &&
-				edu.relevantCoursework.length > 0
-			) {
-				eduText += `\n  Relevant Coursework: ${edu.relevantCoursework.join(", ")}`;
-			}
-
-			// Include thesis if present
-			if (edu.thesis) {
-				eduText += `\n  Thesis: ${edu.thesis}`;
-			}
-
-			// Include academic projects
-			if (edu.academicProjects && edu.academicProjects.length > 0) {
-				eduText += "\n  Academic Projects:";
-				edu.academicProjects.forEach((project) => {
-					eduText += `\n    • ${project.name}: ${project.description}`;
-					if (project.technologies && project.technologies.length > 0) {
-						eduText += ` (${project.technologies.join(", ")})`;
-					}
-				});
-			}
-
-			return eduText;
-		})
-		.join("\n");
-}
-
-/**
- * Formats work arrangement display text
- */
-function formatWorkArrangement(arrangement?: WorkArrangement): string {
-	if (!arrangement || arrangement === "onsite") return "";
-	return ` (${arrangement.charAt(0).toUpperCase() + arrangement.slice(1)})`;
-}
-
-/**
- * Formats highlights as bullet points
- */
-function formatHighlights(highlights: string[], indent: string): string {
-	return highlights.map((h) => `\n${indent}• ${h}`).join("");
-}
-
-/**
- * Formats previous titles within a role
- */
-function formatPreviousTitles(
-	previousTitles: Array<{ title: string; startDate: string; endDate: string; highlights: string[] }>,
-	isNested: boolean
-): string {
-	const prefix = isNested ? "  → " : "  → Previously: ";
-	const indent = "    ";
-	return previousTitles
-		.map((prev) => {
-			return `\n${prefix}**${prev.title}** (${prev.startDate} - ${prev.endDate})${formatHighlights(prev.highlights, indent)}`;
-		})
-		.join("");
-}
-
-/**
- * Formats experience section handling multiple roles at same company
- */
-export function formatExperienceSection(experience: ExperienceEntry[]): string {
-	// Group experiences by company for better handling of promotions
-	const groupedByCompany = new Map<string, ExperienceEntry[]>();
-
-	experience.forEach((exp) => {
-		const existing = groupedByCompany.get(exp.company) || [];
-		existing.push(exp);
-		groupedByCompany.set(exp.company, existing);
-	});
-
-	let result = "";
-
-	// Process each company group
-	groupedByCompany.forEach((roles, company) => {
-		if (roles.length > 1) {
-			// Multiple roles at same company - show as promotion track
-			const earliestRole = roles.at(-1);
-			const latestRole = roles[0];
-			result += `\n**${company}** (${earliestRole?.startDate} - ${latestRole.endDate || "Present"})`;
-
-			roles.forEach((role) => {
-				const arrangement = formatWorkArrangement(role.workArrangement);
-				const location = role.location ? ` | ${role.location}` : "";
-				result += `\n  → **${role.title}**${arrangement}${location} (${role.startDate} - ${role.endDate || "Present"})`;
-				result += formatHighlights(role.highlights, "    ");
-
-				if (role.previousTitles && role.previousTitles.length > 0) {
-					result += formatPreviousTitles(role.previousTitles, true);
-				}
-			});
-		} else {
-			// Single role at company
-			const role = roles[0];
-			const arrangement = formatWorkArrangement(role.workArrangement);
-			const location = role.location ? ` | ${role.location}` : "";
-
-			result += `\n- **${role.title}**${arrangement} at ${company}${location} (${role.startDate} - ${role.endDate || "Present"})`;
-			result += formatHighlights(role.highlights, "  ");
-
-			if (role.previousTitles && role.previousTitles.length > 0) {
-				result += formatPreviousTitles(role.previousTitles, false);
-			}
-		}
-	});
-
-	return result;
-}
-
-/**
- * Formats international details section
- */
-export function formatInternationalDetails(
-	details: InternationalDetails | undefined,
-	region: ResumeRegion
-): string {
-	if (!details) return "";
-
-	const parts: string[] = [];
-
-	// Work authorization is important for most regions
-	if (details.workAuthorization) {
-		parts.push(`Work Authorization: ${details.workAuthorization}`);
-	}
-
-	// Languages are always valuable to include
-	if (details.languages && details.languages.length > 0) {
-		const languageList = details.languages
-			.map((l) => `${l.language} (${l.proficiency})`)
-			.join(", ");
-		parts.push(`Languages: ${languageList}`);
-	}
-
-	// Nationality for non-US regions
-	if (region !== "us" && details.nationality) {
-		parts.push(`Nationality: ${details.nationality}`);
-	}
-
-	// Relocation and availability
-	if (details.willingToRelocate !== undefined) {
-		parts.push(
-			`Willing to Relocate: ${details.willingToRelocate ? "Yes" : "No"}`
-		);
-	}
-
-	if (details.availableFrom) {
-		parts.push(`Available From: ${details.availableFrom}`);
-	}
-
-	return parts.length > 0 ? `\n**Additional Information:** ${parts.join(" | ")}` : "";
-}
-
-/**
- * Builds language-specific instructions
- */
+/** Builds language-specific instructions */
 export function buildLanguageInstructions(language: ResumeLanguage): string {
 	if (language === "en") return "";
 
-	const languageNames: Record<ResumeLanguage, string> = {
+	const names: Record<ResumeLanguage, string> = {
 		en: "English",
 		es: "Spanish",
 		fr: "French",
@@ -750,120 +608,216 @@ export function buildLanguageInstructions(language: ResumeLanguage): string {
 		ar: "Arabic",
 	};
 
-	const verbs = ACTION_VERBS[language].slice(0, 8).join(", ");
+	const verbs = getActionVerbs(language).slice(0, 8).join(", ");
 
-	return `
-### LANGUAGE REQUIREMENT: ${languageNames[language]}
-- Generate ALL content in ${languageNames[language]}
-- Use ${languageNames[language]} action verbs such as: ${verbs}
-- Follow ${languageNames[language]} resume conventions and formality level
-- Maintain Harvard principles (results-focus, quantification) in ${languageNames[language]}
-- Do NOT mix languages - output must be entirely in ${languageNames[language]}`;
+	return `### LANGUAGE: ${names[language]}
+- Generate ALL content in ${names[language]}
+- Use action verbs: ${verbs}
+- Do NOT mix languages`;
 }
 
-/**
- * Builds explanation/audit trail instructions
- */
-export function buildExplanationInstructions(): string {
-	return `
-### EXPLANATION MODE (Recruiter Audit Trail)
-In addition to the optimized resume, provide a "transformationNotes" object explaining your changes:
+/** Formats education section */
+export function formatEducationSection(
+	education: EducationEntry[],
+	options: ResumeGenerationOptions = {}
+): string {
+	const { isRecentGraduate: recent = false, gpaThreshold = 3.5 } = options;
 
-"transformationNotes": {
-  "keywordIntegration": ["List of keywords from JD that were incorporated and where"],
-  "bulletTransformations": [
-    {
-      "original": "Original bullet text",
-      "optimized": "Transformed bullet text",
-      "rationale": "Why this change improves ATS compatibility and impact"
-    }
-  ],
-  "relevanceReordering": "Explanation of how bullets were prioritized for this role",
-  "metricsAdded": ["List of quantified metrics added with reasoning"],
-  "skillsAlignment": "How skills were reordered to match JD priorities"
-}`;
-}
+	return education
+		.map((edu) => {
+			let text = `- ${edu.degree} in ${edu.field} from ${edu.institution}`;
 
-/**
- * Formats custom sections for the prompt
- */
-function formatCustomSections(customSections?: CustomSection[]): string {
-	if (!customSections || customSections.length === 0) return "";
+			if (edu.endDate) {
+				const range = edu.startDate
+					? `${edu.startDate} - ${edu.endDate}`
+					: edu.endDate;
+				text += ` (${range})`;
+			}
 
-	return customSections
-		.map((section) => {
-			const entries = section.entries
-				.map((entry) => `- **${entry.title}**: ${entry.description}`)
-				.join("\n");
-			return `\n**${section.title}:**\n${entries}`;
+			if (edu.gpa !== undefined) {
+				const scale = edu.gpaScale || 4;
+				const normalized = (edu.gpa / scale) * 4;
+				if (recent || normalized >= gpaThreshold)
+					text += ` | GPA: ${edu.gpa}/${scale}`;
+			}
+
+			if (edu.honors?.length) text += ` | ${edu.honors.join(", ")}`;
+
+			if (recent && edu.relevantCoursework?.length) {
+				text += `\n  Relevant Coursework: ${edu.relevantCoursework.join(", ")}`;
+			}
+
+			if (edu.thesis) text += `\n  Thesis: ${edu.thesis}`;
+
+			if (edu.academicProjects?.length) {
+				text += "\n  Academic Projects:";
+				edu.academicProjects.forEach((p) => {
+					text += `\n    • ${p.name}: ${p.description}`;
+					if (p.technologies?.length) text += ` (${p.technologies.join(", ")})`;
+				});
+			}
+
+			return text;
 		})
 		.join("\n");
 }
 
-/**
- * Builds custom highlights JSON example for the prompt
- */
-function buildCustomHighlightsJson(sectionNames: string[]): string {
-	if (sectionNames.length === 0) return "";
+/** Formats work arrangement */
+function formatWorkArrangement(arr?: WorkArrangement): string {
+	if (!arr || arr === "onsite") return "";
+	return ` (${arr.charAt(0).toUpperCase() + arr.slice(1)})`;
+}
 
-	const examples = sectionNames
-		.map((name) => `    "${name}": ["Optimized bullet 1...", "Optimized bullet 2..."]`)
+/** Formats highlights as bullets */
+function formatHighlights(highlights: string[], indent: string): string {
+	return highlights.map((h) => `\n${indent}• ${h}`).join("");
+}
+
+/** Formats experience section with proper sorting for promotions */
+export function formatExperienceSection(experience: ExperienceEntry[]): string {
+	const grouped = new Map<string, ExperienceEntry[]>();
+
+	experience.forEach((exp) => {
+		const existing = grouped.get(exp.company) || [];
+		existing.push(exp);
+		grouped.set(exp.company, existing);
+	});
+
+	let result = "";
+
+	grouped.forEach((roles, company) => {
+		const sorted = [...roles].sort(
+			(a, b) =>
+				(safeDateParse(a.startDate) ?? 0) - (safeDateParse(b.startDate) ?? 0)
+		);
+
+		if (sorted.length > 1) {
+			const earliest = sorted[0];
+			const latest = sorted[sorted.length - 1];
+			result += `\n**${company}** (${earliest.startDate} - ${
+				latest.endDate || "Present"
+			})`;
+
+			[...sorted].reverse().forEach((role) => {
+				const arr = formatWorkArrangement(role.workArrangement);
+				const loc = role.location ? ` | ${role.location}` : "";
+				result += `\n  → **${role.title}**${arr}${loc} (${role.startDate} - ${
+					role.endDate || "Present"
+				})`;
+				result += formatHighlights(role.highlights, "    ");
+
+				if (role.previousTitles?.length) {
+					role.previousTitles.forEach((p) => {
+						result += `\n    → Previously: **${p.title}** (${p.startDate} - ${p.endDate})`;
+						result += formatHighlights(p.highlights, "      ");
+					});
+				}
+			});
+		} else {
+			const role = sorted[0];
+			const arr = formatWorkArrangement(role.workArrangement);
+			const loc = role.location ? ` | ${role.location}` : "";
+			result += `\n- **${role.title}**${arr} at ${company}${loc} (${
+				role.startDate
+			} - ${role.endDate || "Present"})`;
+			result += formatHighlights(role.highlights, "  ");
+
+			if (role.previousTitles?.length) {
+				role.previousTitles.forEach((p) => {
+					result += `\n  → Previously: **${p.title}** (${p.startDate} - ${p.endDate})`;
+					result += formatHighlights(p.highlights, "    ");
+				});
+			}
+		}
+	});
+
+	return result;
+}
+
+/** Formats international details */
+export function formatInternationalDetails(
+	details: InternationalDetails | undefined,
+	region: ResumeRegion
+): string {
+	if (!details) return "";
+	const parts: string[] = [];
+
+	if (details.workAuthorization)
+		parts.push(`Work Authorization: ${details.workAuthorization}`);
+	if (details.languages?.length)
+		parts.push(
+			`Languages: ${details.languages
+				.map((l) => `${l.language} (${l.proficiency})`)
+				.join(", ")}`
+		);
+	if (region !== "us" && details.nationality)
+		parts.push(`Nationality: ${details.nationality}`);
+	if (details.willingToRelocate !== undefined)
+		parts.push(
+			`Willing to Relocate: ${details.willingToRelocate ? "Yes" : "No"}`
+		);
+	if (details.availableFrom)
+		parts.push(`Available From: ${details.availableFrom}`);
+	if (details.noticePeriod)
+		parts.push(`Notice Period: ${details.noticePeriod}`);
+
+	return parts.length
+		? `\n**Additional Information:** ${parts.join(" | ")}`
+		: "";
+}
+
+/** Formats custom sections */
+function formatCustomSections(sections?: CustomSection[]): string {
+	if (!sections?.length) return "";
+	return sections
+		.map((s) => {
+			const entries = s.entries
+				.map((e) => `- **${e.title}**: ${e.description}`)
+				.join("\n");
+			return `\n**${s.title}:**\n${entries}`;
+		})
+		.join("\n");
+}
+
+/** Builds custom highlights JSON schema */
+export function buildCustomHighlightsSchema(names: string[]): string {
+	if (!names?.length) return "";
+	const sections = names
+		.map(
+			(n) =>
+				`    "${escapeJsonString(
+					n
+				)}": ["Optimized bullet 1...", "Optimized bullet 2..."]`
+		)
 		.join(",\n");
 
 	return `,
   "customSectionHighlights": {
-${examples}
+${sections}
   }`;
 }
 
-/**
- * Builds explanation JSON example for the prompt
- */
-function buildExplanationJson(includeExplanations: boolean): string {
+/** Builds explanation JSON (recruiter audit mode) */
+export function buildExplanationJson(includeExplanations: boolean): string {
 	if (!includeExplanations) return "";
 
 	return `,
   "transformationNotes": {
-    "keywordIntegration": ["keyword1 → used in summary", "keyword2 → used in bullet for Company X"],
-    "bulletTransformations": [{"original": "...", "optimized": "...", "rationale": "..."}],
-    "relevanceReordering": "Prioritized X experience because...",
-    "metricsAdded": ["Added 30% metric to X based on context"],
-    "skillsAlignment": "Reordered to lead with skills matching JD requirements"
+    "keywordIntegration": [
+      { "keyword": "keyword from JD", "placedIn": "summary|bullet|skills", "context": "quote showing usage" }
+    ],
+    "bulletTransformations": [
+      { "role": "Company - Title", "original": "...", "optimized": "...", "changes": ["duty→achievement", "keyword inserted"] }
+    ],
+    "metricsAudit": {
+      "preserved": ["Metrics from input that were retained"],
+      "qualitative": ["Impact statements used when no metric existed"],
+      "fabricated": []
+    },
+    "relevanceReordering": { "summary": "How bullets were prioritized", "examples": ["..."] },
+    "skillsAlignment": { "promoted": ["..."], "demoted": ["..."], "rationale": "..." },
+    "gaps": { "missingKeywords": ["JD keywords not in profile"], "suggestions": ["Recommendations"] }
   }`;
-}
-
-/**
- * Builds dynamic transformation rules based on options
- */
-function buildDynamicRules(
-	isRecentGraduate: boolean,
-	customSectionNames: string[],
-	includeExplanations: boolean
-): string {
-	const rules: string[] = [];
-	let ruleNumber = 12;
-
-	if (isRecentGraduate) {
-		rules.push(
-			`${ruleNumber}. **Recent graduate emphasis** - Highlight education, academic projects, relevant coursework, and GPA prominently`
-		);
-		ruleNumber++;
-	}
-
-	if (customSectionNames.length > 0) {
-		rules.push(
-			`${ruleNumber}. **Custom sections** (${customSectionNames.join(", ")}): Rewrite entries to highlight direct relevance to job requirements`
-		);
-		ruleNumber++;
-	}
-
-	if (includeExplanations) {
-		rules.push(
-			`${ruleNumber}. **Include transformation notes** - Explain each major change for recruiter audit trail`
-		);
-	}
-
-	return rules.join("\n");
 }
 
 // ============================================================================
@@ -871,7 +825,8 @@ function buildDynamicRules(
 // ============================================================================
 
 /**
- * Builds the complete resume optimization prompt with all enhancements
+ * Builds the complete Harvard-style resume optimization prompt
+ * Returns STRICT JSON with keywords, coverage, skill evidence, constraints matching
  */
 export function buildResumePrompt(
 	profile: ResumeProfile,
@@ -885,218 +840,267 @@ export function buildResumePrompt(
 		language = "en",
 		includePhoto = false,
 		includeExplanations = false,
-		isRecentGraduate = false,
+		isRecentGraduate: recent = false,
 		gpaThreshold = 3.5,
+		maxPages = 1,
 	} = options;
 
-	// Build modular sections
-	const regionalInstructions = buildRegionalInstructions(region, includePhoto);
-	const languageInstructions = buildLanguageInstructions(language);
+	const regionalInstr = buildRegionalInstructions(region, includePhoto);
+	const langInstr = buildLanguageInstructions(language);
 
-	// Format profile sections
-	const educationSection = formatEducationSection(profile.education, {
-		isRecentGraduate,
+	const eduSection = formatEducationSection(profile.education, {
+		isRecentGraduate: recent,
 		gpaThreshold,
 	});
-	const experienceSection = formatExperienceSection(profile.experience);
-	const internationalSection = formatInternationalDetails(
+
+	const expSection = formatExperienceSection(profile.experience);
+	const intlSection = formatInternationalDetails(
 		profile.internationalDetails,
 		region
 	);
+	const customText = formatCustomSections(profile.customSections);
+	const customNames = profile.customSections?.map((s) => s.title) || [];
 
-	// Build custom sections content using helper functions
-	const customSectionsText = formatCustomSections(profile.customSections);
-	const customSectionNames = profile.customSections?.map((s) => s.title) || [];
-	const customHighlightsExample = buildCustomHighlightsJson(customSectionNames);
-	const explanationJsonExample = buildExplanationJson(includeExplanations);
-	const dynamicRules = buildDynamicRules(isRecentGraduate, customSectionNames, includeExplanations);
+	const actionVerbs = getActionVerbs(language).slice(0, 12).join(", ");
 
-	// Localized action verbs for instructions
-	const actionVerbs = ACTION_VERBS[language].slice(0, 12).join(", ");
+	const certs = profile.certifications?.length
+		? `\n**Certifications:** ${profile.certifications.join(", ")}`
+		: "";
+
+	const contact = [
+		profile.email && `Email: ${profile.email}`,
+		profile.phone && `Phone: ${profile.phone}`,
+		profile.location && `Location: ${profile.location}`,
+		profile.linkedIn && `LinkedIn: ${profile.linkedIn}`,
+		profile.portfolio && `Portfolio: ${profile.portfolio}`,
+	]
+		.filter(Boolean)
+		.join(" | ");
 
 	return `
-## STEP 1: KEYWORD EXTRACTION (Do this first!)
+## STEP 1: JOB DESCRIPTION ANALYSIS (DO THIS FIRST)
 
-Analyze the job description below and identify:
-- **Must-have skills:** Technical skills, tools, or certifications explicitly required
-- **Key responsibilities:** Core duties they need someone to perform
-- **Soft skills/values:** Leadership qualities, work style, or cultural fit indicators
-- **Industry terms:** Specific terminology or jargon used in the posting
+Extract ATS keywords into:
+- mustHave, goodToHave, toolsTech, process, domain, softSkills, responsibilities
+- constraints: location + noticePeriod (if JD specifies)
+- prioritized: 8–12 ranked keywords (exact spelling from JD)
+- jobTitleFromJD: use text after "Job Title:" if present; else use Position input
 
 ---
 
 ## CANDIDATE PROFILE
 
 **Name:** ${profile.name}
-${profile.headline ? `**Current Title:** ${profile.headline}` : ""}
-${profile.summary ? `**Summary:** ${profile.summary}` : ""}
-${profile.location ? `**Location:** ${profile.location}` : ""}
-${internationalSection}
+${contact ? `**Contact:** ${contact}\n` : ""}${
+		profile.headline ? `**Current Title:** ${profile.headline}\n` : ""
+	}${profile.summary ? `**Summary:** ${profile.summary}\n` : ""}${intlSection}
 
 **Work Experience:**
-${experienceSection}
+${expSection}
 
 **Education:**
-${educationSection}
+${eduSection}
 
-**Skills:** ${profile.skills.join(", ")}
-${profile.certifications && profile.certifications.length > 0 ? `\n**Certifications:** ${profile.certifications.join(", ")}` : ""}
-${customSectionsText}
+**Skills (raw):** ${profile.skills.join(", ")}${certs}
+${customText}
 
 ---
 
 ## TARGET JOB
 
-**Position:** ${jobTitle}
+**Position (Input):** ${jobTitle}
 **Company:** ${companyName}
 
 **Job Description:**
 ${jobDescription}
 
 ---
-${regionalInstructions}
-${languageInstructions}
 
-## YOUR TASK (Harvard-Style Resume Optimization)
+${regionalInstr}
+${langInstr}
 
-Generate an optimized resume in JSON format following Harvard OCS principles:
+---
+
+## OUTPUT (STRICT JSON ONLY)
+
+Return a JSON object with EXACTLY this structure:
 
 {
-  "extractedKeywords": ["keyword1", "keyword2", "..."],
-  "label": "Professional headline using job posting terminology (e.g., '${jobTitle} | [Key Skill from JD] Expert')",
-  "summary": "2-3 sentence summary that: (1) Opens with years of experience in relevant field, (2) Incorporates 3-4 extracted keywords naturally, (3) Highlights your biggest quantified achievement relevant to this role",
-  "workExperience": [
-    {
-      "company": "Company Name",
-      "title": "Job Title",
-      "dates": "Start - End",
-      "location": "City, State/Country (Remote/Hybrid if applicable)",
-      "highlights": ["Result-focused bullet with metric...", "Another achievement..."]
-    }
-  ],
-  "education": [
-    {
-      "institution": "University Name",
-      "degree": "Degree",
-      "field": "Field of Study",
-      "dates": "Graduation Year",
-      "gpa": "GPA if above threshold",
-      "honors": ["Honor 1", "Honor 2"],
-      "relevantCoursework": ["Course 1", "Course 2"]
-    }
-  ],
-  "skillsOrdered": ["Most relevant skill from JD", "Second most relevant", "..."],
-  "certifications": ["Relevant cert 1", "..."],
-  "additionalInfo": {
-    "languages": ["Language (proficiency)"],
-    "workAuthorization": "Status if relevant"
-  }${customHighlightsExample}${explanationJsonExample}
+  "extractedKeywords": ["keyword1", "keyword2", "keyword3", "...(8-12 critical ATS keywords from JD, exact spelling)"],
+  "label": "TARGET job title from JD + 2-3 relevant keywords (e.g., 'Frontend Web Developer | JavaScript, React, CSS')",
+  "summary": "REWRITE summary: Start with TARGET JOB TITLE (not candidate's current title); 2-3 sentences; weave in 3-4 extractedKeywords; no fabricated metrics",
+  "workHighlights": {
+    "Company Name": [
+      "Optimized bullet 1: action verb + what + impact (10-15 words, include keyword if truthful)",
+      "Optimized bullet 2: action verb + what + impact (10-15 words)",
+      "Optimized bullet 3: action verb + what + impact (10-15 words)"
+    ]
+  },
+  "skillsOrdered": ["Skill1", "Skill2", "Skill3"],
+  "customSectionHighlights": {
+    "Projects": [
+      "Optimized project bullet 1",
+      "Optimized project bullet 2"
+    ]
+  }
 }
 
-## HARVARD TRANSFORMATION RULES:
+---
 
-### For each work bullet, apply this formula:
-**[Action Verb] + [What You Did] + [Result/Impact with Metric]**
+## RULES
 
-Example transformations:
-- BEFORE: "Managed social media accounts"
-- AFTER: "Grew LinkedIn engagement by 150% through data-driven content strategy, generating 50+ qualified leads monthly"
+BULLET FORMULA (MANDATORY):
+[Action Verb] + [What] + [Impact] (+ metric ONLY if present in input)
 
-- BEFORE: "Helped with customer support"
-- AFTER: "Resolved 40+ customer inquiries daily with 98% satisfaction rating, reducing escalations by 25%"
+ACTION VERBS: ${actionVerbs}
 
-### Mandatory requirements:
-1. **Extract keywords first** - List 8-12 critical terms from the job description in "extractedKeywords"
-2. **Transform duties → achievements** - Every bullet must show RESULT with a metric (%, $, #, time saved)
-3. **Use their language** - Incorporate extracted keywords verbatim into bullets and summary
-4. **Action verbs only** - Start each bullet with: ${actionVerbs}
-5. **No pronouns** - Never use "I", "my", "we" in any bullet
-6. **10-15 words per bullet** - Concise and scannable
-7. **Prioritize relevance** - Reorder bullets within each role so most job-relevant appear first
-8. **Match job title terminology** - If JD says "Software Engineer" don't use "Developer"
-9. **TRUTHFUL** - Only enhance what exists; never fabricate experiences or inflate numbers unrealistically
-10. **Handle multiple roles** - If candidate held multiple positions at same company, list each with distinct achievements
-11. **Remote/Hybrid work** - Include work arrangement indicators when relevant (especially for remote-friendly roles)
-${dynamicRules}
+LENGTH: Target ${maxPages} page(s); 10-15 words per bullet.
 
-Return ONLY the JSON object, no markdown code blocks.`;
+EXTRACTED KEYWORDS (CRITICAL - DO THIS FIRST):
+- Extract 8-12 most important ATS keywords from the job description
+- Include: required skills, tools, technologies, methodologies, soft skills
+- Use EXACT spelling from JD (e.g., "Node.js" not "NodeJS")
+- These keywords MUST appear in summary, bullets, and skills where truthful
+
+WORKHIGHLIGHTS FORMAT (CRITICAL):
+- Keys MUST be exactly the "Company Name" only (NOT "Company - Title")
+- Use the exact company name from the candidate profile
+- Each key maps to an array of 3-5 optimized bullet strings
+- Weave 1-2 extractedKeywords into each company's bullets (only if truthful)
+- Reorder bullets so most job-relevant come first
+
+SKILLS ORDERING:
+- Only include skills that are proven in experience/projects/certs
+- Order by relevance to the job description
+- Include 8-15 most relevant skills
+
+CUSTOM SECTIONS:
+- If candidate has custom sections (e.g., Projects), include customSectionHighlights
+- Keys must match the section titles from the profile${
+		customNames.length > 0 ? `: ${customNames.join(", ")}` : ""
+	}
+- Optimize descriptions with action verbs and impact
+
+METRIC TRUTH (NON-NEGOTIABLE):
+- NEVER invent numbers, %, $, team sizes, time saved
+- Only preserve metrics that exist in input
+- Use qualitative impact language when no metric exists
+
+KEYWORD INTEGRATION:
+- Use 3-4 keywords from JD in summary
+- Use 1-2 keywords per experience entry (where truthful)
+- Mirror exact spelling from job description
+
+SUMMARY REWRITE (CRITICAL):
+- The summary MUST start with the TARGET JOB TITLE from the job description
+- Do NOT use the candidate's current title (e.g., if applying for "Frontend Developer", don't say "UI/UX Developer")
+- Example: If JD is for "Frontend Web Developer", summary should start: "Frontend Web Developer with X years..."
+- Rewrite the entire summary to align with the target role
+
+${
+	includeExplanations
+		? `EXPLANATION MODE:
+- metricsAudit.fabricated MUST be empty array []
+- Show 2-3 bulletTransformations examples
+- Document keyword placements`
+		: ""
+}
+
+FINAL VALIDATION:
+- Output MUST be valid JSON only (no markdown code blocks, no backticks)
+- extractedKeywords contains 8-12 keywords from JD (exact spelling)
+- label should reflect the target job title + top keywords
+- summary contains 3-4 keywords from extractedKeywords
+- workHighlights keys are COMPANY NAMES ONLY (e.g., "Google" not "Google - Software Engineer")
+- Each workHighlights entry includes 1-2 keywords where truthful
+- No fabricated tools/metrics/claims
+- skillsOrdered ordered by JD relevance, contains only provable skills
+
+Return ONLY the raw JSON object, nothing else.
+`.trim();
 }
 
 /**
- * Builds the complete cover letter prompt with enhancements
+ * Builds cover letter prompt following Harvard guidelines
+ * Returns plain text cover letter
  */
+export interface CoverLetterGenerationOptionsWithKeywords
+	extends CoverLetterGenerationOptions {
+	extractedKeywords?: string[];
+}
+
 export function buildCoverLetterPrompt(
 	profile: CoverLetterProfile,
 	jobDescription: string,
 	jobTitle: string,
 	companyName: string,
 	recruiterName?: string,
-	options: CoverLetterGenerationOptions = {}
+	options: CoverLetterGenerationOptionsWithKeywords = {}
 ): string {
-	const { language = "en", includeExplanations = false } = options;
+	const {
+		language = "en",
+		includeExplanations = false,
+		extractedKeywords = [],
+	} = options;
 
 	const greeting = recruiterName
 		? `Dear ${recruiterName}`
 		: "Dear Hiring Manager";
+	const langInstr = buildLanguageInstructions(language);
 
-	const languageInstructions = buildLanguageInstructions(language);
+	const workAuth = profile.internationalDetails?.workAuthorization
+		? `\n**Work Authorization:** ${profile.internationalDetails.workAuthorization}`
+		: "";
 
-	// International details for cover letter
-	const internationalNote =
-		profile.internationalDetails?.workAuthorization
-			? `\n**Work Authorization:** ${profile.internationalDetails.workAuthorization}`
+	const langs = profile.internationalDetails?.languages?.length
+		? `\n**Languages:** ${profile.internationalDetails.languages
+				.map((l) => `${l.language} (${l.proficiency})`)
+				.join(", ")}`
+		: "";
+
+	const keywordsSection =
+		extractedKeywords.length > 0
+			? `\n\n## KEYWORDS TO INTEGRATE (from resume analysis)\n\nUse these exact terms where truthful: ${extractedKeywords.join(
+					", "
+			  )}\n\nYou MUST naturally weave 4-6 of these keywords into the cover letter.`
 			: "";
 
-	const languagesNote = (() => {
-		const languages = profile.internationalDetails?.languages;
-		if (!languages || languages.length === 0) return "";
-		const formatted = languages.map((l) => `${l.language} (${l.proficiency})`).join(", ");
-		return `\n**Languages:** ${formatted}`;
-	})();
-
-	const explanationSection = includeExplanations
+	const explainSection = includeExplanations
 		? `
 
 ---
 
-## EXPLANATION OUTPUT (Optional - for recruiter review)
-
-After the cover letter, provide a brief analysis:
-
+After the letter, provide:
 ---EXPLANATION START---
-**Keywords Integrated:** [List of JD keywords incorporated]
-**Evidence Matches:** [Which requirements were addressed with which examples]
-**Company Research Demonstrated:** [How company-specific knowledge was shown]
-**Tone Calibration:** [How professional confidence was balanced]
+**Keywords Integrated:** [list]
+**Evidence Matches:** [which requirements addressed with which examples]
+**Company Research Demonstrated:** [how shown]
 ---EXPLANATION END---`
 		: "";
 
 	return `
-## STEP 1: ANALYZE THE JOB POSTING
+## ANALYZE JOB POSTING
 
-Before writing, identify from the job description:
-- **Top 3 requirements:** The most critical skills/experiences they need
-- **Company keywords:** Specific terms, values, or phrases they use
-- **What success looks like:** What outcomes are they expecting from this hire?
+Identify: Top 3 requirements, Company keywords, Success metrics${keywordsSection}
 
 ---
 
-## CANDIDATE PROFILE
+## CANDIDATE
 
 **Name:** ${profile.name}
-${profile.headline ? `**Current Role:** ${profile.headline}` : ""}
-${profile.summary ? `**Background:** ${profile.summary}` : ""}
-${internationalNote}
-${languagesNote}
+${profile.headline ? `**Role:** ${profile.headline}` : ""}
+${
+	profile.summary ? `**Background:** ${profile.summary}` : ""
+}${workAuth}${langs}
 
-**Key Achievements (use these as evidence):**
-${profile.topExperiences.map((exp) => `- ${exp}`).join("\n")}
+**Key Achievements:**
+${profile.topExperiences.map((e) => `- ${e}`).join("\n")}
 
-**Core Skills:** ${profile.skills.slice(0, 8).join(", ")}
+**Skills:** ${profile.skills.slice(0, 8).join(", ")}
 
 ---
 
-## TARGET POSITION
+## TARGET
 
 **Role:** ${jobTitle}
 **Company:** ${companyName}
@@ -1105,114 +1109,73 @@ ${profile.topExperiences.map((exp) => `- ${exp}`).join("\n")}
 ${jobDescription}
 
 ---
-${languageInstructions}
+${langInstr}
 
-## YOUR TASK (Harvard-Style Cover Letter)
+## WRITE COVER LETTER
 
-Write a compelling, reader-centric cover letter following Harvard OCS principles.
-
-### STRUCTURE:
-
-**Opening paragraph (2-3 sentences):**
 Start with "${greeting},"
-- Hook: Open with something specific about ${companyName} that excites you (their mission, recent news, product, or values - show you've researched them)
-- State the specific role: "${jobTitle}"
-- Your value proposition in ONE sentence: What unique combination of skills/experience do you bring?
-- DO NOT start with "I am writing to apply..." - this is generic and weak
 
-**Body paragraph 1 - Evidence Match #1 (3-4 sentences):**
-- Identify the MOST important requirement from the job posting
-- Provide a SPECIFIC example from your experience that proves you meet it
-- Include a quantified result (metric, percentage, outcome)
-- Connect explicitly: "This experience directly prepares me to [what they need]..."
+**Opening (2-3 sentences):**
+- Hook about ${companyName} (NOT "I am writing to apply...")
+- State role: "${jobTitle}"
+- Your value proposition
 
-**Body paragraph 2 - Evidence Match #2 + Company Fit (3-4 sentences):**
-- Address a second key requirement with another specific example
-- Weave in WHY ${companyName} specifically: reference their mission, values, culture, or recent work
-- Show alignment: how your goals/values match theirs
-- Keep focus on what you can CONTRIBUTE to them
+**Body 1 (3-4 sentences):**
+- Evidence for most important requirement
+- Specific example with metric/outcome (only if true)
 
-**Closing paragraph (2-3 sentences):**
-- Summarize your fit in one confident sentence
-- Express enthusiasm for contributing to their team
-- End with confidence: "I would welcome the opportunity to discuss how my experience in [X] can help ${companyName} achieve [their goal]."
-- Thank them: "Thank you for considering my application."
+**Body 2 (3-4 sentences):**
+- Second evidence example
+- Why ${companyName} specifically (mission, values, product)
 
-Sign off:
+**Closing (2-3 sentences):**
+- Confident summary
+- "I would welcome the opportunity to discuss..."
+- "Thank you for considering my application."
+
 Best regards,
 ${profile.name}
 
 ---
 
-## HARVARD RULES - MUST FOLLOW:
+## RULES
 
-### 1. READER-CENTRIC (The #1 Rule)
-- Ask yourself for every sentence: "Does this show what I can do FOR THEM?"
-- BAD: "I am looking for a challenging role where I can grow"
-- GOOD: "My background in X positions me to help ${companyName} achieve Y"
+- KEYWORD INTEGRATION: Use 4-6 keywords from the provided list (exact spelling)
+- READER-CENTRIC: Every sentence shows what you deliver FOR THEM
+- "I" CONTROL: Max 2 sentences starting with "I" per paragraph
+- EVIDENCE: Back every skill claim with specific example
+- THEIR LANGUAGE: Mirror exact JD phrases and keywords
+- CONFIDENCE: Not arrogant, not desperate
+- LENGTH: Under 350 words
+- TRUTHFULNESS: Never invent metrics, tools, or experiences
 
-### 2. AVOID "I" OVERLOAD
-- Do NOT start more than 2 sentences with "I" in any paragraph
-- Vary openings: "My experience...", "During my time at...", "This role...", "At [Company]...", "Having led..."
-
-### 3. EVIDENCE, NOT CLAIMS
-For each skill you mention, immediately back it with a SPECIFIC example:
-- BAD: "I have excellent communication skills"
-- GOOD: "As team lead, I facilitated weekly cross-functional syncs between engineering and marketing, reducing project delays by 40%"
-
-### 4. USE THEIR LANGUAGE
-- Mirror exact phrases from the job description
-- If they say "cross-functional collaboration" - use that phrase
-- If they mention specific tools - name them
-
-### 5. PROFESSIONAL CONFIDENCE
-- Not arrogant: Avoid "I'm the best candidate" or "You won't find anyone better"
-- Not desperate: Avoid "I really need this job" or "I hope you'll consider me"
-- Just right: "I am confident my experience in X would enable me to contribute meaningfully to your team"
-
-### 6. WORD LIMIT: Under 350 words total
-
----
-
-Return ONLY the cover letter text, no JSON or markdown formatting.${explanationSection}`;
+Return ONLY the cover letter text (no JSON, no markdown).${explainSection}
+`.trim();
 }
 
 // ============================================================================
-// UTILITY EXPORTS
+// CONVENIENCE EXPORT (optional)
 // ============================================================================
 
-/**
- * Get recommended GPA threshold based on scale
- */
-export function getGpaThreshold(scale: number = 4): number {
-	// Normalize to common scales
-	const thresholds: Record<number, number> = {
-		4: 3.5,
-		5: 4.4,
-		10: 8.5,
-		100: 85,
-	};
-	return thresholds[scale] || scale * 0.875; // Default to 87.5% of scale
-}
+export default {
+	RESUME_SYSTEM_PROMPT,
+	COVER_LETTER_SYSTEM_PROMPT,
 
-/**
- * Determine if candidate qualifies as recent graduate
- * (graduated within last 2 years)
- */
-export function isRecentGraduate(education: EducationEntry[]): boolean {
-	const twoYearsAgo = new Date();
-	twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+	buildResumePrompt,
+	buildCoverLetterPrompt,
+	buildKeywordExtractionPrompt,
 
-	return education.some((edu) => {
-		if (!edu.endDate) return true; // Currently enrolled
-		const gradDate = new Date(edu.endDate);
-		return gradDate >= twoYearsAgo;
-	});
-}
+	getActionVerbs,
+	getGpaThreshold,
+	isRecentGraduate,
 
-/**
- * Get action verbs for a specific language
- */
-export function getActionVerbs(language: ResumeLanguage = "en"): string[] {
-	return ACTION_VERBS[language] || ACTION_VERBS.en;
-}
+	buildRegionalInstructions,
+	buildLanguageInstructions,
+	formatEducationSection,
+	formatExperienceSection,
+	formatInternationalDetails,
+	buildCustomHighlightsSchema,
+	buildExplanationJson,
+
+	ACTION_VERBS,
+};
