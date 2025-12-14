@@ -10,7 +10,7 @@ export interface R2Config {
 	bucket: string;
 	accessKeyId: string;
 	secretAccessKey: string;
-	publicBaseUrl: string;
+	publicBaseUrl?: string; // Optional - only needed for public bucket access
 }
 
 /**
@@ -22,16 +22,10 @@ export function getR2Config(): R2Config | null {
 	const bucket = process.env.R2_BUCKET;
 	const accessKeyId = process.env.R2_ACCESS_KEY_ID;
 	const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
-	const publicBaseUrl = process.env.R2_PUBLIC_BASE_URL;
+	const publicBaseUrl = process.env.R2_PUBLIC_BASE_URL; // Optional for private buckets
 
-	// All fields are required for R2 to work
-	if (
-		!endpoint ||
-		!bucket ||
-		!accessKeyId ||
-		!secretAccessKey ||
-		!publicBaseUrl
-	) {
+	// Core fields required for R2 to work (publicBaseUrl is optional)
+	if (!endpoint || !bucket || !accessKeyId || !secretAccessKey) {
 		return null;
 	}
 
@@ -40,7 +34,7 @@ export function getR2Config(): R2Config | null {
 		bucket,
 		accessKeyId,
 		secretAccessKey,
-		publicBaseUrl,
+		publicBaseUrl, // May be undefined for private buckets
 	};
 }
 

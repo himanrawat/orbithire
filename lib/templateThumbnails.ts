@@ -56,19 +56,21 @@ export function getPreviewHtmlKey(templateId: string): string {
 
 /**
  * Get the public URL for a template thumbnail
+ * Returns null if R2 is not configured or bucket is private (no publicBaseUrl)
  */
 export function getThumbnailUrl(templateId: string): string | null {
 	const config = getR2Config();
-	if (!config) return null;
+	if (!config?.publicBaseUrl) return null;
 	return `${config.publicBaseUrl}/${getThumbnailKey(templateId)}`;
 }
 
 /**
  * Get the public URL for a template preview HTML
+ * Returns null if R2 is not configured or bucket is private (no publicBaseUrl)
  */
 export function getPreviewHtmlUrl(templateId: string): string | null {
 	const config = getR2Config();
-	if (!config) return null;
+	if (!config?.publicBaseUrl) return null;
 	return `${config.publicBaseUrl}/${getPreviewHtmlKey(templateId)}`;
 }
 
