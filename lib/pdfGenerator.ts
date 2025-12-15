@@ -19,18 +19,30 @@ export async function generatePDFFromHTML(
 	let browser = null;
 
 	// Resolve a usable Chromium/Chrome path across environments
-	async function resolveExecutablePath(): Promise<string> {
+	async function resolveExecutablePath(): Promise<{
+		executablePath: string;
+		useChromiumArgs: boolean;
+	}> {
 		// Allow explicit override
 		const envPath =
 			process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROMIUM_PATH;
-		if (envPath && existsSync(envPath)) return envPath;
+		if (envPath && existsSync(envPath)) {
+			return { executablePath: envPath, useChromiumArgs: false };
+		}
 
-		// Try the lightweight @sparticuz/chromium build (serverless-friendly)
-		try {
-			const chromiumPath = await chromium.executablePath();
-			if (chromiumPath && existsSync(chromiumPath)) return chromiumPath;
-		} catch {
-			// fall through to full Puppeteer
+		const isWindows = process.platform === "win32";
+
+		// Try the lightweight @sparticuz/chromium build (serverless-friendly) on non-Windows
+		// (the packaged binary is Linux-only and fails with ENOENT on Windows)
+		if (!isWindows) {
+			try {
+				const chromiumPath = await chromium.executablePath();
+				if (chromiumPath && existsSync(chromiumPath)) {
+					return { executablePath: chromiumPath, useChromiumArgs: true };
+				}
+			} catch {
+				// fall through to full Puppeteer
+			}
 		}
 
 		// Fallback to the bundled Puppeteer download (works locally/CI)
@@ -39,7 +51,9 @@ export async function generatePDFFromHTML(
 			// eslint-disable-next-line @typescript-eslint/no-var-requires
 			const fullPuppeteer = require("puppeteer") as typeof import("puppeteer");
 			const fullPath = fullPuppeteer.executablePath();
-			if (fullPath && existsSync(fullPath)) return fullPath;
+			if (fullPath && existsSync(fullPath)) {
+				return { executablePath: fullPath, useChromiumArgs: false };
+			}
 		} catch {
 			// Ignore, will throw below
 		}
@@ -48,12 +62,18 @@ export async function generatePDFFromHTML(
 	}
 
 	try {
-		const executablePath = await resolveExecutablePath();
-		const headless =
-			(chromium as unknown as { headless?: boolean }).headless ?? true;
+		const { executablePath, useChromiumArgs } = await resolveExecutablePath();
+		const chromiumHeadless = (chromium as unknown as {
+			headless?: boolean | "shell" | "new";
+		}).headless;
+		// Coerce @sparticuz/chromium headless flag into Puppeteer-supported values
+		let headless: boolean | "shell" = true;
+		if (useChromiumArgs && chromiumHeadless !== undefined) {
+			headless = chromiumHeadless === "shell" ? "shell" : Boolean(chromiumHeadless);
+		}
 
 		browser = await puppeteer.launch({
-			args: chromium.args,
+			args: useChromiumArgs ? chromium.args : [],
 			executablePath,
 			headless,
 		});
