@@ -43,14 +43,22 @@ export const serverEnv = {
 	get r2PublicBaseUrl() {
 		return process.env.R2_PUBLIC_BASE_URL || process.env.R2_ENDPOINT;
 	},
-	// In production, require SITE_URL to be set. In development, allow localhost fallback.
+// In production, require SITE_URL to be set. In development, allow localhost fallback.
 	get siteUrl() {
-		const url = process.env.NEXT_PUBLIC_APP_URL || process.env.SITE_URL;
+		const devAmplifyUrl = "https://dev.d1pqsq7ljwpxt9.amplifyapp.com";
+		const url =
+			process.env.NEXT_PUBLIC_APP_URL ||
+			process.env.SITE_URL ||
+			process.env.NEXT_PUBLIC_SITE_URL;
 
 		if (!url) {
+			// Allow dev branch to fall back to the hosted preview domain
+			if (process.env.AMPLIFY_BRANCH === "dev") {
+				return devAmplifyUrl;
+			}
 			if (process.env.NODE_ENV === "production") {
 				throw new Error(
-					"Missing SITE_URL or NEXT_PUBLIC_APP_URL in production"
+					"Missing SITE_URL, NEXT_PUBLIC_APP_URL, or NEXT_PUBLIC_SITE_URL in production"
 				);
 			}
 			return "http://localhost:3000";
