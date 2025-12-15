@@ -20,6 +20,7 @@ frontend:
         - echo "SITE_URL=$SITE_URL" >> .env.production
         - echo "GROQ_API_KEY=$GROQ_API_KEY" >> .env.production
         - echo "ENCRYPTION_KEY=$ENCRYPTION_KEY" >> .env.production
+        - echo "AMPLIFY_BRANCH=$AWS_BRANCH" >> .env.production
         - npm run build
   artifacts:
     baseDirectory: .next
