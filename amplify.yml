@@ -30,3 +30,4 @@ frontend:
     paths:
       - node_modules/**/*
       - .next/cache/**/*
+
