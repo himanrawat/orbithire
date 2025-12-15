@@ -1,9 +1,5 @@
-"use client";
-
-import { Suspense } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { motion } from "framer-motion";
 import { NavBar } from "@/components/NavBar";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,8 +19,14 @@ import {
 	Briefcase,
 	Clock,
 	Sparkles,
+	PenLine,
+	Mail,
 } from "lucide-react";
 import { sanitizeRedirect } from "@/lib/auth-utils";
+
+type SearchParams = {
+	[key: string]: string | string[] | undefined;
+};
 
 const features = [
 	{
@@ -77,33 +79,103 @@ const trackerItems = [
 	},
 ];
 
-function LandingPageContent() {
-	const user = null;
-	const searchParams = useSearchParams();
+const faqEntries = [
+	{
+		question: "How does CVLeap beat ATS filters?",
+		answer:
+			"We analyze your job description, align skills and keywords, and format resumes to stay parseable by ATS scanners.",
+	},
+	{
+		question: "Do you generate cover letters too?",
+		answer:
+			"Yes. Paste the JD and your profile once, and we generate tailored cover letters alongside your resumes.",
+	},
+	{
+		question: "Can I manage multiple applications?",
+		answer:
+			"Use company folders to keep resumes, notes, follow-ups, and interview prep organized per opportunity.",
+	},
+	{
+		question: "Is there a free plan?",
+		answer:
+			"You can start for free. Upgrade when you need more exports, advanced templates, or collaboration.",
+	},
+];
 
-	const safeRedirect = sanitizeRedirect(searchParams.get("redirect"), "");
+const structuredData = {
+	organization: {
+		"@context": "https://schema.org",
+		"@type": "Organization",
+		name: "CVLeap AI",
+		url: "https://resume.himanshurawat.in",
+		logo: "https://resume.himanshurawat.in/OG.png",
+	},
+	product: {
+		"@context": "https://schema.org",
+		"@type": "Product",
+		name: "CVLeap AI",
+		description:
+			"ATS-ready resume builder with company folders, AI cover letters, and automated follow-ups.",
+		brand: {
+			"@type": "Organization",
+			name: "CVLeap AI",
+		},
+		offers: {
+			"@type": "Offer",
+			price: "0",
+			priceCurrency: "USD",
+			priceValidUntil: "2026-12-31",
+			url: "https://resume.himanshurawat.in/signup",
+		},
+	},
+	faq: {
+		"@context": "https://schema.org",
+		"@type": "FAQPage",
+		mainEntity: faqEntries.map((faq) => ({
+			"@type": "Question",
+			name: faq.question,
+			acceptedAnswer: {
+				"@type": "Answer",
+				text: faq.answer,
+			},
+		})),
+	},
+};
+
+export default function LandingPage({
+	searchParams,
+}: {
+	searchParams?: SearchParams;
+}) {
+	const redirectParam = searchParams?.redirect;
+	const redirectValue = Array.isArray(redirectParam)
+		? redirectParam[0]
+		: redirectParam || null;
+
+	const safeRedirect = sanitizeRedirect(redirectValue, "");
 	const redirectQuery = safeRedirect
 		? `?redirect=${encodeURIComponent(safeRedirect)}`
 		: "";
 
 	return (
 		<div className="min-h-screen">
-			<NavBar user={user} />
+			<NavBar user={null} />
 			<GridBackground />
 			<Spotlight
 				className="-top-40 left-0 md:left-60 md:-top-20"
 				fill="currentColor"
 			/>
 
+			{/* SEO structured data */}
+			<script
+				type="application/ld+json"
+				dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+			/>
+
 			{/* Hero Section */}
 			<section className="relative">
 				<div className="container px-4 py-24 md:py-32 lg:py-40">
-					<motion.div
-						initial={{ opacity: 0, y: 20 }}
-						animate={{ opacity: 1, y: 0 }}
-						transition={{ duration: 0.5 }}
-						className="mx-auto max-w-4xl text-center"
-					>
+					<div className="mx-auto max-w-4xl text-center">
 						<div className="mb-6 flex flex-wrap items-center justify-center gap-2">
 							{["ATS Ready", "Company Folders", "Auto Follow-ups"].map(
 								(tag) => (
@@ -137,20 +209,26 @@ function LandingPageContent() {
 								<Link href="/dashboard">View demo</Link>
 							</Button>
 						</div>
-					</motion.div>
+						<div className="mt-10 flex justify-center">
+							<div className="relative w-full max-w-4xl overflow-hidden rounded-2xl border bg-background/60 shadow-lg">
+								<Image
+									src="/dashboard.png"
+									alt="CVLeap AI ATS resume builder preview"
+									width={1200}
+									height={630}
+									priority
+									className="h-auto w-full object-cover"
+								/>
+							</div>
+						</div>
+					</div>
 				</div>
 			</section>
 
 			{/* Features Section */}
 			<section className="relative border-t bg-muted/30">
 				<div className="container px-4 py-24">
-					<motion.div
-						initial={{ opacity: 0, y: 20 }}
-						whileInView={{ opacity: 1, y: 0 }}
-						viewport={{ once: true }}
-						transition={{ duration: 0.5 }}
-						className="mb-12 text-center"
-					>
+					<div className="mb-12 text-center">
 						<h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
 							Everything you need to land the job
 						</h2>
@@ -158,17 +236,11 @@ function LandingPageContent() {
 							Streamline your job search with powerful tools designed to help
 							you stand out.
 						</p>
-					</motion.div>
+					</div>
 
 					<div className="grid gap-6 md:grid-cols-3">
-						{features.map((feature, index) => (
-							<motion.div
-								key={feature.title}
-								initial={{ opacity: 0, y: 20 }}
-								whileInView={{ opacity: 1, y: 0 }}
-								viewport={{ once: true }}
-								transition={{ duration: 0.5, delay: index * 0.1 }}
-							>
+						{features.map((feature) => (
+							<div key={feature.title}>
 								<Card className="h-full border-border/50 bg-card/50 backdrop-blur transition-colors hover:bg-card/80">
 									<CardHeader>
 										<div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
@@ -182,9 +254,105 @@ function LandingPageContent() {
 										</CardDescription>
 									</CardContent>
 								</Card>
-							</motion.div>
+							</div>
 						))}
 					</div>
+				</div>
+			</section>
+
+			{/* SEO Content Section */}
+			<section className="border-t">
+				<div className="container grid gap-10 px-4 py-24 lg:grid-cols-2 lg:items-center">
+					<div className="space-y-6">
+						<h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+							ATS resume builder, AI cover letters, and a job application
+							tracker in one place
+						</h2>
+						<p className="text-muted-foreground">
+							CVLeap AI is built to beat ATS scanners, tailor every resume to a
+							specific job description, and keep your pipeline organized. No
+							more copy-pasting into documents or losing track of follow-ups.
+						</p>
+						<div className="space-y-3">
+							<div className="flex items-start gap-3">
+								<FileText className="mt-1 h-5 w-5 text-primary" />
+								<div>
+									<p className="font-medium">ATS resume builder</p>
+									<p className="text-sm text-muted-foreground">
+										Keyword alignment, clean formatting, and PDF output that
+										stays parseable by popular applicant tracking systems.
+									</p>
+								</div>
+							</div>
+							<div className="flex items-start gap-3">
+								<PenLine className="mt-1 h-5 w-5 text-primary" />
+								<div>
+									<p className="font-medium">AI cover letter generator</p>
+									<p className="text-sm text-muted-foreground">
+										Tailored cover letters that mirror the job description and
+										highlight your matched skills automatically.
+									</p>
+								</div>
+							</div>
+							<div className="flex items-start gap-3">
+								<Briefcase className="mt-1 h-5 w-5 text-primary" />
+								<div>
+									<p className="font-medium">Job application tracker</p>
+									<p className="text-sm text-muted-foreground">
+										Company folders to store resumes, notes, and interview prep
+										for every opportunity.
+									</p>
+								</div>
+							</div>
+							<div className="flex items-start gap-3">
+								<Mail className="mt-1 h-5 w-5 text-primary" />
+								<div>
+									<p className="font-medium">Follow-up email templates</p>
+									<p className="text-sm text-muted-foreground">
+										Automated reminders with ready-to-send follow-up messages so
+										you never miss the 7-day check-in.
+									</p>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<Card className="border-border/50 bg-card/50 backdrop-blur">
+						<CardHeader>
+							<CardTitle className="flex items-center gap-2 text-lg">
+								<Briefcase className="h-5 w-5" />
+								Application Tracker
+							</CardTitle>
+							<CardDescription>
+								Stay on top of every opportunity with status and follow-ups.
+							</CardDescription>
+						</CardHeader>
+						<CardContent>
+							<div className="space-y-3">
+								{trackerItems.map((item) => (
+									<div
+										key={item.company + item.role}
+										className="flex items-center justify-between rounded-lg border bg-background/50 p-3"
+									>
+										<div>
+											<p className="font-medium">{item.company}</p>
+											<p className="text-sm text-muted-foreground">
+												{item.role}
+											</p>
+										</div>
+										<div className="text-right">
+											<span className="inline-block rounded-full bg-secondary px-2 py-1 text-xs font-medium">
+												{item.status}
+											</span>
+											<p className="mt-1 text-xs text-muted-foreground">
+												{item.days}
+											</p>
+										</div>
+									</div>
+								))}
+							</div>
+						</CardContent>
+					</Card>
 				</div>
 			</section>
 
@@ -192,12 +360,7 @@ function LandingPageContent() {
 			<section className="relative border-t">
 				<div className="container px-4 py-24">
 					<div className="grid gap-12 lg:grid-cols-2 lg:items-center">
-						<motion.div
-							initial={{ opacity: 0, x: -20 }}
-							whileInView={{ opacity: 1, x: 0 }}
-							viewport={{ once: true }}
-							transition={{ duration: 0.5 }}
-						>
+						<div>
 							<h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
 								Why job seekers love CVLeap AI
 							</h2>
@@ -213,65 +376,65 @@ function LandingPageContent() {
 									</li>
 								))}
 							</ul>
-						</motion.div>
+						</div>
+						<Card className="border-border/50 bg-card/50 backdrop-blur">
+							<CardHeader>
+								<CardTitle className="flex items-center gap-2 text-lg">
+									<Sparkles className="h-5 w-5" />
+									Proof you can ship faster
+								</CardTitle>
+								<CardDescription>
+									Less time formatting, more time applying to the right roles.
+								</CardDescription>
+							</CardHeader>
+							<CardContent className="space-y-3 text-sm text-muted-foreground">
+								<p>
+									Resume and cover letter drafts in minutes, not hours. Keep a
+									history per company so you can reuse the best-performing
+									versions.
+								</p>
+								<p>
+									Follow-up reminders land automatically, so you never miss the
+									7-day nudge that often re-opens conversations.
+								</p>
+							</CardContent>
+						</Card>
+					</div>
+				</div>
+			</section>
 
-						<motion.div
-							initial={{ opacity: 0, x: 20 }}
-							whileInView={{ opacity: 1, x: 0 }}
-							viewport={{ once: true }}
-							transition={{ duration: 0.5 }}
-						>
-							<Card className="border-border/50 bg-card/50 backdrop-blur">
+			{/* FAQ Section */}
+			<section className="border-t bg-muted/30">
+				<div className="container px-4 py-20">
+					<div className="mb-8 text-center">
+						<h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+							Questions about ATS resumes and follow-ups
+						</h2>
+						<p className="mt-2 text-muted-foreground">
+							Everything you need to know before you start with CVLeap AI.
+						</p>
+					</div>
+					<div className="grid gap-4 md:grid-cols-2">
+						{faqEntries.map((faq) => (
+							<Card key={faq.question} className="border-border/50 bg-card/60">
 								<CardHeader>
-									<CardTitle className="flex items-center gap-2 text-lg">
-										<Briefcase className="h-5 w-5" />
-										Application Tracker
+									<CardTitle className="text-base font-semibold">
+										{faq.question}
 									</CardTitle>
-									<CardDescription>
-										Stay on top of every opportunity
-									</CardDescription>
 								</CardHeader>
 								<CardContent>
-									<div className="space-y-3">
-										{trackerItems.map((item) => (
-											<div
-												key={item.company + item.role}
-												className="flex items-center justify-between rounded-lg border bg-background/50 p-3"
-											>
-												<div>
-													<p className="font-medium">{item.company}</p>
-													<p className="text-sm text-muted-foreground">
-														{item.role}
-													</p>
-												</div>
-												<div className="text-right">
-													<span className="inline-block rounded-full bg-secondary px-2 py-1 text-xs font-medium">
-														{item.status}
-													</span>
-													<p className="mt-1 text-xs text-muted-foreground">
-														{item.days}
-													</p>
-												</div>
-											</div>
-										))}
-									</div>
+									<p className="text-sm text-muted-foreground">{faq.answer}</p>
 								</CardContent>
 							</Card>
-						</motion.div>
+						))}
 					</div>
 				</div>
 			</section>
 
 			{/* CTA Section */}
-			<section className="relative border-t bg-muted/30">
+			<section className="relative border-t">
 				<div className="container px-4 py-24">
-					<motion.div
-						initial={{ opacity: 0, y: 20 }}
-						whileInView={{ opacity: 1, y: 0 }}
-						viewport={{ once: true }}
-						transition={{ duration: 0.5 }}
-						className="mx-auto max-w-2xl text-center"
-					>
+					<div className="mx-auto max-w-2xl text-center">
 						<div className="mb-4 flex justify-center">
 							<Sparkles className="h-10 w-10 text-primary" />
 						</div>
@@ -290,7 +453,7 @@ function LandingPageContent() {
 								</Link>
 							</Button>
 						</div>
-					</motion.div>
+					</div>
 				</div>
 			</section>
 
@@ -299,29 +462,21 @@ function LandingPageContent() {
 				<div className="container flex flex-col items-center justify-between gap-4 py-10 md:flex-row">
 					<div className="flex items-center gap-2 text-sm text-muted-foreground">
 						<Clock className="h-4 w-4" />
-						<span>© 2024 CVLeap AI. All rights reserved.</span>
+						<span>Ac 2024 CVLeap AI. All rights reserved.</span>
 					</div>
 					<div className="flex gap-6 text-sm text-muted-foreground">
-						<Link href="#" className="hover:text-foreground transition-colors">
+						<Link href="#" className="transition-colors hover:text-foreground">
 							Privacy
 						</Link>
-						<Link href="#" className="hover:text-foreground transition-colors">
+						<Link href="#" className="transition-colors hover:text-foreground">
 							Terms
 						</Link>
-						<Link href="#" className="hover:text-foreground transition-colors">
+						<Link href="#" className="transition-colors hover:text-foreground">
 							Contact
 						</Link>
 					</div>
 				</div>
 			</footer>
 		</div>
-	);
-}
-
-export default function LandingPage() {
-	return (
-		<Suspense fallback={<div className="min-h-screen" />}>
-			<LandingPageContent />
-		</Suspense>
 	);
 }
