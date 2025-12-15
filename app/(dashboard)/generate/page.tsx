@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -40,18 +41,28 @@ import {
 	Wand2,
 	FileText,
 	Download,
-	Eye,
 	Copy,
 	Calendar,
 	DollarSign,
 	Link as LinkIcon,
 	Save,
+	Zap,
+	Settings,
+	AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sampleResume, type JSONResume } from "@/lib/sampleResume";
 import { TemplateGallery } from "@/components/TemplateGallery";
 import { ResumePreview, type ResumeTemplate } from "@/components/ResumePreview";
 import { ProfileCompletionBanner } from "@/components/ProfileCompletionBanner";
+import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
+
+type Quota = {
+	used: number;
+	limit: number;
+	remaining: number;
+	has_own_key: boolean;
+};
 
 type ApplicationStatus =
 	| "saved"
@@ -196,6 +207,33 @@ export default function GeneratePage() {
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [generatedContent, setGeneratedContent] =
 		useState<GeneratedContent | null>(null);
+	const [quota, setQuota] = useState<Quota | null>(null);
+	const [loadingQuota, setLoadingQuota] = useState(true);
+
+	// Load quota on mount
+	useEffect(() => {
+		const loadQuota = async () => {
+			try {
+				const supabase = getSupabaseBrowserClient();
+				const {
+					data: { user },
+				} = await supabase.auth.getUser();
+				if (user) {
+					const { data } = await supabase.rpc("check_generation_quota", {
+						p_user_id: user.id,
+					});
+					if (data) {
+						setQuota(data);
+					}
+				}
+			} catch (err) {
+				console.error("Failed to load quota:", err);
+			} finally {
+				setLoadingQuota(false);
+			}
+		};
+		loadQuota();
+	}, []);
 	const [error, setError] = useState<string | null>(null);
 	const [showPreview, setShowPreview] = useState(false);
 	const [previewResume, setPreviewResume] = useState<JSONResume | null>(null);
@@ -256,7 +294,18 @@ export default function GeneratePage() {
 		form.jobTitle.trim().length > 1 &&
 		form.jobDescription.trim().length > 20;
 
+	// Check if generation is blocked by quota
+	const isQuotaBlocked = quota && !quota.has_own_key && quota.remaining === 0;
+
 	const handleGenerate = async () => {
+		// Double-check quota before generating
+		if (isQuotaBlocked) {
+			setError(
+				"Free generation limit reached. Please add your own API key in Settings to continue."
+			);
+			return;
+		}
+
 		setStep("generating");
 		setIsGenerating(true);
 		setError(null);
@@ -278,7 +327,24 @@ export default function GeneratePage() {
 			const data = await response.json();
 
 			if (!response.ok) {
+				// Check if it's a quota exceeded error
+				if (data.quotaExceeded) {
+					setQuota((prev) => (prev ? { ...prev, remaining: 0 } : null));
+				}
 				throw new Error(data.error || "Failed to generate content");
+			}
+
+			// Update quota after successful generation
+			if (quota && !quota.has_own_key) {
+				setQuota((prev) =>
+					prev
+						? {
+								...prev,
+								used: prev.used + 1,
+								remaining: Math.max(0, prev.remaining - 1),
+						  }
+						: null
+				);
 			}
 
 			setGeneratedContent(data);
@@ -532,6 +598,84 @@ export default function GeneratePage() {
 					<ProfileCompletionBanner variant="popup" />
 				</div>
 
+				{/* Quota Banner */}
+				{!loadingQuota && quota && !quota.has_own_key && (
+					<motion.div
+						initial={{ opacity: 0, y: -10 }}
+						animate={{ opacity: 1, y: 0 }}
+						className="container mx-auto max-w-4xl px-4 pt-4"
+					>
+						<Card
+							className={cn(
+								"border-border/50 backdrop-blur",
+								quota.remaining === 0
+									? "border-amber-500/50 bg-amber-500/5"
+									: "bg-card/80"
+							)}
+						>
+							<CardContent className="flex items-center justify-between gap-4 py-3 px-4">
+								<div className="flex items-center gap-3">
+									<div
+										className={cn(
+											"flex h-9 w-9 items-center justify-center rounded-lg",
+											quota.remaining === 0
+												? "bg-amber-500/10"
+												: "bg-purple-500/10"
+										)}
+									>
+										<Zap
+											className={cn(
+												"h-4 w-4",
+												quota.remaining === 0
+													? "text-amber-500"
+													: "text-purple-500"
+											)}
+										/>
+									</div>
+									<div>
+										<p className="text-sm font-medium">
+											{quota.remaining === 0 ? (
+												<span className="text-amber-600 dark:text-amber-400">
+													Free generation limit reached
+												</span>
+											) : (
+												<>
+													<span className="text-purple-600 dark:text-purple-400">
+														{quota.remaining}
+													</span>
+													<span className="text-muted-foreground"> of </span>
+													<span className="text-purple-600 dark:text-purple-400">
+														{quota.limit}
+													</span>
+													<span className="text-muted-foreground">
+														{" "}
+														free AI generations remaining
+													</span>
+												</>
+											)}
+										</p>
+										<p className="text-xs text-muted-foreground">
+											{quota.remaining === 0
+												? "Add your own API key to continue generating resumes"
+												: "Add your API key for unlimited generations"}
+										</p>
+									</div>
+								</div>
+								<Button
+									variant={quota.remaining === 0 ? "default" : "outline"}
+									size="sm"
+									asChild
+								>
+									<Link href="/settings">
+										<Settings className="mr-2 h-4 w-4" />
+										{quota.remaining === 0 ? "Add API Key" : "Settings"}
+									</Link>
+								</Button>
+							</CardContent>
+						</Card>
+					</motion.div>
+				)}
+
 				{/* Progress indicator */}
 				<div className="my-6 flex items-center justify-center gap-2">
 					{["job-details", "select-template", "preview"].map((s, i) => (
@@ -710,10 +854,21 @@ export default function GeneratePage() {
 											<ArrowLeft className="mr-2 h-4 w-4" />
 											Back
 										</Button>
-										<Button onClick={handleGenerate}>
-											<Wand2 className="mr-2 h-4 w-4" />
-											Generate with AI
-										</Button>
+										<div className="flex items-center gap-3">
+											{isQuotaBlocked && (
+												<span className="flex items-center gap-1.5 text-sm text-amber-600 dark:text-amber-400">
+													<AlertTriangle className="h-4 w-4" />
+													Quota exceeded
+												</span>
+											)}
+											<Button
+												onClick={handleGenerate}
+												disabled={isQuotaBlocked ?? false}
+											>
+												<Wand2 className="mr-2 h-4 w-4" />
+												Generate with AI
+											</Button>
+										</div>
 									</div>
 								</CardContent>
 							</Card>

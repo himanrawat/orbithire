@@ -57,8 +57,13 @@ export async function GET(req: NextRequest) {
 		);
 	}
 
-	// If no settings exist, return defaults
+	// If no settings exist, return defaults with quota info
 	if (!settings) {
+		// Get quota for new user (no settings yet)
+		const { data: quotaData } = await supabase.rpc("check_generation_quota", {
+			p_user_id: user.id,
+		});
+
 		return NextResponse.json({
 			provider: "groq",
 			hasApiKey: false,
@@ -68,6 +73,12 @@ export async function GET(req: NextRequest) {
 			defaultTemplate: "modern",
 			defaultCountry: "US",
 			deprecationWarning: null,
+			quota: quotaData || {
+				used: 0,
+				limit: 2,
+				remaining: 2,
+				has_own_key: false,
+			},
 		});
 	}
 
@@ -98,6 +109,11 @@ export async function GET(req: NextRequest) {
 		}
 	}
 
+	// Get quota information
+	const { data: quotaData } = await supabase.rpc("check_generation_quota", {
+		p_user_id: user.id,
+	});
+
 	return NextResponse.json({
 		provider: settings.ai_provider || "groq",
 		hasApiKey: !!settings.ai_api_key_encrypted,
@@ -113,6 +129,12 @@ export async function GET(req: NextRequest) {
 		defaultCountry: settings.default_country,
 		deprecationWarning,
 		wasAutoUpgraded: !!upgradedModel,
+		quota: quotaData || {
+			used: settings.free_generations_used || 0,
+			limit: 2,
+			remaining: Math.max(0, 2 - (settings.free_generations_used || 0)),
+			has_own_key: !!settings.ai_api_key_encrypted,
+		},
 	});
 }
 

@@ -97,6 +97,12 @@ export default function SettingsPage() {
 		null
 	);
 	const [wasAutoUpgraded, setWasAutoUpgraded] = useState(false);
+	const [quota, setQuota] = useState<{
+		used: number;
+		limit: number;
+		remaining: number;
+		has_own_key: boolean;
+	} | null>(null);
 
 	// Load saved settings on mount
 	const loadSettings = useCallback(async () => {
@@ -113,6 +119,7 @@ export default function SettingsPage() {
 				setConnectionVerified(data.connectionVerified || false);
 				setDeprecationWarning(data.deprecationWarning || null);
 				setWasAutoUpgraded(data.wasAutoUpgraded || false);
+				setQuota(data.quota || null);
 
 				// Load available models from registry for this provider
 				const models = getProviderModels(data.provider || "groq");
@@ -317,6 +324,130 @@ export default function SettingsPage() {
 							{/* AI Provider Tab */}
 							{activeTab === "ai-provider" && (
 								<div className="grid gap-6">
+									{/* Free Generation Usage Card */}
+									<Card
+										className={cn(
+											quota && !quota.has_own_key && quota.remaining === 0
+												? "border-amber-500/50 bg-amber-500/5"
+												: ""
+										)}
+									>
+										<CardHeader>
+											<CardTitle className="flex items-center gap-2 text-lg">
+												<Zap className="h-5 w-5" />
+												AI Generation Usage
+												{quota?.has_own_key && (
+													<span className="ml-auto flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
+														<CheckCircle2 className="h-3 w-3" />
+														Unlimited
+													</span>
+												)}
+											</CardTitle>
+											<CardDescription>
+												{quota?.has_own_key
+													? "You have your own API key configured - enjoy unlimited AI generations!"
+													: "Track your free AI resume generations. Add your own API key for unlimited usage."}
+											</CardDescription>
+										</CardHeader>
+										<CardContent>
+											{loadingSettings ? (
+												<div className="flex items-center justify-center py-4">
+													<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+												</div>
+											) : quota?.has_own_key ? (
+												<div className="flex items-center gap-3 rounded-lg bg-green-500/5 border border-green-500/20 p-4">
+													<div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-500/10">
+														<CheckCircle2 className="h-6 w-6 text-green-500" />
+													</div>
+													<div>
+														<p className="font-medium text-green-600 dark:text-green-400">
+															Unlimited Generations Active
+														</p>
+														<p className="text-sm text-muted-foreground">
+															Your API key enables unlimited AI-powered resume
+															and cover letter generation.
+														</p>
+													</div>
+												</div>
+											) : (
+												<div className="space-y-4">
+													<div className="flex items-center justify-between">
+														<div className="flex items-center gap-3">
+															<div
+																className={cn(
+																	"flex h-12 w-12 items-center justify-center rounded-full",
+																	quota?.remaining === 0
+																		? "bg-amber-500/10"
+																		: "bg-purple-500/10"
+																)}
+															>
+																<Zap
+																	className={cn(
+																		"h-6 w-6",
+																		quota?.remaining === 0
+																			? "text-amber-500"
+																			: "text-purple-500"
+																	)}
+																/>
+															</div>
+															<div>
+																<p className="text-2xl font-bold">
+																	{quota?.used ?? 0}{" "}
+																	<span className="text-lg text-muted-foreground font-normal">
+																		/ {quota?.limit ?? 2}
+																	</span>
+																</p>
+																<p className="text-sm text-muted-foreground">
+																	Free generations used
+																</p>
+															</div>
+														</div>
+														<div className="text-right">
+															<p
+																className={cn(
+																	"text-lg font-semibold",
+																	quota?.remaining === 0
+																		? "text-amber-600 dark:text-amber-400"
+																		: "text-purple-600 dark:text-purple-400"
+																)}
+															>
+																{quota?.remaining ?? 2} remaining
+															</p>
+														</div>
+													</div>
+													{/* Progress bar */}
+													<div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+														<div
+															className={cn(
+																"h-full rounded-full transition-all duration-500",
+																quota?.remaining === 0
+																	? "bg-amber-500"
+																	: "bg-purple-500"
+															)}
+															style={{
+																width: `${Math.min(
+																	100,
+																	((quota?.used ?? 0) / (quota?.limit ?? 2)) *
+																		100
+																)}%`,
+															}}
+														/>
+													</div>
+													{quota?.remaining === 0 && (
+														<div className="flex items-center gap-2 rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 text-sm">
+															<AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
+															<p className="text-amber-700 dark:text-amber-300">
+																You&apos;ve used all free generations. Add your
+																own API key below to continue generating
+																resumes.
+															</p>
+														</div>
+													)}
+												</div>
+											)}
+										</CardContent>
+									</Card>
+
 									{/* Provider Selection */}
 									<Card>
 										<CardHeader>

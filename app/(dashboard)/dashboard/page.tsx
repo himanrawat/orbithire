@@ -26,6 +26,7 @@ import {
 	Calendar,
 	TrendingUp,
 	ExternalLink,
+	Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
@@ -38,6 +39,13 @@ type Stats = {
 	totalCoverLetters: number;
 	activeFollowUps: number;
 	pendingReminders: number;
+};
+
+type Quota = {
+	used: number;
+	limit: number;
+	remaining: number;
+	has_own_key: boolean;
 };
 
 type Company = {
@@ -106,6 +114,7 @@ export default function DashboardPage() {
 		activeFollowUps: 0,
 		pendingReminders: 0,
 	});
+	const [quota, setQuota] = useState<Quota | null>(null);
 	const [companies, setCompanies] = useState<Company[]>([]);
 	const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
 	const [followUps, setFollowUps] = useState<FollowUp[]>([]);
@@ -143,6 +152,7 @@ export default function DashboardPage() {
 				coverLetterCount,
 				activeFollowUpsCount,
 				pendingRemindersCount,
+				quotaResult,
 			] = await Promise.all([
 				supabase
 					.from("resumes")
@@ -163,6 +173,7 @@ export default function DashboardPage() {
 					.eq("user_id", user.id)
 					.eq("status", "active")
 					.lte("next_reminder_at", new Date().toISOString()),
+				supabase.rpc("check_generation_quota", { p_user_id: user.id }),
 			]);
 
 			console.log("[Dashboard] Stats queries results:", {
@@ -189,6 +200,10 @@ export default function DashboardPage() {
 				pendingReminders: pendingRemindersCount.count || 0,
 			});
 
+			// Set quota data
+			if (quotaResult.data) {
+				setQuota(quotaResult.data);
+			}
 			// Load companies with counts
 			const { data: companiesData } = await supabase
 				.from("companies")
@@ -545,7 +560,7 @@ export default function DashboardPage() {
 									</div>
 								</CardContent>
 							</Card>
-							<Card className="border-border/50 bg-card/80 backdrop-blur">
+							{/* <Card className="border-border/50 bg-card/80 backdrop-blur">
 								<CardContent className="p-4">
 									<div className="flex items-center gap-3">
 										<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500/10">
@@ -558,6 +573,61 @@ export default function DashboardPage() {
 											<p className="text-xs text-muted-foreground">
 												Pending Reminders
 											</p>
+										</div>
+									</div>
+								</CardContent>
+							</Card> */}
+							{/* Free AI Generations Card */}
+							<Card
+								className={cn(
+									"border-border/50 bg-card/80 backdrop-blur",
+									quota &&
+										!quota.has_own_key &&
+										quota.remaining === 0 &&
+										"border-amber-500/50"
+								)}
+							>
+								<CardContent className="p-4">
+									<div className="flex items-center gap-3">
+										<div
+											className={cn(
+												"flex h-10 w-10 items-center justify-center rounded-lg",
+												quota?.has_own_key
+													? "bg-green-500/10"
+													: quota?.remaining === 0
+													? "bg-amber-500/10"
+													: "bg-purple-500/10"
+											)}
+										>
+											<Zap
+												className={cn(
+													"h-5 w-5",
+													quota?.has_own_key
+														? "text-green-500"
+														: quota?.remaining === 0
+														? "text-amber-500"
+														: "text-purple-500"
+												)}
+											/>
+										</div>
+										<div>
+											{quota?.has_own_key ? (
+												<>
+													<p className="text-2xl font-bold">∞</p>
+													<p className="text-xs text-muted-foreground">
+														Unlimited (Own Key)
+													</p>
+												</>
+											) : (
+												<>
+													<p className="text-2xl font-bold">
+														{quota?.remaining ?? 2}/{quota?.limit ?? 2}
+													</p>
+													<p className="text-xs text-muted-foreground">
+														Free AI Gens
+													</p>
+												</>
+											)}
 										</div>
 									</div>
 								</CardContent>
