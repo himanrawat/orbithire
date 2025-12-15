@@ -31,6 +31,7 @@ export async function generatePDFFromHTML(
 		}
 
 		const isWindows = process.platform === "win32";
+		const isLambda = !!process.env.AWS_REGION || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
 
 		// Try the lightweight @sparticuz/chromium build (serverless-friendly) on non-Windows
 		// (the packaged binary is Linux-only and fails with ENOENT on Windows)
@@ -42,6 +43,13 @@ export async function generatePDFFromHTML(
 				}
 			} catch {
 				// fall through to full Puppeteer
+			}
+
+			// On Lambda-like environments we expect @sparticuz/chromium to be present.
+			if (isLambda) {
+				throw new Error(
+					"@sparticuz/chromium binary not found. Ensure it is bundled (see next.config.js outputFileTracingIncludes)."
+				);
 			}
 		}
 
