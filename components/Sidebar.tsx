@@ -2,7 +2,7 @@
 
 import { useState, createContext, useContext, ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -10,12 +10,11 @@ import {
 	LayoutDashboard,
 	Sparkles,
 	Building2,
-	User,
-	Settings,
 	FileText,
 	ChevronLeft,
 	ChevronRight,
 	Menu,
+	LogOut,
 } from "lucide-react";
 
 type SidebarContextType = {
@@ -60,11 +59,6 @@ const mainNavItems: NavItem[] = [
 	{ label: "Generate Resume", href: "/generate", icon: Sparkles },
 	{ label: "Companies", href: "/companies", icon: Building2 },
 	{ label: "My Resumes", href: "/resumes", icon: FileText },
-];
-
-const bottomNavItems: NavItem[] = [
-	{ label: "Profile", href: "/profile", icon: User },
-	{ label: "Settings", href: "/settings", icon: Settings },
 ];
 
 function NavLink({
@@ -119,13 +113,20 @@ export function Sidebar() {
 	const { isExpanded, setIsExpanded, isMobileOpen, setIsMobileOpen } =
 		useSidebar();
 	const pathname = usePathname();
+	const router = useRouter();
+
+	const handleLogout = async () => {
+		await fetch("/api/auth/logout", { method: "POST" });
+		router.push("/signin");
+		router.refresh();
+	};
 
 	const sidebarContent = (
 		<div className="flex h-full flex-col">
 			{/* Logo */}
 			<div
 				className={cn(
-					"flex h-14 items-center border-b px-4",
+					"flex h-14 items-center border-b px-4 relative",
 					!isExpanded && "justify-center px-2"
 				)}
 			>
@@ -146,6 +147,26 @@ export function Sidebar() {
 						)}
 					</AnimatePresence>
 				</Link>
+				{/* Collapse Button (Desktop) */}
+				<div className="mt-2 hidden md:block absolute -right-10">
+					<Button
+						variant="ghost"
+						size="sm"
+						onClick={() => setIsExpanded(!isExpanded)}
+						className={cn(
+							"w-full justify-center",
+							isExpanded && "justify-start"
+						)}
+					>
+						{isExpanded ? (
+							<>
+								<ChevronLeft className="h-4 w-4" />
+							</>
+						) : (
+							<ChevronRight className="h-4 w-4" />
+						)}
+					</Button>
+				</div>
 			</div>
 
 			{/* Main Nav */}
@@ -163,37 +184,29 @@ export function Sidebar() {
 			{/* Bottom Nav */}
 			<div className="border-t p-2">
 				<nav className="space-y-1">
-					{bottomNavItems.map((item) => (
-						<NavLink
-							key={item.href}
-							item={item}
-							isExpanded={isExpanded}
-							onClick={() => setIsMobileOpen(false)}
-						/>
-					))}
-				</nav>
-
-				{/* Collapse Button (Desktop) */}
-				<div className="mt-2 hidden md:block">
-					<Button
-						variant="ghost"
-						size="sm"
-						onClick={() => setIsExpanded(!isExpanded)}
+					<button
+						onClick={handleLogout}
 						className={cn(
-							"w-full justify-center",
-							isExpanded && "justify-start"
+							"flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+							!isExpanded && "justify-center px-2"
 						)}
+						title={!isExpanded ? "Sign out" : undefined}
 					>
-						{isExpanded ? (
-							<>
-								<ChevronLeft className="h-4 w-4" />
-								<span className="ml-2">Collapse</span>
-							</>
-						) : (
-							<ChevronRight className="h-4 w-4" />
-						)}
-					</Button>
-				</div>
+						<LogOut className="h-5 w-5 shrink-0" />
+						<AnimatePresence mode="wait">
+							{isExpanded && (
+								<motion.span
+									initial={{ opacity: 0, width: 0 }}
+									animate={{ opacity: 1, width: "auto" }}
+									exit={{ opacity: 0, width: 0 }}
+									className="overflow-hidden whitespace-nowrap"
+								>
+									Sign out
+								</motion.span>
+							)}
+						</AnimatePresence>
+					</button>
+				</nav>
 			</div>
 		</div>
 	);

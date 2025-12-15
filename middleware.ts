@@ -65,8 +65,15 @@ export async function middleware(req: NextRequest) {
 		);
 	}
 
-	// Resume host: allow public, but push signed-in users away from auth/landing
+	// Resume host: allow public, but protect routes and push signed-in users away from auth/landing
 	if (hostname === "resume.himanshurawat.in") {
+		// Block unauthenticated access to protected routes
+		if (!authenticated && isProtectedRoute) {
+			const redirectUrl = new URL("/signin", req.nextUrl.origin);
+			redirectUrl.searchParams.set("redirect", pathWithQuery);
+			return NextResponse.redirect(redirectUrl);
+		}
+		// Redirect authenticated users from landing/auth pages to dashboard
 		if (authenticated && (path === "/" || isAuthPage)) {
 			return NextResponse.redirect(
 				new URL("https://dashboard.himanshurawat.in")

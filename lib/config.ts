@@ -58,10 +58,11 @@ export const serverEnv = {
 		return url;
 	},
 	get authCookieDomain() {
-		return (
-			process.env.AUTH_COOKIE_DOMAIN ||
-			(process.env.NODE_ENV === "production" ? ".himanshurawat.in" : undefined)
-		);
+		// Only set cookie domain in production to allow localhost development
+		if (process.env.NODE_ENV !== "production") {
+			return undefined;
+		}
+		return process.env.AUTH_COOKIE_DOMAIN || ".himanshurawat.in";
 	},
 	get maxUploadBytes() {
 		return (

@@ -24,10 +24,11 @@ const edgeEnv = {
 		return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 	},
 	get authCookieDomain() {
-		return (
-			process.env.AUTH_COOKIE_DOMAIN ||
-			(process.env.NODE_ENV === "production" ? ".himanshurawat.in" : undefined)
-		);
+		// Only set cookie domain in production to allow localhost development
+		if (process.env.NODE_ENV !== "production") {
+			return undefined;
+		}
+		return process.env.AUTH_COOKIE_DOMAIN || ".himanshurawat.in";
 	},
 };
 
@@ -48,8 +49,8 @@ export function createEdgeSupabaseClient(req: NextRequest, res: NextResponse) {
 					httpOnly: true,
 					secure: isProduction,
 					sameSite: "lax",
-					domain: edgeEnv.authCookieDomain,
 					path: "/",
+					...(edgeEnv.authCookieDomain && { domain: edgeEnv.authCookieDomain }),
 					...options,
 				});
 			},
@@ -61,8 +62,8 @@ export function createEdgeSupabaseClient(req: NextRequest, res: NextResponse) {
 					httpOnly: true,
 					secure: isProduction,
 					sameSite: "lax",
-					domain: edgeEnv.authCookieDomain,
 					path: "/",
+					...(edgeEnv.authCookieDomain && { domain: edgeEnv.authCookieDomain }),
 					...options,
 				});
 			},

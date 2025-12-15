@@ -2,6 +2,8 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { serverEnv } from "./config";
 
+const isProduction = process.env.NODE_ENV === "production";
+
 /**
  * Server-side Supabase client that reads/writes the auth cookie shared across subdomains.
  */
@@ -22,10 +24,10 @@ export function createServerSupabase() {
             name,
             value,
             httpOnly: true,
-            secure: true,
+            secure: isProduction,
             sameSite: "lax",
-            domain: serverEnv.authCookieDomain,
             path: "/",
+            ...(serverEnv.authCookieDomain && { domain: serverEnv.authCookieDomain }),
             ...options
           });
         },
@@ -34,11 +36,11 @@ export function createServerSupabase() {
             name,
             value: "",
             httpOnly: true,
-            secure: true,
+            secure: isProduction,
             sameSite: "lax",
-            domain: serverEnv.authCookieDomain,
             path: "/",
             expires: new Date(0),
+            ...(serverEnv.authCookieDomain && { domain: serverEnv.authCookieDomain }),
             ...options
           });
         }
