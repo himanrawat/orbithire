@@ -10,6 +10,7 @@ import {
 } from "@/lib/prompts/resume";
 import { createProvider } from "@/lib/ai/providerFactory";
 import type { ProviderInitConfig } from "@/lib/ai/providers/baseProvider";
+import { decryptApiKey } from "@/lib/encryption";
 
 export const runtime = "nodejs";
 
@@ -38,7 +39,11 @@ async function fetchPhotoAsBase64(
 	if (!avatarKey || !r2Client || !serverEnv.r2Bucket) return undefined;
 
 	// Skip if it's already a URL (legacy data)
-	if (avatarKey.startsWith("http") || avatarKey.startsWith("data:")) {
+	if (
+		avatarKey.startsWith("http") ||
+		avatarKey.startsWith("data:") ||
+		avatarKey.startsWith("/api/profile/photo")
+	) {
 		return avatarKey;
 	}
 
@@ -92,7 +97,10 @@ async function getAIConfig(
 		.single();
 
 	const provider = settings?.ai_provider || "groq";
-	let apiKey = settings?.ai_api_key_encrypted || null;
+	// Decrypt the API key if it exists
+	let apiKey = settings?.ai_api_key_encrypted
+		? decryptApiKey(settings.ai_api_key_encrypted)
+		: null;
 	let baseURL = settings?.ai_base_url || undefined;
 	let model = settings?.ai_default_model || null;
 
@@ -217,6 +225,33 @@ export async function POST(req: NextRequest) {
 		);
 	}
 
+	// Check generation quota using Supabase function
+	const { data: quotaData, error: quotaError } = await supabase.rpc(
+		"check_generation_quota",
+		{ p_user_id: user.id }
+	);
+
+	if (quotaError) {
+		console.error("Quota check error:", quotaError);
+		// Don't block on quota check errors, just log and continue
+	} else if (quotaData && !quotaData.can_generate) {
+		return NextResponse.json(
+			{
+				error: "Free generation limit reached. Please add your own API key in Settings to continue.",
+				quotaExceeded: true,
+				quota: {
+					used: quotaData.used,
+					limit: quotaData.limit,
+					remaining: quotaData.remaining,
+				},
+			},
+			{ status: 403 }
+		);
+	}
+
+	// Track if user is using free tier (for incrementing count after success)
+	const isUsingFreeTier = quotaData?.reason === "free_tier" || quotaData?.reason === "new_user";
+
 	// Parse extended profile data from extended_profile JSON
 	let extendedData: {
 		work_experience?: any[];
@@ -276,15 +311,15 @@ export async function POST(req: NextRequest) {
 		})),
 		skills: profile.skills || [],
 		certifications: profile.certifications || [],
-		customSections: customSections.map((section: any) => ({
-			title: section.title,
-			entries: (section.entries || []).map((entry: any) => ({
-				title: entry.title || "",
-				description: entry.description || "",
-				url: entry.url || "",
-			})),
+	customSections: customSections.map((section: any) => ({
+		title: section.title,
+		entries: (section.entries || []).map((entry: any) => ({
+			title: entry.title || "",
+			description: entry.description || entry.value || "",
+			url: entry.url || entry.link || "",
 		})),
-	};
+	})),
+};
 
 	// Get AI configuration from user settings or environment
 	const aiConfig = await getAIConfig(supabase, user.id);
@@ -546,6 +581,11 @@ export async function POST(req: NextRequest) {
 
 		// Fetch profile photo as base64 for embedding in resume HTML
 		const imageBase64 = await fetchPhotoAsBase64(profile.avatar_url);
+
+		// Increment free generation count if user is on free tier
+		if (isUsingFreeTier) {
+			await supabase.rpc("increment_free_generation", { p_user_id: user.id });
+		}
 
 		return NextResponse.json({
 			success: true,

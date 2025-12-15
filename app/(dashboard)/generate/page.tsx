@@ -305,17 +305,24 @@ export default function GeneratePage() {
 				(section: any) => {
 					const optimizedHighlights =
 						data.resume?.customSectionHighlights?.[section.title] || [];
-					return section.entries.map((entry: any, index: number) => ({
-						name: entry.title,
-						description: entry.description || "",
-						url: entry.url || "",
-						highlights:
+					return section.entries.map((entry: any, index: number) => {
+						const rawHighlight =
 							optimizedHighlights.length > index
-								? [optimizedHighlights[index]]
-								: entry.description
-								? [entry.description]
-								: [],
-					}));
+								? optimizedHighlights[index]
+								: entry.description || entry.title || "";
+
+						const highlights = normalizeHighlights(rawHighlight);
+
+						const urlFromEntry = sanitizeUrl(entry.url);
+						const urlFromText = sanitizeUrl(extractUrlFromText(rawHighlight));
+
+						return {
+							name: entry.title,
+							description: "",
+							url: urlFromEntry || urlFromText || "",
+							highlights,
+						};
+					});
 				}
 			);
 			setEditedProjects(projectsFromSections);
@@ -339,13 +346,20 @@ export default function GeneratePage() {
 		const { profile } = generatedContent;
 
 		// Build projects with keywords
-		const projects = editedProjects.map((proj) => ({
-			name: proj.name,
-			description: proj.description,
-			highlights: proj.highlights,
-			url: proj.url || undefined,
-			keywords: [],
-		}));
+		const projects = editedProjects.map((proj) => {
+			const highlights =
+				proj.highlights && proj.highlights.length > 0
+					? proj.highlights
+					: normalizeHighlights(proj.description);
+
+			return {
+				name: proj.name,
+				description: "",
+				highlights,
+				url: proj.url || undefined,
+				keywords: [],
+			};
+		});
 
 		return {
 			basics: {
@@ -1076,21 +1090,6 @@ export default function GeneratePage() {
 																/>
 															</div>
 															<div className="mb-3">
-																<Label className="text-xs">Description</Label>
-																<Input
-																	value={proj.description}
-																	onChange={(e) => {
-																		const updated = [...editedProjects];
-																		updated[projIndex] = {
-																			...proj,
-																			description: e.target.value,
-																		};
-																		setEditedProjects(updated);
-																	}}
-																	className="mt-1"
-																/>
-															</div>
-															<div className="mb-3">
 																<Label className="text-xs">
 																	Project Link (optional)
 																</Label>
@@ -1355,4 +1354,42 @@ function groupSkillsFromArray(skills: string[]): JSONResume["skills"] {
 			keywords: skills,
 		},
 	];
+}
+
+// Normalize freeform project text into per-line highlights
+function normalizeHighlights(raw: string | string[]): string[] {
+	if (Array.isArray(raw)) {
+		raw = raw.join(" ");
+	}
+
+	if (!raw) return [];
+
+	return raw
+		.replace(/•/g, "\n")
+		.split(/\r?\n/)
+		.flatMap((line) =>
+			line
+				.split(/(?<=[.!?])\s+(?=[A-Z0-9])/)
+				.map((s) => s.trim().replace(/^[•\-\s]+/, ""))
+		)
+		.map((s) => s.trim())
+		.filter(Boolean);
+}
+
+// Clean up URLs that may contain spaces or be missing protocol
+function sanitizeUrl(raw?: string): string | undefined {
+	if (!raw) return undefined;
+	const compact = raw.replace(/\s+/g, "");
+	if (!compact) return undefined;
+	if (!/^https?:\/\//i.test(compact) && compact.includes(".")) {
+		return `https://${compact}`;
+	}
+	return compact;
+}
+
+// Try to pull a URL out of freeform text (e.g., "Link: https://example.com")
+function extractUrlFromText(text?: string): string | undefined {
+	if (!text) return undefined;
+	const match = text.match(/https?:\/\/[^\s)]+/i);
+	return match ? match[0] : undefined;
 }

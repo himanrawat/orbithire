@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { serverEnv } from "@/lib/config";
 import { getProvider } from "@/lib/ai/providers/registry";
 import { autoUpgradeDeprecatedModel } from "@/lib/ai/modelUpgrade";
+import { encryptApiKey } from "@/lib/encryption";
 
 export const runtime = "nodejs";
 
@@ -171,9 +172,8 @@ export async function POST(req: NextRequest) {
 
 	// Only update API key if provided (allows clearing by passing empty string)
 	if (apiKey !== undefined) {
-		// In production, you'd encrypt this with a proper encryption library
-		// For now, we store it as-is but it's protected by RLS
-		updateData.ai_api_key_encrypted = apiKey || null;
+		// Encrypt the API key before storing
+		updateData.ai_api_key_encrypted = apiKey ? encryptApiKey(apiKey) : null;
 	}
 
 	if (baseUrl !== undefined) {

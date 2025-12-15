@@ -126,6 +126,7 @@ const createId = () =>
 export default function ProfilePage() {
 	const [activeTab, setActiveTab] = useState<Tab>("personal");
 	const [profile, setProfile] = useState<ProfileData>(emptyProfile);
+	const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 	const [isSaving, setIsSaving] = useState(false);
 	const [emailLocked, setEmailLocked] = useState(false);
 	const [saveError, setSaveError] = useState<string | null>(null);
@@ -281,8 +282,9 @@ export default function ProfilePage() {
 									id: entry.id || createId(),
 									title: entry.title || "",
 									value: entry.value || entry.description || "",
+									link: entry.link || entry.url || "",
 							  }))
-							: [{ id: createId(), title: "", value: "" }],
+							: [{ id: createId(), title: "", value: "", link: "" }],
 					})
 				) || [];
 
@@ -475,28 +477,25 @@ export default function ProfilePage() {
 			return;
 		}
 
-		if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
-			setPhotoError("Use JPG, PNG, or WEBP images.");
-			setPhotoStatus("error");
-			e.target.value = "";
-			return;
-		}
+	if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
+		setPhotoError("Use JPG, PNG, or WEBP images.");
+		setPhotoStatus("error");
+		e.target.value = "";
+		return;
+	}
 
-		const previewUrl = URL.createObjectURL(file);
-		if (profile.avatar_url && profile.avatar_url.startsWith("blob:")) {
-			URL.revokeObjectURL(profile.avatar_url);
-		}
+	const previewUrl = URL.createObjectURL(file);
+	if (avatarPreview && avatarPreview.startsWith("blob:")) {
+		URL.revokeObjectURL(avatarPreview);
+	}
 
-		setPhotoError(null);
-		setPhotoStatus("uploading");
-		setPhotoFileName(file.name);
-		setProfile((prev) => ({
-			...prev,
-			avatar_url: previewUrl,
-		}));
+	setPhotoError(null);
+	setPhotoStatus("uploading");
+	setPhotoFileName(file.name);
+	setAvatarPreview(previewUrl);
 
-		const formData = new FormData();
-		formData.append("file", file);
+	const formData = new FormData();
+	formData.append("file", file);
 
 		try {
 			const res = await fetch("/api/profile/photo", {
@@ -509,26 +508,28 @@ export default function ProfilePage() {
 				setPhotoStatus("error");
 				setPhotoError(body.error || "Unable to upload photo right now.");
 				return;
-			}
-
-			setProfile((prev) => ({
-				...prev,
-				avatar_url: body.url || previewUrl,
-			}));
-			setPhotoStatus("success");
-		} catch {
-			setPhotoStatus("error");
-			setPhotoError("Unable to upload photo right now.");
 		}
+
+		setProfile((prev) => ({
+			...prev,
+			avatar_url: body.key ?? prev.avatar_url,
+		}));
+		setAvatarPreview(body.url || previewUrl);
+		setPhotoStatus("success");
+	} catch {
+		setPhotoStatus("error");
+		setPhotoError("Unable to upload photo right now.");
+	}
 	};
 
 	const handleRemovePhoto = () => {
-		if (profile.avatar_url && profile.avatar_url.startsWith("blob:")) {
-			URL.revokeObjectURL(profile.avatar_url);
+		if (avatarPreview && avatarPreview.startsWith("blob:")) {
+			URL.revokeObjectURL(avatarPreview);
 		}
 		setPhotoError(null);
 		setPhotoFileName(null);
 		setPhotoStatus("idle");
+		setAvatarPreview(null);
 		setProfile((prev) => ({
 			...prev,
 			avatar_url: null,
@@ -679,20 +680,20 @@ export default function ProfilePage() {
 		);
 	};
 
-	const handleAddCustomEntry = (sectionId: string) => {
-		setCustomSections((prev) =>
-			prev.map((section) =>
-				section.id === sectionId
-					? {
-							...section,
-							entries: [
-								...section.entries,
-								{ id: createId(), title: "", value: "" },
-							],
-					  }
-					: section
-			)
-		);
+const handleAddCustomEntry = (sectionId: string) => {
+	setCustomSections((prev) =>
+		prev.map((section) =>
+			section.id === sectionId
+				? {
+						...section,
+						entries: [
+							...section.entries,
+							{ id: createId(), title: "", value: "", link: "" },
+						],
+				  }
+				: section
+		)
+	);
 	};
 
 	const handleRemoveCustomEntry = (sectionId: string, index: number) => {
@@ -1071,15 +1072,32 @@ export default function ProfilePage() {
 															: "border-muted-foreground/30"
 													)}
 												>
-													{profile.avatar_url ? (
-														<img
-															src={profile.avatar_url}
-															alt="Profile"
-															className="h-full w-full object-cover"
-														/>
-													) : (
-														<Camera className="h-8 w-8 text-muted-foreground" />
-													)}
+													{(() => {
+														const url = (() => {
+															if (avatarPreview) return avatarPreview;
+															if (!profile.avatar_url) return null;
+															if (
+																profile.avatar_url.startsWith("http") ||
+																profile.avatar_url.startsWith("data:") ||
+																profile.avatar_url.startsWith("blob:") ||
+																profile.avatar_url.startsWith("/api/profile/photo")
+															) {
+																return profile.avatar_url;
+															}
+															// Stored R2 key -> use proxy endpoint for display
+															return "/api/profile/photo";
+														})();
+														if (url) {
+															return (
+																<img
+																	src={url}
+																	alt="Profile"
+																	className="h-full w-full object-cover"
+																/>
+															);
+														}
+														return <Camera className="h-8 w-8 text-muted-foreground" />;
+													})()}
 													{photoStatus === "uploading" && (
 														<div className="absolute inset-0 flex items-center justify-center bg-background/70">
 															<Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -1114,7 +1132,7 @@ export default function ProfilePage() {
 															? "Uploading..."
 															: "Upload"}
 													</Button>
-													{profile.avatar_url && (
+													{(avatarPreview || profile.avatar_url) && (
 														<Button
 															variant="ghost"
 															size="sm"
@@ -1782,6 +1800,16 @@ export default function ProfilePage() {
 															}
 															placeholder="Details, bullet points, or notes for this section..."
 															rows={3}
+														/>
+														<Input
+															className="mt-2"
+															placeholder="Link (optional)"
+															value={entry.link || ""}
+															onChange={(e) =>
+																handleUpdateCustomEntry(section.id, entry.id, {
+																	link: e.target.value,
+																})
+															}
 														/>
 													</div>
 												))}

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { serverEnv } from "@/lib/config";
+import { decryptApiKey } from "@/lib/encryption";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,7 +51,10 @@ export async function GET(req: NextRequest) {
 
 	// Determine API key and base URL
 	const provider = settings?.ai_provider || "groq";
-	let apiKey = settings?.ai_api_key_encrypted || null;
+	// Decrypt the API key if it exists
+	let apiKey = settings?.ai_api_key_encrypted
+		? decryptApiKey(settings.ai_api_key_encrypted)
+		: null;
 	let baseUrl = settings?.ai_base_url || null;
 	let model = settings?.ai_default_model || null;
 

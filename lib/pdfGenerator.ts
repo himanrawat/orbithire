@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
 
@@ -17,11 +18,44 @@ export async function generatePDFFromHTML(
 ): Promise<PDFGenerationResult> {
 	let browser = null;
 
+	// Resolve a usable Chromium/Chrome path across environments
+	async function resolveExecutablePath(): Promise<string> {
+		// Allow explicit override
+		const envPath =
+			process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROMIUM_PATH;
+		if (envPath && existsSync(envPath)) return envPath;
+
+		// Try the lightweight @sparticuz/chromium build (serverless-friendly)
+		try {
+			const chromiumPath = await chromium.executablePath();
+			if (chromiumPath && existsSync(chromiumPath)) return chromiumPath;
+		} catch {
+			// fall through to full Puppeteer
+		}
+
+		// Fallback to the bundled Puppeteer download (works locally/CI)
+		try {
+			// Dynamically import to avoid bloating the serverless bundle when unused
+			// eslint-disable-next-line @typescript-eslint/no-var-requires
+			const fullPuppeteer = require("puppeteer") as typeof import("puppeteer");
+			const fullPath = fullPuppeteer.executablePath();
+			if (fullPath && existsSync(fullPath)) return fullPath;
+		} catch {
+			// Ignore, will throw below
+		}
+
+		throw new Error("No Chromium executable found for PDF generation");
+	}
+
 	try {
+		const executablePath = await resolveExecutablePath();
+		const headless =
+			(chromium as unknown as { headless?: boolean }).headless ?? true;
+
 		browser = await puppeteer.launch({
 			args: chromium.args,
-			executablePath: await chromium.executablePath(),
-			headless: true,
+			executablePath,
+			headless,
 		});
 
 		const page = await browser.newPage();
@@ -77,7 +111,7 @@ export async function generateCoverLetterPDF(
 	// Convert plain text to formatted HTML
 	const formattedContent = content
 		.split("\n\n")
-		.map((para) => `<p>${para.replaceAll(/\n/g, "<br>")}</p>`)
+		.map((para) => `<p>${para.replaceAll("\n", "<br>")}</p>`)
 		.join("");
 
 	const html = `<!DOCTYPE html>
