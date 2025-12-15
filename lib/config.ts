@@ -43,7 +43,7 @@ export const serverEnv = {
 	get r2PublicBaseUrl() {
 		return process.env.R2_PUBLIC_BASE_URL || process.env.R2_ENDPOINT;
 	},
-// In production, require SITE_URL to be set. In development, allow localhost fallback.
+	// In production, require SITE_URL to be set. In development, allow localhost fallback.
 	get siteUrl() {
 		const devAmplifyUrl = "https://dev.d1pqsq7ljwpxt9.amplifyapp.com";
 		const url =
