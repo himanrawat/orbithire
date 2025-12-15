@@ -283,11 +283,14 @@ export async function GET(req: NextRequest) {
 		extended_profile: _ext,
 		...profileWithoutPhoto
 	} = data;
+	const resolvedEmail =
+		normalizeString(profileWithoutPhoto.email) ?? user.email ?? null;
 
 	return NextResponse.json(
 		{
 			profile: {
 				...profileWithoutPhoto,
+				email: resolvedEmail,
 				avatar_url: proxyPhotoUrl,
 				github_url: extended.github_url || null,
 				work_experience: extended.work_experience || [],
@@ -399,6 +402,9 @@ export async function PATCH(req: NextRequest) {
 		}
 	}
 
+	const lockedEmail =
+		normalizeString(existing?.email) ?? normalizeString(user.email) ?? null;
+
 	const baseExtended = {
 		work_experience: existingExtended.work_experience || [],
 		education: existingExtended.education || [],
@@ -409,7 +415,7 @@ export async function PATCH(req: NextRequest) {
 	};
 
 	const baseProfile = {
-		email: normalizeString(existing?.email),
+		email: lockedEmail,
 		full_name: normalizeString(existing?.full_name),
 		phone: normalizeString(existing?.phone),
 		location: normalizeString(existing?.location),
@@ -425,7 +431,15 @@ export async function PATCH(req: NextRequest) {
 	const nextProfile = { ...baseProfile };
 
 	const email = normalizeString(profile.email);
-	if (email !== undefined) nextProfile.email = email;
+	if (lockedEmail && email && email !== lockedEmail) {
+		return NextResponse.json(
+			{ error: "Email cannot be changed after registration." },
+			{ status: 400 }
+		);
+	}
+	if (!lockedEmail && email !== undefined) {
+		nextProfile.email = email;
+	}
 	const name = normalizeString(profile.full_name);
 	if (name !== undefined) nextProfile.full_name = name;
 	const phone = normalizeString(profile.phone);
@@ -509,7 +523,7 @@ export async function PATCH(req: NextRequest) {
 		);
 	}
 	const finalEmail =
-		nextProfile.email ?? baseProfile.email ?? user.email ?? null;
+		nextProfile.email ?? lockedEmail ?? normalizeString(user.email) ?? null;
 	if (!finalEmail) {
 		return NextResponse.json({ error: "Email is required." }, { status: 400 });
 	}

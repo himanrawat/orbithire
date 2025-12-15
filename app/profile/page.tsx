@@ -127,6 +127,7 @@ export default function ProfilePage() {
 	const [activeTab, setActiveTab] = useState<Tab>("personal");
 	const [profile, setProfile] = useState<ProfileData>(emptyProfile);
 	const [isSaving, setIsSaving] = useState(false);
+	const [emailLocked, setEmailLocked] = useState(false);
 	const [saveError, setSaveError] = useState<string | null>(null);
 	const [saveMessage, setSaveMessage] = useState<string | null>(null);
 	const [loadingProfile, setLoadingProfile] = useState(false);
@@ -291,6 +292,7 @@ export default function ProfilePage() {
 				profile: loadedProfile,
 				customSections: loadedCustomSections,
 			};
+			setEmailLocked(Boolean(loadedProfile.email));
 			setPhotoStatus("idle");
 			setPhotoError(null);
 			setPhotoFileName(null);
@@ -355,7 +357,9 @@ export default function ProfilePage() {
 				profile.full_name,
 				initial?.profile.full_name
 			);
-			maybeSetString("email", profile.email, initial?.profile.email);
+			if (!emailLocked) {
+				maybeSetString("email", profile.email, initial?.profile.email);
+			}
 			maybeSetString("phone", profile.phone, initial?.profile.phone);
 			maybeSetString("location", profile.location, initial?.profile.location);
 			maybeSetString("bio", profile.bio, initial?.profile.bio);
@@ -429,6 +433,9 @@ export default function ProfilePage() {
 				},
 				customSections,
 			};
+			const resolvedEmail =
+				initial?.profile.email ?? payloadProfile.email ?? profile.email;
+			setEmailLocked(Boolean(resolvedEmail));
 		} catch (error) {
 			setSaveError("Unable to save profile right now.");
 		} finally {
@@ -1167,11 +1174,17 @@ export default function ProfilePage() {
 													id="email"
 													type="email"
 													value={profile.email}
-													disabled={loadingProfile}
+													disabled={loadingProfile || emailLocked}
 													onChange={(e) =>
 														setProfile({ ...profile, email: e.target.value })
 													}
 												/>
+												{emailLocked && (
+													<p className="text-xs text-muted-foreground">
+														This email is linked to your account and cannot be
+														changed.
+													</p>
+												)}
 											</div>
 											<div className="space-y-2">
 												<Label htmlFor="phone">

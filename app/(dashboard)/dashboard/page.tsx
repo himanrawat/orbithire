@@ -399,9 +399,7 @@ export default function DashboardPage() {
 		const experience =
 			Boolean(profile?.experience_summary) ||
 			(extended.work_experience || []).length > 0;
-		const education =
-			Boolean(profile?.extended_profile) ||
-			(extended.education || []).length > 0;
+		const education = (extended.education || []).length > 0;
 
 		const items: { label: string; completed: boolean }[] = [
 			{ label: "Photo", completed: photo },
