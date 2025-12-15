@@ -51,6 +51,7 @@ import { cn } from "@/lib/utils";
 import { sampleResume, type JSONResume } from "@/lib/sampleResume";
 import { TemplateGallery } from "@/components/TemplateGallery";
 import { ResumePreview, type ResumeTemplate } from "@/components/ResumePreview";
+import { ProfileCompletionBanner } from "@/components/ProfileCompletionBanner";
 
 type ApplicationStatus =
 	| "saved"
@@ -512,6 +513,11 @@ export default function GeneratePage() {
 			<GridBackground />
 
 			<div className="relative">
+				{/* Profile Completion Warning */}
+				<div className="container mx-auto max-w-4xl px-4 pt-6">
+					<ProfileCompletionBanner variant="popup" />
+				</div>
+
 				{/* Progress indicator */}
 				<div className="my-6 flex items-center justify-center gap-2">
 					{["job-details", "select-template", "preview"].map((s, i) => (

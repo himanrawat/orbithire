@@ -1,4 +1,4 @@
-OrbitHire -- spec
+CVLeap AI -- spec
 =================
 
 Goal: let candidates paste a job description, auto-tailor an ATS-friendly resume + cover letter (OpenAI + Groq), store/share versions company-wise, and track applications with 7-day follow-up emails (includes recruiter-facing message). Backend: Supabase (auth + DB + edge functions). File storage: Cloudflare R2 (presigned uploads/downloads). Region-ready templates (Germany/EU include optional profile photo slot).

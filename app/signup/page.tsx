@@ -17,7 +17,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GridBackground } from "@/components/ui/aceternity";
-import { Sparkles, ArrowRight, Loader2, CheckCircle2 } from "lucide-react";
+import {
+	Sparkles,
+	ArrowRight,
+	Loader2,
+	CheckCircle2,
+	RefreshCw,
+	Camera,
+	X,
+} from "lucide-react";
 import { sanitizeRedirect } from "@/lib/auth-utils";
 
 const steps = [
@@ -41,13 +49,47 @@ const steps = [
 function SignUpForm() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
+	const [name, setName] = useState("");
+	const [phone, setPhone] = useState("");
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
+	const [avatar, setAvatar] = useState<string | null>(null);
+	const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 	const [error, setError] = useState("");
 	const [notice, setNotice] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [success, setSuccess] = useState(false);
+	const [resending, setResending] = useState(false);
+	const [resendMessage, setResendMessage] = useState("");
+
+	const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (!file) return;
+
+		if (file.size > 5 * 1024 * 1024) {
+			setError("Image must be 5MB or smaller");
+			return;
+		}
+
+		if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+			setError("Please use JPG, PNG, or WEBP images");
+			return;
+		}
+
+		const reader = new FileReader();
+		reader.onload = (event) => {
+			const dataUrl = event.target?.result as string;
+			setAvatar(dataUrl);
+			setAvatarPreview(dataUrl);
+		};
+		reader.readAsDataURL(file);
+	};
+
+	const removeAvatar = () => {
+		setAvatar(null);
+		setAvatarPreview(null);
+	};
 
 	const signinHref = `/signin${
 		searchParams.get("redirect")
@@ -55,10 +97,41 @@ function SignUpForm() {
 			: ""
 	}`;
 
+	const handleResendConfirmation = async () => {
+		setResending(true);
+		setResendMessage("");
+
+		try {
+			const res = await fetch("/api/auth/resend-confirmation", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ email }),
+			});
+
+			const data = await res.json();
+
+			if (!res.ok) {
+				setResendMessage(data.error || "Failed to resend email");
+				return;
+			}
+
+			setResendMessage("Confirmation email sent! Check your inbox.");
+		} catch {
+			setResendMessage("Something went wrong");
+		} finally {
+			setResending(false);
+		}
+	};
+
 	const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
 		setError("");
 		setNotice("");
+
+		if (!name.trim()) {
+			setError("Name is required");
+			return;
+		}
 
 		if (password !== confirmPassword) {
 			setError("Passwords do not match");
@@ -76,7 +149,13 @@ function SignUpForm() {
 			const res = await fetch("/api/auth/signup", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ email, password }),
+				body: JSON.stringify({
+					email,
+					password,
+					name: name.trim(),
+					phone: phone.trim() || null,
+					avatar,
+				}),
 			});
 
 			const data = await res.json();
@@ -121,8 +200,19 @@ function SignUpForm() {
 							<CardContent className="space-y-4 pt-2">
 								<p className="text-sm text-muted-foreground">
 									Click the link in your email to confirm your account, then
-									sign in.
+									sign in. Don&apos;t forget to check your spam folder.
 								</p>
+								{resendMessage && (
+									<div
+										className={`rounded-md p-3 text-sm ${
+											resendMessage.includes("sent")
+												? "bg-green-500/10 text-green-600 dark:text-green-400"
+												: "bg-destructive/10 text-destructive"
+										}`}
+									>
+										{resendMessage}
+									</div>
+								)}
 							</CardContent>
 							<CardFooter className="flex flex-col space-y-4">
 								<Button asChild className="w-full">
@@ -130,6 +220,24 @@ function SignUpForm() {
 										Go to Sign In
 										<ArrowRight className="ml-2 h-4 w-4" />
 									</Link>
+								</Button>
+								<Button
+									variant="ghost"
+									className="w-full"
+									onClick={handleResendConfirmation}
+									disabled={resending}
+								>
+									{resending ? (
+										<>
+											<RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+											Sending...
+										</>
+									) : (
+										<>
+											<RefreshCw className="mr-2 h-4 w-4" />
+											Resend confirmation email
+										</>
+									)}
 								</Button>
 							</CardFooter>
 						</Card>
@@ -203,13 +311,85 @@ function SignUpForm() {
 									Create an account
 								</CardTitle>
 								<CardDescription>
-									Get started with OrbitHire for free
+									Get started with CVLeap AI for free
 								</CardDescription>
 							</CardHeader>
 							<form onSubmit={handleSubmit}>
 								<CardContent className="space-y-4">
+									{/* Profile Photo */}
+									<div className="flex flex-col items-center space-y-2">
+										<div className="relative">
+											{avatarPreview ? (
+												<div className="relative">
+													<img
+														src={avatarPreview}
+														alt="Profile preview"
+														className="h-20 w-20 rounded-full object-cover border-2 border-border"
+													/>
+													<button
+														type="button"
+														onClick={removeAvatar}
+														className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+													>
+														<X className="h-3 w-3" />
+													</button>
+												</div>
+											) : (
+												<label
+													htmlFor="avatar"
+													className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-border bg-muted/50 hover:bg-muted transition-colors"
+												>
+													<Camera className="h-6 w-6 text-muted-foreground" />
+												</label>
+											)}
+											<input
+												id="avatar"
+												type="file"
+												accept="image/jpeg,image/png,image/webp"
+												onChange={handleAvatarChange}
+												className="hidden"
+												disabled={loading}
+											/>
+										</div>
+										<span className="text-xs text-muted-foreground">
+											Profile photo (optional)
+										</span>
+									</div>
+
+									{/* Name */}
 									<div className="space-y-2">
-										<Label htmlFor="email">Email</Label>
+										<Label htmlFor="name">
+											Full Name <span className="text-destructive">*</span>
+										</Label>
+										<Input
+											id="name"
+											type="text"
+											placeholder="John Doe"
+											value={name}
+											onChange={(e) => setName(e.target.value)}
+											required
+											disabled={loading}
+										/>
+									</div>
+
+									{/* Phone */}
+									<div className="space-y-2">
+										<Label htmlFor="phone">Phone Number</Label>
+										<Input
+											id="phone"
+											type="tel"
+											placeholder="+1 (555) 123-4567"
+											value={phone}
+											onChange={(e) => setPhone(e.target.value)}
+											disabled={loading}
+										/>
+									</div>
+
+									{/* Email */}
+									<div className="space-y-2">
+										<Label htmlFor="email">
+											Email <span className="text-destructive">*</span>
+										</Label>
 										<Input
 											id="email"
 											type="email"
@@ -220,8 +400,12 @@ function SignUpForm() {
 											disabled={loading}
 										/>
 									</div>
+
+									{/* Password */}
 									<div className="space-y-2">
-										<Label htmlFor="password">Password</Label>
+										<Label htmlFor="password">
+											Password <span className="text-destructive">*</span>
+										</Label>
 										<Input
 											id="password"
 											type="password"
@@ -233,8 +417,12 @@ function SignUpForm() {
 											minLength={8}
 										/>
 									</div>
+									{/* Confirm Password */}
 									<div className="space-y-2">
-										<Label htmlFor="confirmPassword">Confirm Password</Label>
+										<Label htmlFor="confirmPassword">
+											Confirm Password{" "}
+											<span className="text-destructive">*</span>
+										</Label>
 										<Input
 											id="confirmPassword"
 											type="password"

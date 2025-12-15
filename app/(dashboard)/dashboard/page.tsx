@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { ProfileCompletionBanner } from "@/components/ProfileCompletionBanner";
 import type { Profile } from "@/lib/types/database";
 
 // Data types
@@ -460,6 +461,9 @@ export default function DashboardPage() {
 						follow-ups.
 					</p>
 				</motion.div>
+
+				{/* Profile Completion Banner */}
+				<ProfileCompletionBanner variant="banner" />
 
 				{/* Quick Actions Bar */}
 				<motion.div

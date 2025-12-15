@@ -67,7 +67,7 @@ export function NavBar({ user }: { user?: User | null }) {
 			<div className="container flex h-14 items-center justify-between">
 				<Link href="/" className="flex items-center space-x-2">
 					<Rocket className="h-5 w-5" />
-					<span className="font-bold text-lg">OrbitHire</span>
+					<span className="font-bold text-lg">CVLeap AI</span>
 				</Link>
 				<div className="flex items-center gap-2">
 					<ThemeToggle />

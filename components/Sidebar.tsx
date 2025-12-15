@@ -142,7 +142,7 @@ export function Sidebar() {
 								exit={{ opacity: 0, width: 0 }}
 								className="overflow-hidden whitespace-nowrap font-bold text-lg"
 							>
-								OrbitHire
+								CVLeap AI
 							</motion.span>
 						)}
 					</AnimatePresence>

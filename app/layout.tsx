@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
 export const metadata = {
-	title: "OrbitHire",
+	title: "CVLeap AI",
 	description: "ATS-ready resume tailoring, company folders, and follow-ups.",
 };
 

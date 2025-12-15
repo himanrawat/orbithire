@@ -199,7 +199,7 @@ function LandingPageContent() {
 							transition={{ duration: 0.5 }}
 						>
 							<h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
-								Why job seekers love OrbitHire
+								Why job seekers love CVLeap AI
 							</h2>
 							<p className="mb-8 text-muted-foreground">
 								Join thousands of professionals who have streamlined their job
@@ -279,7 +279,7 @@ function LandingPageContent() {
 							Ready to supercharge your job search?
 						</h2>
 						<p className="mb-8 text-muted-foreground">
-							Join OrbitHire today and start landing more interviews with less
+							Join CVLeap AI today and start landing more interviews with less
 							effort.
 						</p>
 						<div className="flex flex-wrap items-center justify-center gap-4">
@@ -299,7 +299,7 @@ function LandingPageContent() {
 				<div className="container flex flex-col items-center justify-between gap-4 py-10 md:flex-row">
 					<div className="flex items-center gap-2 text-sm text-muted-foreground">
 						<Clock className="h-4 w-4" />
-						<span>© 2024 OrbitHire. All rights reserved.</span>
+						<span>© 2024 CVLeap AI. All rights reserved.</span>
 					</div>
 					<div className="flex gap-6 text-sm text-muted-foreground">
 						<Link href="#" className="hover:text-foreground transition-colors">

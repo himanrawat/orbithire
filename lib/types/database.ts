@@ -1,5 +1,5 @@
 /**
- * OrbitHire Database Schema Types
+ * CVLeap AI Database Schema Types
  * These types mirror the Supabase database tables
  */
 

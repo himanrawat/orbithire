@@ -7,6 +7,7 @@ import {
 	MobileMenuButton,
 } from "@/components/Sidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { NotificationDropdown } from "@/components/NotificationDropdown";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -16,7 +17,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
-import { Bell, User, Settings, Sparkles } from "lucide-react";
+import { User, Settings, Sparkles } from "lucide-react";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
 	const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -39,7 +40,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 				<header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:hidden">
 					<MobileMenuButton />
 					<Link href="/" className="font-bold text-lg">
-						OrbitHire
+						CVLeap AI
 					</Link>
 					<div className="flex items-center gap-2">
 						<ThemeToggle />
@@ -49,9 +50,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 				{/* Desktop Top Bar */}
 				<header className="sticky top-0 z-30 hidden h-14 items-center justify-end gap-4 border-b bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:flex">
 					<div className="flex items-center gap-1">
-						<Button variant="ghost" size="icon">
-							<Bell className="h-5 w-5" />
-						</Button>
+						<NotificationDropdown />
 						<ThemeToggle />
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
@@ -81,7 +80,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 									</Link>
 								</DropdownMenuItem>
 								<DropdownMenuSeparator />
-								<DropdownMenuItem disabled className="flex items-center justify-between">
+								<DropdownMenuItem
+									disabled
+									className="flex items-center justify-between"
+								>
 									<span className="flex items-center gap-2">
 										<Sparkles className="h-4 w-4" />
 										Upgrade Plan

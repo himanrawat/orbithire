@@ -54,11 +54,24 @@ import { getProviderModels, type ModelInfo } from "@/lib/ai/providers/registry";
 type Provider = "openai" | "groq" | "anthropic" | "gemini" | "custom";
 type Tab = "ai-provider" | "account" | "billing" | "integrations";
 
-const tabs: { id: Tab; label: string; icon: React.ReactNode; disabled?: boolean }[] = [
-	{ id: "ai-provider", label: "AI Provider", icon: <Cpu className="h-4 w-4" /> },
+const tabs: {
+	id: Tab;
+	label: string;
+	icon: React.ReactNode;
+	disabled?: boolean;
+}[] = [
+	{
+		id: "ai-provider",
+		label: "AI Provider",
+		icon: <Cpu className="h-4 w-4" />,
+	},
 	{ id: "account", label: "Account", icon: <User className="h-4 w-4" /> },
 	{ id: "billing", label: "Billing", icon: <CreditCard className="h-4 w-4" /> },
-	{ id: "integrations", label: "Integrations", icon: <Link2 className="h-4 w-4" /> },
+	{
+		id: "integrations",
+		label: "Integrations",
+		icon: <Link2 className="h-4 w-4" />,
+	},
 ];
 
 export default function SettingsPage() {
@@ -80,7 +93,9 @@ export default function SettingsPage() {
 	const [showApiKey, setShowApiKey] = useState(false);
 	const [hasStoredKey, setHasStoredKey] = useState(false);
 	const [connectionVerified, setConnectionVerified] = useState(false);
-	const [deprecationWarning, setDeprecationWarning] = useState<string | null>(null);
+	const [deprecationWarning, setDeprecationWarning] = useState<string | null>(
+		null
+	);
 	const [wasAutoUpgraded, setWasAutoUpgraded] = useState(false);
 
 	// Load saved settings on mount
@@ -211,7 +226,7 @@ export default function SettingsPage() {
 				<header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:hidden">
 					<MobileMenuButton />
 					<Link href="/" className="font-bold text-lg">
-						OrbitHire
+						CVLeap AI
 					</Link>
 					<div className="flex items-center gap-2">
 						<ThemeToggle />
@@ -280,15 +295,17 @@ export default function SettingsPage() {
 						</motion.div>
 
 						{/* Deprecation Warning */}
-						{deprecationWarning && wasAutoUpgraded && activeTab === "ai-provider" && (
-							<DeprecationWarning
-								message={deprecationWarning}
-								onDismiss={() => {
-									setDeprecationWarning(null);
-									setWasAutoUpgraded(false);
-								}}
-							/>
-						)}
+						{deprecationWarning &&
+							wasAutoUpgraded &&
+							activeTab === "ai-provider" && (
+								<DeprecationWarning
+									message={deprecationWarning}
+									onDismiss={() => {
+										setDeprecationWarning(null);
+										setWasAutoUpgraded(false);
+									}}
+								/>
+							)}
 
 						{/* Tab Content */}
 						<motion.div
@@ -553,7 +570,9 @@ export default function SettingsPage() {
 														<Smartphone className="h-5 w-5 text-muted-foreground" />
 													</div>
 													<div>
-														<p className="font-medium">Two-Factor Authentication</p>
+														<p className="font-medium">
+															Two-Factor Authentication
+														</p>
 														<p className="text-sm text-muted-foreground">
 															Add an extra layer of security to your account
 														</p>
@@ -589,7 +608,8 @@ export default function SettingsPage() {
 													<div>
 														<p className="font-medium">Email Notifications</p>
 														<p className="text-sm text-muted-foreground">
-															Receive updates about your applications and resumes
+															Receive updates about your applications and
+															resumes
 														</p>
 													</div>
 												</div>
@@ -619,7 +639,8 @@ export default function SettingsPage() {
 												<div>
 													<p className="font-medium">Delete Account</p>
 													<p className="text-sm text-muted-foreground">
-														Permanently delete your account and all associated data
+														Permanently delete your account and all associated
+														data
 													</p>
 												</div>
 												<Button variant="destructive" size="sm" disabled>
@@ -691,7 +712,12 @@ export default function SettingsPage() {
 												<p className="mt-2 text-sm text-muted-foreground">
 													No payment method added
 												</p>
-												<Button variant="outline" size="sm" className="mt-3" disabled>
+												<Button
+													variant="outline"
+													size="sm"
+													className="mt-3"
+													disabled
+												>
 													<span className="mr-2">Add Payment Method</span>
 													<span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
 														Soon
@@ -746,7 +772,11 @@ export default function SettingsPage() {
 											<div className="flex items-center justify-between rounded-lg border p-4">
 												<div className="flex items-center gap-3">
 													<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-500/10">
-														<img src="/gmail.svg" alt="Gmail" className="h-6 w-6" />
+														<img
+															src="/gmail.svg"
+															alt="Gmail"
+															className="h-6 w-6"
+														/>
 													</div>
 													<div>
 														<p className="font-medium">Gmail</p>
@@ -767,7 +797,11 @@ export default function SettingsPage() {
 											<div className="flex items-center justify-between rounded-lg border p-4">
 												<div className="flex items-center gap-3">
 													<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10">
-														<img src="/outlook.svg" alt="Outlook" className="h-6 w-6" />
+														<img
+															src="/outlook.svg"
+															alt="Outlook"
+															className="h-6 w-6"
+														/>
 													</div>
 													<div>
 														<p className="font-medium">Outlook</p>
@@ -802,7 +836,11 @@ export default function SettingsPage() {
 											<div className="flex items-center justify-between rounded-lg border p-4">
 												<div className="flex items-center gap-3">
 													<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10">
-														<img src="/g-calendar.svg" alt="Google Calendar" className="h-6 w-6" />
+														<img
+															src="/g-calendar.svg"
+															alt="Google Calendar"
+															className="h-6 w-6"
+														/>
 													</div>
 													<div>
 														<p className="font-medium">Google Calendar</p>
@@ -823,7 +861,11 @@ export default function SettingsPage() {
 											<div className="flex items-center justify-between rounded-lg border p-4">
 												<div className="flex items-center gap-3">
 													<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600/10">
-														<img src="/outlook-calendar.svg" alt="Outlook Calendar" className="h-6 w-6" />
+														<img
+															src="/outlook-calendar.svg"
+															alt="Outlook Calendar"
+															className="h-6 w-6"
+														/>
 													</div>
 													<div>
 														<p className="font-medium">Outlook Calendar</p>
@@ -858,8 +900,12 @@ export default function SettingsPage() {
 											<div className="flex items-center justify-between rounded-lg border p-4">
 												<div className="flex items-center gap-3">
 													<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#0A66C2]/10">
-														<svg className="h-5 w-5" viewBox="0 0 24 24" fill="#0A66C2">
-															<path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+														<svg
+															className="h-5 w-5"
+															viewBox="0 0 24 24"
+															fill="#0A66C2"
+														>
+															<path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
 														</svg>
 													</div>
 													<div>
