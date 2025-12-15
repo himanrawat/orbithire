@@ -15,6 +15,20 @@ export async function POST(req: NextRequest) {
 
 		const supabase = createServerSupabase();
 
+		// Check if user exists in profiles table
+		const { data: profile } = await supabase
+			.from("profiles")
+			.select("id")
+			.eq("email", email.toLowerCase())
+			.single();
+
+		if (!profile) {
+			return NextResponse.json(
+				{ error: "No account found with this email. Please sign up first." },
+				{ status: 404 }
+			);
+		}
+
 		// Send password reset email
 		const { error } = await supabase.auth.resetPasswordForEmail(email, {
 			redirectTo: `${serverEnv.siteUrl}/reset-password`,
@@ -27,14 +41,16 @@ export async function POST(req: NextRequest) {
 					{ status: 429 }
 				);
 			}
-			// Don't expose whether the email exists or not for security
 			console.error("Password reset error:", error);
+			return NextResponse.json(
+				{ error: "Failed to send password reset email. Please try again." },
+				{ status: 500 }
+			);
 		}
 
-		// Always return success to prevent email enumeration
 		return NextResponse.json({
 			success: true,
-			message: "If an account exists with this email, you will receive a password reset link.",
+			message: "Password reset link has been sent to your email.",
 		});
 	} catch {
 		return NextResponse.json(

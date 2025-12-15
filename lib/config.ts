@@ -70,6 +70,11 @@ export const serverEnv = {
 		if (process.env.NODE_ENV !== "production") {
 			return undefined;
 		}
+		// Don't set cookie domain on Amplify preview/dev branches (amplifyapp.com domains)
+		// as they're not subdomains of .himanshurawat.in
+		if (process.env.AMPLIFY_BRANCH && process.env.AMPLIFY_BRANCH !== "master") {
+			return undefined;
+		}
 		return process.env.AUTH_COOKIE_DOMAIN || ".himanshurawat.in";
 	},
 	get maxUploadBytes() {

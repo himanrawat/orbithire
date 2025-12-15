@@ -105,6 +105,14 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ error: error.message }, { status: 400 });
 		}
 
+		// Supabase returns a user with empty identities if email already exists (security measure)
+		if (data.user && data.user.identities?.length === 0) {
+			return NextResponse.json(
+				{ error: "An account with this email already exists. Please sign in instead." },
+				{ status: 409 }
+			);
+		}
+
 		// Create profile record if user was created successfully
 		if (data.user && serverEnv.supabaseServiceRoleKey) {
 			const admin = createClient(
