@@ -93,6 +93,7 @@ export default function SettingsPage() {
 	const [showApiKey, setShowApiKey] = useState(false);
 	const [hasStoredKey, setHasStoredKey] = useState(false);
 	const [connectionVerified, setConnectionVerified] = useState(false);
+	const [removingKey, setRemovingKey] = useState(false);
 	const [deprecationWarning, setDeprecationWarning] = useState<string | null>(
 		null
 	);
@@ -225,6 +226,43 @@ export default function SettingsPage() {
 	}, [provider, selectedModel]);
 
 	const showBaseUrl = provider === "custom";
+
+	async function removeApiKey() {
+		setRemovingKey(true);
+		setError(null);
+		setSaveSuccess(false);
+		setSuccess(false);
+		try {
+			const res = await fetch("/api/settings", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					provider,
+					apiKey: "",
+					baseUrl: showBaseUrl ? baseUrl.trim() || undefined : undefined,
+					defaultModel: selectedModel || undefined,
+				}),
+			});
+			const data = await res.json();
+			if (!res.ok) {
+				throw new Error(data?.error || "Failed to remove API key");
+			}
+
+			setHasStoredKey(false);
+			setApiKey("");
+			setApiKeyPreview(null);
+			setConnectionVerified(false);
+			setSaveSuccess(true);
+			setTimeout(() => setSaveSuccess(false), 3000);
+			await loadSettings();
+		} catch (err: unknown) {
+			const message =
+				err instanceof Error ? err.message : "Failed to remove API key";
+			setError(message);
+		} finally {
+			setRemovingKey(false);
+		}
+	}
 
 	return (
 		<SidebarProvider>
@@ -614,6 +652,24 @@ export default function SettingsPage() {
 																<>
 																	<RefreshCw className="mr-2 h-4 w-4" />
 																	Test Connection
+																</>
+															)}
+														</Button>
+
+														<Button
+															onClick={removeApiKey}
+															disabled={removingKey || !hasStoredKey || saving}
+															variant="destructive"
+														>
+															{removingKey ? (
+																<>
+																	<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+																	Removing...
+																</>
+															) : (
+																<>
+																	<Trash2 className="mr-2 h-4 w-4" />
+																	Remove API Key
 																</>
 															)}
 														</Button>
