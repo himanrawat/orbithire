@@ -202,7 +202,11 @@ export default function GeneratePage() {
 		jobTitle: "",
 		jobDescription: "",
 		recruiterName: "",
+		recruiterEmail: "",
 	});
+	const [contactEmail, setContactEmail] = useState("");
+	const [canOverrideEmail, setCanOverrideEmail] = useState(false);
+	const [profileEmail, setProfileEmail] = useState("");
 	const [selectedTemplateId, setSelectedTemplateId] = useState("standard");
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [generatedContent, setGeneratedContent] =
@@ -233,6 +237,37 @@ export default function GeneratePage() {
 			}
 		};
 		loadQuota();
+	}, []);
+
+	// Load profile email + resume email allowance
+	useEffect(() => {
+		const loadProfileContactEmail = async () => {
+			try {
+				const supabase = getSupabaseBrowserClient();
+				const {
+					data: { user },
+				} = await supabase.auth.getUser();
+				if (!user) return;
+
+				const { data: profile } = await supabase
+					.from("profiles")
+					.select("email, resume_email, can_change_email")
+					.eq("id", user.id)
+					.single();
+
+				const baseEmail = profile?.email || "";
+				const canChange = !!profile?.can_change_email;
+				const resumeEmail = profile?.resume_email || "";
+
+				setProfileEmail(baseEmail);
+				setCanOverrideEmail(canChange);
+				setContactEmail(canChange && resumeEmail ? resumeEmail : baseEmail);
+			} catch (err) {
+				console.error("Failed to load profile email", err);
+			}
+		};
+
+		void loadProfileContactEmail();
 	}, []);
 	const [error, setError] = useState<string | null>(null);
 	const [showPreview, setShowPreview] = useState(false);
@@ -319,8 +354,13 @@ export default function GeneratePage() {
 					jobDescription: form.jobDescription.trim(),
 					companyName: form.companyName.trim(),
 					recruiterName: form.recruiterName.trim() || undefined,
+					recruiterEmail: form.recruiterEmail.trim() || undefined,
 					templateId: selectedTemplateId,
 					generateCoverLetter: true,
+					contactEmail:
+						canOverrideEmail && contactEmail.trim().length > 0
+							? contactEmail.trim()
+							: undefined,
 				}),
 			});
 
@@ -560,6 +600,7 @@ export default function GeneratePage() {
 					jobDescription: form.jobDescription.trim(),
 					jobUrl: trackForm.jobUrl.trim() || null,
 					recruiterName: form.recruiterName.trim() || null,
+					recruiterEmail: form.recruiterEmail.trim() || null,
 					salaryRange: trackForm.salaryRange.trim() || null,
 					notes: trackForm.notes.trim() || null,
 					appliedAt:
@@ -784,18 +825,53 @@ export default function GeneratePage() {
 
 									<div className="space-y-2">
 										<Label htmlFor="recruiterName">
-											Recruiter/Hiring Manager Name (optional)
+											Recruiter/Hiring Manager Contact (optional)
+										</Label>
+										<div className="grid gap-3 md:grid-cols-2">
+											<Input
+												id="recruiterName"
+												placeholder="Name (e.g., Jane Doe)"
+												value={form.recruiterName}
+												onChange={(e) =>
+													setForm({ ...form, recruiterName: e.target.value })
+												}
+											/>
+											<Input
+												id="recruiterEmail"
+												type="email"
+												placeholder="Email (optional)"
+												value={form.recruiterEmail}
+												onChange={(e) =>
+													setForm({ ...form, recruiterEmail: e.target.value })
+												}
+											/>
+										</div>
+										<p className="text-xs text-muted-foreground">
+											Used to personalize the cover letter greeting and save recruiter details.
+										</p>
+									</div>
+
+									<div className="space-y-2">
+										<Label htmlFor="contactEmail">
+											Resume Contact Email
 										</Label>
 										<Input
-											id="recruiterName"
-											placeholder="e.g., Jane Doe"
-											value={form.recruiterName}
-											onChange={(e) =>
-												setForm({ ...form, recruiterName: e.target.value })
+											id="contactEmail"
+											type="email"
+											placeholder={
+												canOverrideEmail
+													? "e.g., resume+jobs@yourdomain.com"
+													: profileEmail || "Your account email"
 											}
+											value={contactEmail}
+											disabled={!canOverrideEmail}
+											onChange={(e) => setContactEmail(e.target.value)}
 										/>
 										<p className="text-xs text-muted-foreground">
-											Used to personalize the cover letter greeting
+											This email will appear on the generated resume.{" "}
+											{canOverrideEmail
+												? "It won’t change your account email."
+												: "Admin has locked email changes; using your account email."}
 										</p>
 									</div>
 

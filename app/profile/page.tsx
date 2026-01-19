@@ -81,6 +81,8 @@ type ProfileData = {
 	id: string;
 	full_name: string;
 	email: string;
+	can_change_email?: boolean;
+	resume_email?: string | null;
 	phone: string;
 	location: string;
 	bio: string;
@@ -99,6 +101,8 @@ const emptyProfile: ProfileData = {
 	id: "",
 	full_name: "",
 	email: "",
+	can_change_email: false,
+	resume_email: null,
 	phone: "",
 	location: "",
 	bio: "",
@@ -128,7 +132,7 @@ export default function ProfilePage() {
 	const [profile, setProfile] = useState<ProfileData>(emptyProfile);
 	const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 	const [isSaving, setIsSaving] = useState(false);
-	const [emailLocked, setEmailLocked] = useState(false);
+	const [emailLocked, setEmailLocked] = useState(true);
 	const [saveError, setSaveError] = useState<string | null>(null);
 	const [saveMessage, setSaveMessage] = useState<string | null>(null);
 	const [loadingProfile, setLoadingProfile] = useState(false);
@@ -216,6 +220,8 @@ export default function ProfilePage() {
 				id: data.id,
 				full_name: data.full_name || "",
 				email: data.email || "",
+				can_change_email: data.can_change_email ?? false,
+				resume_email: data.resume_email || null,
 				phone: data.phone || "",
 				location: data.location || "",
 				bio: data.experience_summary || data.headline || "",
@@ -294,7 +300,7 @@ export default function ProfilePage() {
 				profile: loadedProfile,
 				customSections: loadedCustomSections,
 			};
-			setEmailLocked(Boolean(loadedProfile.email));
+			setEmailLocked(true);
 			setPhotoStatus("idle");
 			setPhotoError(null);
 			setPhotoFileName(null);
@@ -359,8 +365,10 @@ export default function ProfilePage() {
 				profile.full_name,
 				initial?.profile.full_name
 			);
-			if (!emailLocked) {
-				maybeSetString("email", profile.email, initial?.profile.email);
+			// Account email is immutable from this form
+			// Allow resume_email only when admin grants permission
+			if (profile.can_change_email) {
+				maybeSetString("resume_email", profile.resume_email, initial?.profile.resume_email);
 			}
 			maybeSetString("phone", profile.phone, initial?.profile.phone);
 			maybeSetString("location", profile.location, initial?.profile.location);
@@ -435,9 +443,7 @@ export default function ProfilePage() {
 				},
 				customSections,
 			};
-			const resolvedEmail =
-				initial?.profile.email ?? payloadProfile.email ?? profile.email;
-			setEmailLocked(Boolean(resolvedEmail));
+			setEmailLocked(true);
 		} catch (error) {
 			setSaveError("Unable to save profile right now.");
 		} finally {
@@ -1192,18 +1198,36 @@ const handleAddCustomEntry = (sectionId: string) => {
 													id="email"
 													type="email"
 													value={profile.email}
-													disabled={loadingProfile || emailLocked}
+													disabled
 													onChange={(e) =>
 														setProfile({ ...profile, email: e.target.value })
 													}
 												/>
-												{emailLocked && (
-													<p className="text-xs text-muted-foreground">
-														This email is linked to your account and cannot be
-														changed.
-													</p>
-												)}
+												<p className="text-xs text-muted-foreground">
+													This is your account email and cannot be changed here.
+												</p>
 											</div>
+											{profile.can_change_email && (
+												<div className="space-y-2">
+													<Label htmlFor="resumeEmail">
+														<Mail className="mr-2 inline h-4 w-4" />
+														Resume Contact Email
+													</Label>
+													<Input
+														id="resumeEmail"
+														type="email"
+														value={profile.resume_email || ""}
+														disabled={loadingProfile}
+														onChange={(e) =>
+															setProfile({ ...profile, resume_email: e.target.value })
+														}
+														placeholder="email used in generated resumes"
+													/>
+													<p className="text-xs text-muted-foreground">
+														Used only in generated resumes; keeps your account email intact.
+													</p>
+												</div>
+											)}
 											<div className="space-y-2">
 												<Label htmlFor="phone">
 													<Phone className="mr-2 inline h-4 w-4" />

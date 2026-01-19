@@ -461,18 +461,20 @@ export default function LandingPage({
 			<footer className="border-t">
 				<div className="container flex flex-col items-center justify-between gap-4 py-10 md:flex-row">
 					<div className="flex items-center gap-2 text-sm text-muted-foreground">
-						<Clock className="h-4 w-4" />
-						<span>Ac 2024 CVLeap AI. All rights reserved.</span>
+						<span>© {new Date().getFullYear()} CVLeap AI. All rights reserved.</span>
 					</div>
 					<div className="flex gap-6 text-sm text-muted-foreground">
-						<Link href="#" className="transition-colors hover:text-foreground">
+						<Link href="/privacy" className="transition-colors hover:text-foreground">
 							Privacy
 						</Link>
-						<Link href="#" className="transition-colors hover:text-foreground">
+						<Link href="/terms" className="transition-colors hover:text-foreground">
 							Terms
 						</Link>
-						<Link href="#" className="transition-colors hover:text-foreground">
+						<Link href="/contact" className="transition-colors hover:text-foreground">
 							Contact
+						</Link>
+						<Link href="/admin/signin" className="transition-colors hover:text-foreground">
+							Admin
 						</Link>
 					</div>
 				</div>

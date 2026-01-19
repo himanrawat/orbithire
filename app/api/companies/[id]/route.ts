@@ -83,6 +83,7 @@ export async function PATCH(
 			jobDescription,
 			jobUrl,
 			recruiterName,
+			recruiterEmail,
 			salaryRange,
 			notes,
 			appliedAt,
@@ -104,6 +105,7 @@ export async function PATCH(
 			updateData.job_description = jobDescription;
 		if (jobUrl !== undefined) updateData.job_url = jobUrl;
 		if (recruiterName !== undefined) updateData.recruiter_name = recruiterName;
+		if (recruiterEmail !== undefined) updateData.recruiter_email = recruiterEmail;
 		if (salaryRange !== undefined) updateData.salary_range = salaryRange;
 		if (notes !== undefined) updateData.notes = notes;
 		if (appliedAt !== undefined) updateData.applied_at = appliedAt;

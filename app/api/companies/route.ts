@@ -98,6 +98,7 @@ export async function POST(request: NextRequest) {
 			jobDescription,
 			jobUrl,
 			recruiterName,
+			recruiterEmail,
 			salaryRange,
 			notes,
 			appliedAt,
@@ -127,6 +128,7 @@ export async function POST(request: NextRequest) {
 				job_description: jobDescription,
 				job_url: jobUrl,
 				recruiter_name: recruiterName,
+				recruiter_email: recruiterEmail,
 				salary_range: salaryRange,
 				notes,
 				applied_at:

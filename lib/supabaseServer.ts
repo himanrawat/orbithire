@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { serverEnv } from "./config";
 
 const isProduction = process.env.NODE_ENV === "production";
@@ -47,4 +48,22 @@ export function createServerSupabase() {
       }
     }
   );
+}
+
+/**
+ * Service-role Supabase client for privileged admin/server tasks.
+ * Bypasses RLS, so only use in trusted server contexts.
+ */
+export function createServiceSupabase() {
+  const serviceRoleKey = serverEnv.supabaseServiceRoleKey;
+  if (!serviceRoleKey) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is required for admin operations");
+  }
+
+  return createClient(serverEnv.supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
 }

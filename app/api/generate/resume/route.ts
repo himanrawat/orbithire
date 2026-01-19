@@ -78,6 +78,7 @@ interface GenerateRequest {
 	jobDescription: string;
 	companyName: string;
 	recruiterName?: string;
+	contactEmail?: string;
 	templateId: string;
 	generateCoverLetter?: boolean;
 }
@@ -201,6 +202,7 @@ export async function POST(req: NextRequest) {
 		jobDescription,
 		companyName,
 		recruiterName,
+		contactEmail,
 		generateCoverLetter = true,
 	} = body;
 
@@ -281,17 +283,25 @@ export async function POST(req: NextRequest) {
 	// Use custom sections (e.g., Projects) from extended_profile JSON
 	const customSections = extendedData.customSections || [];
 
+	const contactEmailFromRequest =
+		typeof contactEmail === "string" && contactEmail.trim()
+			? contactEmail.trim()
+			: null;
+	const contactEmailEffective = profile.can_change_email
+		? contactEmailFromRequest || profile.resume_email || profile.email
+		: profile.email;
+
 	// Prepare profile for prompts (matches ResumeProfile interface)
 	const candidateProfile = {
 		name: profile.full_name || "Candidate",
-		email: profile.email || undefined,
+		email: contactEmailEffective || undefined,
 		phone: profile.phone || undefined,
 		location: profile.location || undefined,
 		portfolio: profile.portfolio_url || undefined,
 		linkedIn: profile.linkedin_url || undefined,
 		headline: profile.headline || undefined,
 		summary: profile.experience_summary || profile.bio || undefined,
-		profilePhotoUrl: profile.avatar_url || undefined,
+			profilePhotoUrl: profile.avatar_url || undefined,
 		experience: workExperience.map((exp: any) => ({
 			company: exp.company,
 			title: exp.role || exp.title,
@@ -600,7 +610,7 @@ export async function POST(req: NextRequest) {
 			coverLetter,
 			profile: {
 				name: candidateProfile.name,
-				email: profile.email,
+				email: contactEmailEffective || profile.email,
 				phone: profile.phone,
 				location: profile.location,
 				linkedin: profile.linkedin_url,

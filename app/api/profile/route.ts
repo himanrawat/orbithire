@@ -241,7 +241,7 @@ export async function GET(req: NextRequest) {
 	const { data, error } = await admin
 		.from("profiles")
 		.select(
-			"id, email, full_name, phone, location, headline, portfolio_url, linkedin_url, avatar_url, skills, experience_summary, extended_profile"
+			"id, email, resume_email, can_change_email, full_name, phone, location, headline, portfolio_url, linkedin_url, avatar_url, skills, experience_summary, extended_profile"
 		)
 		.eq("id", user.id)
 		.single();
@@ -291,6 +291,8 @@ export async function GET(req: NextRequest) {
 			profile: {
 				...profileWithoutPhoto,
 				email: resolvedEmail,
+				resume_email: data.resume_email || null,
+				can_change_email: data.can_change_email ?? false,
 				avatar_url: proxyPhotoUrl,
 				github_url: extended.github_url || null,
 				work_experience: extended.work_experience || [],
@@ -383,7 +385,7 @@ export async function PATCH(req: NextRequest) {
 	const { data: existing } = await admin
 		.from("profiles")
 		.select(
-			"id, email, full_name, phone, location, headline, experience_summary, portfolio_url, linkedin_url, avatar_url, skills, extended_profile"
+			"id, email, resume_email, can_change_email, full_name, phone, location, headline, experience_summary, portfolio_url, linkedin_url, avatar_url, skills, extended_profile"
 		)
 		.eq("id", user.id)
 		.maybeSingle();
@@ -404,6 +406,8 @@ export async function PATCH(req: NextRequest) {
 
 	const lockedEmail =
 		normalizeString(existing?.email) ?? normalizeString(user.email) ?? null;
+	const canChangeEmail = existing?.can_change_email ?? false;
+	const existingResumeEmail = normalizeString(existing?.resume_email);
 
 	const baseExtended = {
 		work_experience: existingExtended.work_experience || [],
@@ -439,6 +443,11 @@ export async function PATCH(req: NextRequest) {
 	}
 	if (!lockedEmail && email !== undefined) {
 		nextProfile.email = email;
+	}
+	// Allow resume_email only when can_change_email is true
+	const resumeEmail = normalizeString(profile.resume_email);
+	if (canChangeEmail && resumeEmail !== undefined) {
+		nextProfile.resume_email = resumeEmail || null;
 	}
 	const name = normalizeString(profile.full_name);
 	if (name !== undefined) nextProfile.full_name = name;
