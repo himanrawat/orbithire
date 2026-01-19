@@ -1,33 +1,28 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { createServiceSupabase } from "@/lib/supabaseServer";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 
 async function getAdminSession() {
 	const cookieStore = cookies();
-	const adminToken = cookieStore.get("admin_token");
+	const adminToken = cookieStore.get("admin_token")?.value;
 
 	if (!adminToken) {
 		return null;
 	}
 
-	// Verify admin token by calling our API
-	try {
-		const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-		const res = await fetch(`${baseUrl}/api/auth/admin/verify`, {
-			headers: {
-				Cookie: `admin_token=${adminToken.value}`,
-			},
-			cache: "no-store",
-		});
+	const supabase = createServiceSupabase();
+	const { data: admin, error } = await supabase
+		.from("admin_users")
+		.select("id, email, name, role, is_active")
+		.eq("id", adminToken)
+		.single();
 
-		if (!res.ok) {
-			return null;
-		}
-
-		return await res.json();
-	} catch {
+	if (error || !admin || !admin.is_active) {
 		return null;
 	}
+
+	return admin;
 }
 
 export default async function AdminDashboardLayout({
