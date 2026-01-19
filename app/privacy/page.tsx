@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { NavBar } from "@/components/NavBar";
 import { ArrowLeft } from "lucide-react";
+import { Suspense } from "react";
 
 export default function PrivacyPage() {
 	return (
 		<div className="relative min-h-screen bg-background">
-			<NavBar />
+			<Suspense fallback={null}>
+				<NavBar />
+			</Suspense>
 
 			<main className="container max-w-4xl py-12">
 				<Link

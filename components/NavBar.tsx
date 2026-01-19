@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Rocket } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { hasSupabaseSessionCookie, sanitizeRedirect } from "@/lib/auth-utils";
 
@@ -14,7 +13,24 @@ type User = {
 	avatarUrl?: string;
 };
 
-export function NavBar({ user }: { user?: User | null }) {
+type NavBarProps = {
+	user?: User | null;
+};
+
+type NavBarShellProps = {
+	navUser?: User | null;
+	redirectQuery: string;
+};
+
+export function NavBar({ user }: NavBarProps) {
+	return (
+		<Suspense fallback={<NavBarShell navUser={user ?? null} redirectQuery="" />}>
+			<NavBarContent user={user} />
+		</Suspense>
+	);
+}
+
+function NavBarContent({ user }: NavBarProps) {
 	const [resolvedUser, setResolvedUser] = useState<User | null>(user ?? null);
 	const searchParams = useSearchParams();
 
@@ -62,6 +78,10 @@ export function NavBar({ user }: { user?: User | null }) {
 		? `?redirect=${encodeURIComponent(sanitizeRedirect(redirect, ""))}`
 		: "";
 
+	return <NavBarShell navUser={navUser} redirectQuery={redirectQuery} />;
+}
+
+function NavBarShell({ navUser, redirectQuery }: NavBarShellProps) {
 	return (
 		<header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
 			<div className="container flex h-14 items-center justify-between">

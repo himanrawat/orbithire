@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceSupabase } from "@/lib/supabaseServer";
 import { cookies } from "next/headers";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
 	try {
+		// Force dynamic to allow cookies
+		req;
 		const cookieStore = cookies();
 		const adminToken = cookieStore.get("admin_token");
 

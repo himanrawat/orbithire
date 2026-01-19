@@ -54,6 +54,7 @@ type CustomSection = { id?: string; title?: string; entries?: CustomEntry[] };
 type ProfilePayload = {
 	full_name?: string;
 	email?: string;
+	resume_email?: string | null;
 	phone?: string;
 	location?: string;
 	bio?: string;
@@ -420,6 +421,7 @@ export async function PATCH(req: NextRequest) {
 
 	const baseProfile = {
 		email: lockedEmail,
+		resume_email: normalizeString(existing?.resume_email) ?? null,
 		full_name: normalizeString(existing?.full_name),
 		phone: normalizeString(existing?.phone),
 		location: normalizeString(existing?.location),

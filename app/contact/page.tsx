@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
 import { NavBar } from "@/components/NavBar";
 import { ArrowLeft, Mail, MessageSquare, Loader2, CheckCircle } from "lucide-react";
@@ -52,7 +52,9 @@ export default function ContactPage() {
 
 	return (
 		<div className="relative min-h-screen bg-background">
-			<NavBar />
+			<Suspense fallback={null}>
+				<NavBar />
+			</Suspense>
 
 			<main className="container max-w-4xl py-12">
 				<Link
