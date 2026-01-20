@@ -203,6 +203,10 @@ export default function CompanyDetailPage({
 	// PDF viewer modal
 	const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
 	const [pdfViewerTitle, setPdfViewerTitle] = useState<string>("");
+	const [resumeActionLoading, setResumeActionLoading] = useState<{
+		id: string;
+		action: "view" | "download";
+	} | null>(null);
 
 	// Interview round modal
 	const [showInterviewModal, setShowInterviewModal] = useState(false);
@@ -426,12 +430,80 @@ export default function CompanyDetailPage({
 	};
 
 	const formatDate = (dateString: string | null) => {
-		if (!dateString) return "—";
+		if (!dateString) return "-";
 		return new Date(dateString).toLocaleDateString("en-US", {
 			month: "short",
 			day: "numeric",
 			year: "numeric",
 		});
+	};
+
+	const renderResumeHtml = async (resume: Resume) => {
+		const resumeData = resume.content_json;
+		if (!resumeData) {
+			throw new Error("Resume content is missing for this record.");
+		}
+
+		const response = await fetch("/api/resume/render", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				resume: resumeData,
+				templateId: resume.template || "standard",
+			}),
+		});
+
+		if (!response.ok) {
+			const data = await response.json().catch(() => ({}));
+			throw new Error(data.error || "Failed to render resume");
+		}
+
+		const { html } = await response.json();
+		return html as string;
+	};
+
+	const handleViewResume = async (resume: Resume) => {
+		if (resume.pdf_url) {
+			setPdfViewerUrl(resume.pdf_url);
+			setPdfViewerTitle(resume.title);
+			return;
+		}
+
+		try {
+			setResumeActionLoading({ id: resume.id, action: "view" });
+			const html = await renderResumeHtml(resume);
+			const win = window.open("", "_blank");
+			if (!win)
+				throw new Error("Popup blocked. Please allow popups and try again.");
+			win.document.write(html);
+			win.document.close();
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to open resume");
+		} finally {
+			setResumeActionLoading(null);
+		}
+	};
+
+	const handleDownloadResume = async (resume: Resume) => {
+		if (resume.pdf_url) {
+			window.open(resume.pdf_url, "_blank");
+			return;
+		}
+
+		try {
+			setResumeActionLoading({ id: resume.id, action: "download" });
+			const html = await renderResumeHtml(resume);
+			const win = window.open("", "_blank");
+			if (!win)
+				throw new Error("Popup blocked. Please allow popups and try again.");
+			win.document.write(html);
+			win.document.close();
+			win.onload = () => win.print();
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to download resume");
+		} finally {
+			setResumeActionLoading(null);
+		}
 	};
 
 	const getStatusColor = (status: string) => {
@@ -1008,32 +1080,45 @@ export default function CompanyDetailPage({
 											<div>
 												<p className="font-medium">{resume.title}</p>
 												<p className="text-sm text-muted-foreground">
-													Template: {resume.template} • Created{" "}
+												Template: {resume.template} • Created
 													{formatDate(resume.created_at)}
 												</p>
 											</div>
 											<div className="flex gap-2">
-												{resume.pdf_url && (
-													<>
-														<Button
-															variant="default"
-															size="sm"
-															onClick={() => {
-																setPdfViewerUrl(resume.pdf_url);
-																setPdfViewerTitle(resume.title);
-															}}
-														>
-															<Eye className="mr-1 h-4 w-4" />
-															View
-														</Button>
-														<Button variant="outline" size="sm" asChild>
-															<a href={resume.pdf_url} download>
-																<Download className="mr-1 h-4 w-4" />
-																PDF
-															</a>
-														</Button>
-													</>
-												)}
+												<Button
+													variant="default"
+													size="sm"
+													disabled={
+														resumeActionLoading?.id === resume.id &&
+														resumeActionLoading?.action === "view"
+													}
+													onClick={() => handleViewResume(resume)}
+												>
+													{resumeActionLoading?.id === resume.id &&
+													resumeActionLoading?.action === "view" ? (
+														<Loader2 className="mr-1 h-4 w-4 animate-spin" />
+													) : (
+														<Eye className="mr-1 h-4 w-4" />
+													)}
+													View
+												</Button>
+												<Button
+													variant="outline"
+													size="sm"
+													disabled={
+														resumeActionLoading?.id === resume.id &&
+														resumeActionLoading?.action === "download"
+													}
+													onClick={() => handleDownloadResume(resume)}
+												>
+													{resumeActionLoading?.id === resume.id &&
+													resumeActionLoading?.action === "download" ? (
+														<Loader2 className="mr-1 h-4 w-4 animate-spin" />
+													) : (
+														<Download className="mr-1 h-4 w-4" />
+													)}
+													{resume.pdf_url ? "PDF" : "Render PDF"}
+												</Button>
 												{resume.docx_url && (
 													<Button variant="outline" size="sm" asChild>
 														<a href={resume.docx_url} download>
@@ -1041,11 +1126,6 @@ export default function CompanyDetailPage({
 															DOCX
 														</a>
 													</Button>
-												)}
-												{!resume.pdf_url && !resume.docx_url && (
-													<span className="text-sm text-muted-foreground">
-														PDF not available
-													</span>
 												)}
 											</div>
 										</div>
@@ -1486,3 +1566,4 @@ export default function CompanyDetailPage({
 		</div>
 	);
 }
+

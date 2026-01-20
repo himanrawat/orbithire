@@ -3,6 +3,13 @@
  * This uses fake data so users can see template styles before AI generation
  */
 
+export type ResumeSection =
+	| "summary"
+	| "skills"
+	| "experience"
+	| "education"
+	| "projects";
+
 export interface JSONResume {
 	basics: {
 		name: string;
@@ -74,6 +81,10 @@ export interface JSONResume {
 		awarder: string;
 		summary?: string;
 	}[];
+	meta?: {
+		sectionOrder?: ResumeSection[];
+		hiddenSections?: ResumeSection[];
+	};
 }
 
 export const sampleResume: JSONResume = {

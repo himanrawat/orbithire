@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { DragEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -42,6 +43,11 @@ import {
 	FileText,
 	Download,
 	Copy,
+	ArrowUp,
+	ArrowDown,
+	GripVertical,
+	Trash2,
+	RotateCcw,
 	Calendar,
 	DollarSign,
 	Link as LinkIcon,
@@ -51,7 +57,11 @@ import {
 	AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { sampleResume, type JSONResume } from "@/lib/sampleResume";
+import {
+	sampleResume,
+	type JSONResume,
+	type ResumeSection,
+} from "@/lib/sampleResume";
 import { TemplateGallery } from "@/components/TemplateGallery";
 import { ResumePreview, type ResumeTemplate } from "@/components/ResumePreview";
 import { ProfileCompletionBanner } from "@/components/ProfileCompletionBanner";
@@ -194,6 +204,22 @@ const templates: ResumeTemplate[] = [
 	},
 ];
 
+const DEFAULT_SECTION_ORDER: ResumeSection[] = [
+	"summary",
+	"skills",
+	"experience",
+	"education",
+	"projects",
+];
+
+const SECTION_LABELS: Record<ResumeSection, string> = {
+	summary: "Summary",
+	skills: "Skills",
+	experience: "Experience",
+	education: "Education",
+	projects: "Projects",
+};
+
 export default function GeneratePage() {
 	const router = useRouter();
 	const [step, setStep] = useState<Step>("job-details");
@@ -319,6 +345,13 @@ export default function GeneratePage() {
 		}>
 	>([]);
 
+	// Section arrangement state
+	const [sectionOrder, setSectionOrder] =
+		useState<ResumeSection[]>(DEFAULT_SECTION_ORDER);
+	const [hiddenSections, setHiddenSections] = useState<ResumeSection[]>([]);
+	const [draggingSection, setDraggingSection] =
+		useState<ResumeSection | null>(null);
+
 	// Editable content state - Cover Letter
 	const [editedCoverLetter, setEditedCoverLetter] = useState("");
 
@@ -331,6 +364,11 @@ export default function GeneratePage() {
 
 	// Check if generation is blocked by quota
 	const isQuotaBlocked = quota && !quota.has_own_key && quota.remaining === 0;
+	const visibleSections = useMemo(
+		() =>
+			sectionOrder.filter((section) => !hiddenSections.includes(section)),
+		[sectionOrder, hiddenSections]
+	);
 
 	const handleGenerate = async () => {
 		// Double-check quota before generating
@@ -432,6 +470,16 @@ export default function GeneratePage() {
 				}
 			);
 			setEditedProjects(projectsFromSections);
+			setSectionOrder(
+				deriveSectionOrderFromContent({
+					summary: data.resume?.summary,
+					skills: data.resume?.skillsOrdered || data.profile?.skills,
+					experience: experienceWithHighlights,
+					education: data.profile?.education,
+					projects: projectsFromSections,
+				})
+			);
+			setHiddenSections([]);
 
 			// Initialize cover letter
 			setEditedCoverLetter(data.coverLetter || "");
@@ -450,6 +498,8 @@ export default function GeneratePage() {
 		if (!generatedContent) return null;
 
 		const { profile } = generatedContent;
+		const isHidden = (section: ResumeSection) =>
+			hiddenSections.includes(section);
 
 		// Build projects with keywords
 		const projects = editedProjects.map((proj) => {
@@ -467,15 +517,40 @@ export default function GeneratePage() {
 			};
 		});
 
+		const visibleOrder = sectionOrder.filter((section) => !isHidden(section));
+		const visibleSkills = isHidden("skills")
+			? []
+			: groupSkillsFromArray(editedSkills);
+		const visibleWork = isHidden("experience")
+			? []
+			: editedExperience.map((exp) => ({
+					name: exp.company,
+					position: exp.title,
+					startDate: exp.startDate,
+					endDate: exp.endDate,
+					highlights: exp.highlights,
+			  }));
+		const visibleEducation = isHidden("education")
+			? []
+			: editedEducation.map((edu) => ({
+					institution: edu.institution,
+					area: edu.field,
+					studyType: edu.degree,
+					startDate: "",
+					endDate: edu.endDate,
+			  }));
+		const visibleProjects =
+			!isHidden("projects") && projects.length > 0 ? projects : undefined;
+
 		return {
 			basics: {
 				name: profile.name,
 				label: editedLabel,
 				image: profile.image,
-				email: profile.email,
+				email: contactEmail || profile.email,
 				phone: profile.phone,
 				url: profile.website,
-				summary: editedSummary,
+				summary: isHidden("summary") ? "" : editedSummary,
 				location: {
 					city: profile.location || "",
 					countryCode: "US",
@@ -484,22 +559,14 @@ export default function GeneratePage() {
 					? [{ network: "LinkedIn", username: "", url: profile.linkedin }]
 					: [],
 			},
-			work: editedExperience.map((exp) => ({
-				name: exp.company,
-				position: exp.title,
-				startDate: exp.startDate,
-				endDate: exp.endDate,
-				highlights: exp.highlights,
-			})),
-			education: editedEducation.map((edu) => ({
-				institution: edu.institution,
-				area: edu.field,
-				studyType: edu.degree,
-				startDate: "",
-				endDate: edu.endDate,
-			})),
-			skills: groupSkillsFromArray(editedSkills),
-			projects: projects.length > 0 ? projects : undefined,
+			work: visibleWork,
+			education: visibleEducation,
+			skills: visibleSkills,
+			projects: visibleProjects,
+			meta: {
+				sectionOrder: visibleOrder,
+				hiddenSections,
+			},
 		};
 	}, [
 		generatedContent,
@@ -509,6 +576,9 @@ export default function GeneratePage() {
 		editedExperience,
 		editedEducation,
 		editedProjects,
+		sectionOrder,
+		hiddenSections,
+		contactEmail,
 	]);
 
 	const handleCopy = (type: "resume" | "cover") => {
@@ -580,6 +650,87 @@ export default function GeneratePage() {
 			console.error("Download failed:", err);
 			setError("Failed to download PDF. Please try again.");
 		}
+	};
+
+	const hideSection = (section: ResumeSection) => {
+		setHiddenSections((prev) =>
+			prev.includes(section) ? prev : [...prev, section]
+		);
+	};
+
+	const restoreSection = (section: ResumeSection) => {
+		setHiddenSections((prev) => prev.filter((s) => s !== section));
+		if (!sectionOrder.includes(section)) {
+			setSectionOrder((prev) => [...prev, section]);
+		}
+	};
+
+	const resetSections = () => {
+		setHiddenSections([]);
+		setSectionOrder(
+			deriveSectionOrderFromContent({
+				summary: editedSummary,
+				skills: editedSkills,
+				experience: editedExperience,
+				education: editedEducation,
+				projects: editedProjects,
+			})
+		);
+	};
+
+	const moveSection = (section: ResumeSection, direction: -1 | 1) => {
+		setSectionOrder((prev) => {
+			const hiddenSet = new Set(hiddenSections);
+			const visible = prev.filter((s) => !hiddenSet.has(s));
+			const index = visible.indexOf(section);
+			const newIndex = index + direction;
+			if (index === -1 || newIndex < 0 || newIndex >= visible.length) {
+				return prev;
+			}
+
+			const updatedVisible = [...visible];
+			const [moved] = updatedVisible.splice(index, 1);
+			updatedVisible.splice(newIndex, 0, moved);
+
+			const hiddenOnly = prev.filter((s) => hiddenSet.has(s));
+			return [...updatedVisible, ...hiddenOnly];
+		});
+	};
+
+	const reorderSections = (
+		dragged: ResumeSection,
+		target: ResumeSection
+	) => {
+		setSectionOrder((prev) => {
+			const hiddenSet = new Set(hiddenSections);
+			const visible = prev.filter((s) => !hiddenSet.has(s));
+			const hidden = prev.filter((s) => hiddenSet.has(s));
+			const fromIndex = visible.indexOf(dragged);
+			const toIndex = visible.indexOf(target);
+
+			if (fromIndex === -1 || toIndex === -1) return prev;
+
+			const updatedVisible = [...visible];
+			const [moved] = updatedVisible.splice(fromIndex, 1);
+			updatedVisible.splice(toIndex, 0, moved);
+
+			return [...updatedVisible, ...hidden];
+		});
+	};
+
+	const handleDragStart = (section: ResumeSection) => {
+		setDraggingSection(section);
+	};
+
+	const handleDragOver = (event: DragEvent<HTMLElement>) => {
+		event.preventDefault();
+	};
+
+	const handleDrop = (section: ResumeSection) => {
+		if (draggingSection && draggingSection !== section) {
+			reorderSections(draggingSection, section);
+		}
+		setDraggingSection(null);
 	};
 
 	// Handle saving application to track
@@ -870,7 +1021,7 @@ export default function GeneratePage() {
 										<p className="text-xs text-muted-foreground">
 											This email will appear on the generated resume.{" "}
 											{canOverrideEmail
-												? "It won’t change your account email."
+												? "It won't change your account email."
 												: "Admin has locked email changes; using your account email."}
 										</p>
 									</div>
@@ -1042,6 +1193,104 @@ export default function GeneratePage() {
 											</Button>
 										</div>
 
+										{visibleSections.length > 0 && (
+											<div className="mb-6 rounded-lg border bg-muted/30 p-4">
+												<div className="mb-3 flex items-start justify-between gap-3">
+													<div>
+														<p className="text-sm font-semibold">
+															Arrange sections
+														</p>
+														<p className="text-xs text-muted-foreground">
+															Drag or use arrows to reorder. Delete hides a
+															section before downloading.
+														</p>
+													</div>
+													<div className="flex items-center gap-2">
+														<Button
+															variant="ghost"
+															size="sm"
+															onClick={resetSections}
+														>
+															<RotateCcw className="mr-2 h-4 w-4" />
+															Reset
+														</Button>
+													</div>
+												</div>
+												<div className="space-y-2">
+													{visibleSections.map((section, index) => (
+														<div
+															key={section}
+															className={cn(
+																"flex items-center gap-3 rounded border bg-background px-3 py-2 text-sm shadow-sm",
+																draggingSection === section
+																	? "ring-1 ring-primary"
+																	: ""
+															)}
+															draggable
+															onDragStart={() => handleDragStart(section)}
+															onDragOver={handleDragOver}
+															onDrop={() => handleDrop(section)}
+															onDragEnd={() => setDraggingSection(null)}
+														>
+															<GripVertical className="h-4 w-4 text-muted-foreground" />
+															<span className="font-medium">
+																{SECTION_LABELS[section]}
+															</span>
+															<div className="ml-auto flex items-center gap-1">
+																<Button
+																	variant="ghost"
+																	size="icon"
+																	onClick={() => moveSection(section, -1)}
+																	disabled={index === 0}
+																	aria-label="Move up"
+																>
+																	<ArrowUp className="h-4 w-4" />
+																</Button>
+																<Button
+																	variant="ghost"
+																	size="icon"
+																	onClick={() => moveSection(section, 1)}
+																	disabled={index === visibleSections.length - 1}
+																	aria-label="Move down"
+																>
+																	<ArrowDown className="h-4 w-4" />
+																</Button>
+																<Button
+																	variant="ghost"
+																	size="icon"
+																	onClick={() => hideSection(section)}
+																	aria-label="Hide section"
+																>
+																	<Trash2 className="h-4 w-4 text-destructive" />
+																</Button>
+															</div>
+														</div>
+													))}
+												</div>
+												{hiddenSections.length > 0 && (
+													<div className="mt-4 border-t pt-3">
+														<p className="mb-2 text-xs text-muted-foreground">
+															Hidden sections (won&apos;t appear in the
+															downloaded PDF)
+														</p>
+														<div className="flex flex-wrap gap-2">
+															{hiddenSections.map((section) => (
+																<Button
+																	key={section}
+																	variant="outline"
+																	size="sm"
+																	onClick={() => restoreSection(section)}
+																>
+																	<RotateCcw className="mr-2 h-4 w-4" />
+																	{SECTION_LABELS[section]}
+																</Button>
+															))}
+														</div>
+													</div>
+												)}
+											</div>
+										)}
+
 										{/* Professional Label */}
 										<div className="mb-4">
 											<Label className="text-xs text-muted-foreground uppercase tracking-wide">
@@ -1055,73 +1304,96 @@ export default function GeneratePage() {
 										</div>
 
 										{/* Professional Summary */}
-										<div className="mb-4">
-											<Label className="text-xs text-muted-foreground uppercase tracking-wide">
-												Professional Summary
-											</Label>
-											<Textarea
-												value={editedSummary}
-												onChange={(e) => setEditedSummary(e.target.value)}
-												className="mt-1 min-h-[100px]"
-											/>
-										</div>
+										{!hiddenSections.includes("summary") && (
+											<div className="mb-4">
+												<Label className="text-xs text-muted-foreground uppercase tracking-wide">
+													Professional Summary
+												</Label>
+												<Textarea
+													value={editedSummary}
+													onChange={(e) => setEditedSummary(e.target.value)}
+													className="mt-1 min-h-[100px]"
+												/>
+											</div>
+										)}
 
 										{/* Skills */}
-										<div className="mb-4">
-											<Label className="text-xs text-muted-foreground uppercase tracking-wide">
-												Skills (comma-separated)
-											</Label>
-											<Textarea
-												value={editedSkills.join(", ")}
-												onChange={(e) =>
-													setEditedSkills(
-														e.target.value
-															.split(",")
-															.map((s) => s.trim())
-															.filter(Boolean)
-													)
-												}
-												className="mt-1 min-h-[60px]"
-												placeholder="React.js, TypeScript, Node.js..."
-											/>
-											<div className="mt-2 flex flex-wrap gap-1">
-												{editedSkills.slice(0, 10).map((skill, i) => (
-													<span
-														key={i}
-														className={cn(
-															"rounded-full px-2 py-0.5 text-xs",
-															i < 4
-																? "bg-primary/20 text-primary font-medium"
-																: "bg-muted text-muted-foreground"
-														)}
-													>
-														{skill}
-													</span>
-												))}
-												{editedSkills.length > 10 && (
-													<span className="text-xs text-muted-foreground">
-														+{editedSkills.length - 10} more
-													</span>
-												)}
+										{!hiddenSections.includes("skills") && (
+											<div className="mb-4">
+												<Label className="text-xs text-muted-foreground uppercase tracking-wide">
+													Skills (comma-separated)
+												</Label>
+												<Textarea
+													value={editedSkills.join(", ")}
+													onChange={(e) =>
+														setEditedSkills(
+															e.target.value
+																.split(",")
+																.map((s) => s.trim())
+																.filter(Boolean)
+														)
+													}
+													className="mt-1 min-h-[60px]"
+													placeholder="React.js, TypeScript, Node.js..."
+												/>
+												<div className="mt-2 flex flex-wrap gap-1">
+													{editedSkills.slice(0, 10).map((skill, i) => (
+														<span
+															key={i}
+															className={cn(
+																"rounded-full px-2 py-0.5 text-xs",
+																i < 4
+																	? "bg-primary/20 text-primary font-medium"
+																	: "bg-muted text-muted-foreground"
+															)}
+														>
+															{skill}
+														</span>
+													))}
+													{editedSkills.length > 10 && (
+														<span className="text-xs text-muted-foreground">
+															+{editedSkills.length - 10} more
+														</span>
+													)}
+												</div>
 											</div>
-										</div>
+										)}
 
 										{/* Work Experience */}
-										<div className="mb-4">
-											<Label className="text-xs text-muted-foreground uppercase tracking-wide mb-2 block">
-												Work Experience
-											</Label>
-											<div className="space-y-4">
-												{editedExperience.map((exp, expIndex) => (
-													<div
-														key={expIndex}
-														className="rounded border bg-muted/30 p-4"
-													>
-														<div className="grid grid-cols-2 gap-3 mb-3">
-															<div>
-																<Label className="text-xs">Company</Label>
-																<Input
-																	value={exp.company}
+										{!hiddenSections.includes("experience") &&
+											editedExperience.length > 0 && (
+												<div className="mb-4">
+													<Label className="text-xs text-muted-foreground uppercase tracking-wide mb-2 block">
+														Work Experience
+													</Label>
+													<div className="space-y-4">
+														{editedExperience.map((exp, expIndex) => (
+															<div
+																key={expIndex}
+																className="rounded border bg-muted/30 p-4"
+															>
+																<div className="mb-2 flex items-center justify-between">
+																	<span className="text-xs text-muted-foreground">
+																		Role {expIndex + 1}
+																	</span>
+																	<Button
+																		variant="ghost"
+																		size="sm"
+																		onClick={() =>
+																			setEditedExperience((prev) =>
+																				prev.filter((_, idx) => idx !== expIndex)
+																			)
+																		}
+																	>
+																		<Trash2 className="mr-2 h-4 w-4" />
+																		Delete
+																	</Button>
+																</div>
+																<div className="grid grid-cols-2 gap-3 mb-3">
+																	<div>
+																		<Label className="text-xs">Company</Label>
+																		<Input
+																			value={exp.company}
 																	onChange={(e) => {
 																		const updated = [...editedExperience];
 																		updated[expIndex] = {
@@ -1200,101 +1472,125 @@ export default function GeneratePage() {
 																	setEditedExperience(updated);
 																}}
 																className="mt-1 min-h-[80px] text-sm"
-																placeholder="• Led development of..."
+																placeholder="Led development of..."
 															/>
 														</div>
 													</div>
 												))}
 											</div>
 										</div>
+									)}
 
 										{/* Education */}
-										<div className="mb-4">
-											<Label className="text-xs text-muted-foreground uppercase tracking-wide mb-2 block">
-												Education
-											</Label>
-											<div className="space-y-4">
-												{editedEducation.map((edu, eduIndex) => (
-													<div
-														key={eduIndex}
-														className="rounded border bg-muted/30 p-4"
-													>
-														<div className="grid grid-cols-2 gap-3 mb-3">
-															<div>
-																<Label className="text-xs">Institution</Label>
-																<Input
-																	value={edu.institution}
-																	onChange={(e) => {
-																		const updated = [...editedEducation];
-																		updated[eduIndex] = {
-																			...edu,
-																			institution: e.target.value,
-																		};
-																		setEditedEducation(updated);
-																	}}
-																	className="mt-1"
-																/>
+										{!hiddenSections.includes("education") &&
+											editedEducation.length > 0 && (
+												<div className="mb-4">
+													<Label className="text-xs text-muted-foreground uppercase tracking-wide mb-2 block">
+														Education
+													</Label>
+													<div className="space-y-4">
+														{editedEducation.map((edu, eduIndex) => (
+															<div
+																key={eduIndex}
+																className="rounded border bg-muted/30 p-4"
+															>
+																<div className="mb-2 flex items-center justify-between">
+																	<span className="text-xs text-muted-foreground">
+																		Education {eduIndex + 1}
+																	</span>
+																	<Button
+																		variant="ghost"
+																		size="sm"
+																		onClick={() =>
+																			setEditedEducation((prev) =>
+																				prev.filter((_, idx) => idx !== eduIndex)
+																			)
+																		}
+																	>
+																		<Trash2 className="mr-2 h-4 w-4" />
+																		Delete
+																	</Button>
+																</div>
+																<div className="grid grid-cols-2 gap-3 mb-3">
+																	<div>
+																		<Label className="text-xs">
+																			Institution
+																		</Label>
+																		<Input
+																			value={edu.institution}
+																			onChange={(e) => {
+																				const updated = [...editedEducation];
+																				updated[eduIndex] = {
+																					...edu,
+																					institution: e.target.value,
+																				};
+																				setEditedEducation(updated);
+																			}}
+																			className="mt-1"
+																		/>
+																	</div>
+																	<div>
+																		<Label className="text-xs">Degree</Label>
+																		<Input
+																			value={edu.degree}
+																			onChange={(e) => {
+																				const updated = [...editedEducation];
+																				updated[eduIndex] = {
+																					...edu,
+																					degree: e.target.value,
+																				};
+																				setEditedEducation(updated);
+																			}}
+																			className="mt-1"
+																		/>
+																	</div>
+																</div>
+																<div className="grid grid-cols-2 gap-3">
+																	<div>
+																		<Label className="text-xs">
+																			Field of Study
+																		</Label>
+																		<Input
+																			value={edu.field}
+																			onChange={(e) => {
+																				const updated = [...editedEducation];
+																				updated[eduIndex] = {
+																					...edu,
+																					field: e.target.value,
+																				};
+																				setEditedEducation(updated);
+																			}}
+																			className="mt-1"
+																		/>
+																	</div>
+																	<div>
+																		<Label className="text-xs">
+																			Graduation Date
+																		</Label>
+																		<Input
+																			value={edu.endDate || ""}
+																			onChange={(e) => {
+																				const updated = [...editedEducation];
+																				updated[eduIndex] = {
+																					...edu,
+																					endDate: e.target.value || undefined,
+																				};
+																				setEditedEducation(updated);
+																			}}
+																			className="mt-1"
+																			placeholder="2020"
+																		/>
+																	</div>
+																</div>
 															</div>
-															<div>
-																<Label className="text-xs">Degree</Label>
-																<Input
-																	value={edu.degree}
-																	onChange={(e) => {
-																		const updated = [...editedEducation];
-																		updated[eduIndex] = {
-																			...edu,
-																			degree: e.target.value,
-																		};
-																		setEditedEducation(updated);
-																	}}
-																	className="mt-1"
-																/>
-															</div>
-														</div>
-														<div className="grid grid-cols-2 gap-3">
-															<div>
-																<Label className="text-xs">
-																	Field of Study
-																</Label>
-																<Input
-																	value={edu.field}
-																	onChange={(e) => {
-																		const updated = [...editedEducation];
-																		updated[eduIndex] = {
-																			...edu,
-																			field: e.target.value,
-																		};
-																		setEditedEducation(updated);
-																	}}
-																	className="mt-1"
-																/>
-															</div>
-															<div>
-																<Label className="text-xs">
-																	Graduation Date
-																</Label>
-																<Input
-																	value={edu.endDate || ""}
-																	onChange={(e) => {
-																		const updated = [...editedEducation];
-																		updated[eduIndex] = {
-																			...edu,
-																			endDate: e.target.value || undefined,
-																		};
-																		setEditedEducation(updated);
-																	}}
-																	className="mt-1"
-																	placeholder="2020"
-																/>
-															</div>
-														</div>
+														))}
 													</div>
-												))}
-											</div>
-										</div>
+												</div>
+											)}
 
 										{/* Projects */}
-										{editedProjects.length > 0 && (
+										{!hiddenSections.includes("projects") &&
+											editedProjects.length > 0 && (
 											<div className="mb-4">
 												<Label className="text-xs text-muted-foreground uppercase tracking-wide mb-2 block">
 													Projects
@@ -1305,6 +1601,23 @@ export default function GeneratePage() {
 															key={projIndex}
 															className="rounded border bg-muted/30 p-4"
 														>
+															<div className="mb-2 flex items-center justify-between">
+																<span className="text-xs text-muted-foreground">
+																	Project {projIndex + 1}
+																</span>
+																<Button
+																	variant="ghost"
+																	size="sm"
+																	onClick={() =>
+																		setEditedProjects((prev) =>
+																			prev.filter((_, idx) => idx !== projIndex)
+																		)
+																	}
+																>
+																	<Trash2 className="mr-2 h-4 w-4" />
+																	Delete
+																</Button>
+															</div>
 															<div className="mb-3">
 																<Label className="text-xs">Project Name</Label>
 																<Input
@@ -1585,6 +1898,34 @@ function groupSkillsFromArray(skills: string[]): JSONResume["skills"] {
 			keywords: skills,
 		},
 	];
+}
+
+function deriveSectionOrderFromContent(content: {
+	summary?: string;
+	skills?: string[];
+	experience?: unknown[];
+	education?: unknown[];
+	projects?: unknown[];
+}): ResumeSection[] {
+	const desiredOrder = DEFAULT_SECTION_ORDER;
+	const includedSections = desiredOrder.filter((section) => {
+		switch (section) {
+			case "summary":
+				return Boolean(content.summary && content.summary.trim().length > 0);
+			case "skills":
+				return Boolean(content.skills && content.skills.length > 0);
+			case "experience":
+				return Boolean(content.experience && content.experience.length > 0);
+			case "education":
+				return Boolean(content.education && content.education.length > 0);
+			case "projects":
+				return Boolean(content.projects && content.projects.length > 0);
+			default:
+				return false;
+		}
+	});
+
+	return includedSections.length > 0 ? includedSections : [...desiredOrder];
 }
 
 // Normalize freeform project text into per-line highlights
