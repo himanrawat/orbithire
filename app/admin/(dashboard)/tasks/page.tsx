@@ -1,5 +1,6 @@
 import { createServiceSupabase } from "@/lib/supabaseServer";
 import { TASK_STATUSES, TASK_TYPES, type TaskRow } from "@/lib/tasks";
+import Link from "next/link";
 import { TasksTable } from "./TasksTable";
 
 export const dynamic = "force-dynamic";
@@ -43,9 +44,22 @@ async function getTasks(searchParams: { page?: string; status?: string; type?: s
 		})
 	);
 
+	// Failed tasks per type (dead letters), for the summary row
+	const failedByType: Record<string, number> = {};
+	await Promise.all(
+		TASK_TYPES.map(async (t) => {
+			const { count: c } = await supabase
+				.from("tasks")
+				.select("id", { count: "exact", head: true })
+				.eq("status", "failed")
+				.eq("type", t);
+			if (c) failedByType[t] = c;
+		})
+	);
+
 	if (error) {
 		console.error("Error fetching tasks:", error);
-		return { tasks: [] as TaskRow[], total: 0, page, counts, error: error.message };
+		return { tasks: [] as TaskRow[], total: 0, page, counts, failedByType, error: error.message };
 	}
 
 	return {
@@ -53,6 +67,7 @@ async function getTasks(searchParams: { page?: string; status?: string; type?: s
 		total: count || 0,
 		page,
 		counts,
+		failedByType,
 		error: null as string | null,
 	};
 }
@@ -62,7 +77,7 @@ export default async function TasksPage({
 }: {
 	searchParams: { page?: string; status?: string; type?: string };
 }) {
-	const { tasks, total, page, counts, error } = await getTasks(searchParams);
+	const { tasks, total, page, counts, failedByType, error } = await getTasks(searchParams);
 	const totalPages = Math.max(Math.ceil(total / PAGE_SIZE), 1);
 
 	return (
@@ -77,6 +92,23 @@ export default async function TasksPage({
 			{error && (
 				<div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
 					Could not load tasks: {error}. Has the tasks migration been applied?
+				</div>
+			)}
+
+			{Object.keys(failedByType).length > 0 && (
+				<div className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
+					<span className="font-medium">Failed by type:</span>
+					{Object.entries(failedByType)
+						.sort((a, b) => b[1] - a[1])
+						.map(([type, n]) => (
+							<Link
+								key={type}
+								href={`/admin/tasks?status=failed&type=${type}`}
+								className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs text-destructive hover:bg-destructive/20"
+							>
+								{type}: {n}
+							</Link>
+						))}
 				</div>
 			)}
 

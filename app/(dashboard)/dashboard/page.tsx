@@ -31,6 +31,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { ProfileCompletionBanner } from "@/components/ProfileCompletionBanner";
+import { FailedPdfsPanel } from "@/components/documents/FailedPdfsPanel";
 import type { Profile } from "@/lib/types/database";
 
 // Data types
@@ -477,6 +478,7 @@ export default function DashboardPage() {
 
 				{/* Profile Completion Banner */}
 				<ProfileCompletionBanner variant="banner" />
+				<FailedPdfsPanel className="mb-6" />
 
 				{/* Quick Actions Bar */}
 				<motion.div

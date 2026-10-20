@@ -1,121 +1,137 @@
-CVLeap AI -- spec
-=================
+# OrbitHire
 
-Goal: let candidates paste a job description, auto-tailor an ATS-friendly resume + cover letter (OpenAI + Groq), store/share versions company-wise, and track applications with 7-day follow-up emails (includes recruiter-facing message). Backend: self-hosted Supabase in Docker (auth + DB + edge functions). File storage: Cloudflare R2 (presigned uploads/downloads). Region-ready templates (Germany/EU include optional profile photo slot).
+A personal job-search hub: every morning new jobs are fetched and ranked against your
+profile, you review them in a **Job Inbox**, and you get a tailored **resume + cover
+letter** (in the portal, or from Claude / ChatGPT over MCP) rendered to PDF and filed
+against the application. Applications, follow-ups and documents live in one place.
 
-Env setup
----------
-1) Copy `.env.example` to `.env.local` and fill values.  
-2) Start the database: `npm run db:start` (needs Docker + Supabase CLI). Full guide: [docs/DATABASE.md](docs/DATABASE.md).  
-3) Start the app: `npm run dev` -> http://localhost:3000. Database dashboard (Studio): http://127.0.0.1:54323.  
-4) Required keys: self-hosted Supabase URL + anon key + service role key + JWT secret (from `supabase status -o env`), OpenAI + Groq, Cloudflare R2 (account, access, secret, bucket), email provider key (Resend), app URL, follow-up from email. Optional: PostHog.
+- How to use it: [docs/USER_GUIDE.md](docs/USER_GUIDE.md)
+- Database (self-hosted Supabase): [docs/DATABASE.md](docs/DATABASE.md)
+- Background worker: [worker/README.md](worker/README.md)
+- Roadmap / design: `docs/PLAN.md` (local planning document)
 
-User flow
----------
-- Landing page: sign in/up buttons; when logged in, swap for user name + avatar; CTA to go to `/dashboard`.
-- Dashboard: profile completeness meter; recent resumes/cover letters; Paste JD entry point; application tracker, reminders, and company folders.
-- Upload and parse: user uploads PDF/Word -> R2 presigned upload -> backend parses text -> structured profile is filled; user can edit profile separately from any resume.
-- JD-to-tailored docs: user pastes JD -> AI compares JD vs profile -> generates resume (ATS-first layout) + cover letter; saves both as new versions; offers download/share link; user can file them into the company folder for that application.
-- Sharing: per-resume/cover-letter share token with view logging; export to PDF/Docx.
-- Application tracking: create application from a tailored resume/CL; statuses (Saved -> Applied -> Interview -> Offer -> Rejected); recruiter contact log; reminders; outbound follow-up email after 7 days.
-- Company folders: when user applies to a company (e.g., Google), auto-create a folder for that company. Store multiple chosen resumes/cover letters/JDs inside. Let user add ad-hoc notes on what was discussed with HR.
-- Follow-up: if no status change after 7 days from Applied, send user an email that includes follow-up copy for the recruiter; optionally one-click send to recruiter now.
+## Architecture
 
-Key constraints
----------------
-- No external job fetch; user always pastes JD.
-- Germany/EU: include profile photo slot in templates; keep modern ATS layout (no heavy graphics).
-- Profiles are distinct from any generated resume; resumes/cover letters are versioned.
-
-Architecture
-------------
-- Frontend: Next.js (App Router), React, TypeScript, Tailwind (or CSS-in-JS), client Supabase auth.
-- Backend: self-hosted Supabase (Docker) - Postgres + RLS; Supabase Edge Functions for AI orchestration, parsing, follow-up scheduler, email delivery.
-- AI: OpenAI (precision rewrite), Groq (fast extraction/diff). Prompt to enforce ATS structure (plain text/bullets, minimal styling).
-- Storage: Cloudflare R2 for originals and generated PDFs/Docx; store derived plain text in Postgres for semantic ops/search.
-- Email/notifications: Supabase Edge Function hooked to a provider (Resend/Postmark/SES) for follow-ups; web push/FCM for in-app notifications.
-
-Data model (Supabase)
----------------------
-- `profiles`: id (uuid, FK to auth), name, headline, summary, skills (jsonb), avatar_url (R2), location, visa_status, work_authorization, updated_at.
-- `resumes`: id, user_id, title, locale (enum: global, india, eu, de), ai_model_used, jd_hash (for provenance), content_text (plain), file_url (R2), created_at.
-- `cover_letters`: id, user_id, resume_id (nullable), jd_hash, content_text, file_url, created_at.
-- `job_descriptions`: id, user_id, title, company, location, remote (bool), salary_range, jd_text, jd_hash, created_at.
-- `company_folders`: id, user_id, company_name, company_slug, created_at.
-- `company_files`: id, company_folder_id, file_type (enum: resume/cover_letter/jd/note), resume_id, cover_letter_id, job_description_id, file_url (R2), note_text (for quick HR notes), created_at.
-- `applications`: id, user_id, company_folder_id, job_description_id, resume_id, cover_letter_id, status (enum), applied_at, follow_up_due_at, last_follow_up_sent_at, recruiter_email, recruiter_name, notes.
-- `recruiter_interactions`: id, application_id, type (call/email/note), body, occurred_at.
-- `templates`: id, name, locale, has_photo (bool), file_url (R2), preview_url.
-- `shares`: id, user_id, target_type (resume/cover_letter), target_id, token, expires_at, viewed_count, last_viewed_at.
-
-AI pipeline (JD -> tailored docs)
----------------------------------
-1) Ingest JD text; hash for traceability.  
-2) Extract key requirements (skills, years, must-have, location, language) via Groq.  
-3) Compare against `profiles` + latest resume to find gaps and matches.  
-4) Generate resume draft (OpenAI) with ATS-safe formatting; enforce locale rules (Germany/EU include photo slot).  
-5) Generate cover letter aligned to JD; inject company/role/location.  
-6) Save content_text; render to PDF/Docx template; store in R2; create new `resumes`/`cover_letters` rows linked to `job_descriptions` and optionally to `company_folders`.  
-7) Optionally update `applications` (status=Saved) ready for user to mark Applied.
-
-Templates (Germany/EU notes)
-----------------------------
-- Include photo placeholder; clean two-column or single-column; minimal colors.  
-- Sections: Profile (2-3 lines), Skills (top-matching skills first), Experience (reverse-chronological with quant metrics), Education, Languages, Links.  
-- Avoid personal data that hurts ATS (birthdate, marital status) unless required; keep bilingual labels if needed.
-
-Company folders and storage layout
-----------------------------------
-- Auto-create folder per company slug (e.g., `google`) on first application.  
-- R2 paths: `users/{user_id}/companies/{company_slug}/resumes/{resume_id}.pdf`, `/cover_letters/{cover_letter_id}.pdf`, `/jd/{job_description_id}.txt`, `/notes/{note_id}.txt`.  
-- UI: each folder shows all resumes/cover letters used for that company, linked JDs, and quick "what I discussed with HR" notes. Users can add multiple resumes/cover letters per company.
-
-Follow-up logic
----------------
-- On `applications` insert/update to status=Applied, set `follow_up_due_at = applied_at + interval '7 days'`.  
-- Scheduled edge function (daily cron) queries pending applications (status=Applied AND follow_up_due_at <= now() AND last_follow_up_sent_at IS NULL).  
-- Send user email containing: reminder + ready-to-send recruiter email body; include one-click action to send via app (if recruiter_email stored).  
-- Record `last_follow_up_sent_at`; if user triggers send-to-recruiter, log in `recruiter_interactions`.
-
-Sample follow-up body (sent to user and optionally forwarded to recruiter)
---------------------------------------------------------------------------
 ```
-Subject: Quick follow-up on my application for {{role}} at {{company}}
-
-Hi {{recruiter_name | there}},
-
-I applied for the {{role}} role on {{applied_date}} and wanted to reiterate my interest.
-A quick recap: {{2-3 JD-matching achievements}}.
-Happy to share anything else you need or to jump on a short call this week.
-
-Thanks for your time,
-{{your_name}}
-{{phone}} | {{LinkedIn}}
+ Browser ──► Next.js 14 app (UI + API routes + /api/mcp) ◄── Claude / ChatGPT (MCP)
+                 │ supabase-js (RLS)          │ enqueue_task()
+                 ▼                            ▼
+        Self-hosted Supabase (Postgres 17, pgvector, pg_cron)
+        profiles · companies (applications) · resumes · cover_letters · document_versions
+        job_searches · watched_companies · job_postings · job_matches · tasks (queue)
+                 │ LISTEN/NOTIFY + poll (FOR UPDATE SKIP LOCKED)
+                 ▼
+        worker/ (Python 3.12)
+        fetch_jobs  → JobSpy boards, Greenhouse / Lever / Ashby, job APIs
+        rank_jobs   → pre-filter → embeddings → LLM top-N with reasons
+        render_pdf  → Typst templates → PDF ──────────────────► Cloudflare R2
+        digest      → morning email (Resend)
+        internal HTTP: /health, /preview (live editor preview)
 ```
 
-Endpoints/edges (Supabase functions)
-------------------------------------
-- `parse-upload` (auth): accept R2 key -> extract text -> update `profiles` + store `resumes` source text.  
-- `generate-docs` (auth): input JD text + locale -> returns resume/CL drafts, saves to DB/R2, links JD and optionally company folder.  
-- `follow-up-cron` (service role, scheduled): run daily, send reminder emails, update `applications`.  
-- `send-recruiter-email` (auth): send templated follow-up to recruiter_email if present; log interaction.
-- `upsert-company-folder` (auth): ensure folder exists for a company, attach selected resumes/cover letters/JDs, and set folder on an application.
-- `add-hr-note` (auth): append quick "what I talked to HR" note into `company_files` (file_type=note) and `recruiter_interactions`.
+- **Next.js** (`app/`, `components/`, `lib/`): UI, API routes, auth via Supabase cookies.
+  Files are served through the authenticated proxy `/api/files/<key>`.
+- **Supabase** (`supabase/migrations/`): all data, Row Level Security on every user table,
+  the `tasks` queue, and pg_cron (daily fetch at 07:00 IST).
+- **Worker** (`worker/`): everything slow or scheduled. The app never waits for it: it
+  enqueues a task and the UI polls status (e.g. the PDF badge).
+- **Storage**: Cloudflare R2 (S3 API) for PDFs and photos. Locally and in tests you can
+  point the `R2_*` variables at MinIO instead.
 
-Implementation steps
---------------------
-1) Scaffold Next.js + Supabase client; set envs for OpenAI, Groq, R2, email provider.  
-2) Auth and layout: landing with conditional sign in/up vs user name+photo; protect `/dashboard`.  
-3) Profile editor + upload-to-parse flow (R2 presigned -> edge parse -> profile fill).  
-4) JD paste form + `generate-docs` call; display/render resume/CL; allow download/share.  
-5) Templates: seed global/India/EU/DE templates (with photo slot for EU/DE).  
-6) Company folders + application tracker UI: auto-create folder by company, attach multiple resumes/cover letters/JDs, notes on HR discussions; hook follow-up scheduling.  
-7) Email/notification plumbing (user reminder + optional recruiter send).  
-8) QA: ATS text output checks, locale toggles, RLS policies, file access scoped by user.
+## Local development
 
-Notes on security and tenancy
------------------------------
-- Enforce RLS on all user-owned tables keyed by `user_id`.  
-- Use presigned URLs for R2 uploads/downloads; never expose service keys to the client.  
-- Rate-limit AI endpoints per user; store provenance (jd_hash, model) for auditing.  
-- PII handling: keep photos in R2 with restricted ACL; scrub logs of JD text.
+Prerequisites: Node 20, Docker Desktop, Supabase CLI (`brew install supabase`), and
+[uv](https://docs.astral.sh/uv/) for the worker.
+
+```bash
+cp .env.example .env.local            # fill in values (see below)
+npm install
+npm run db:start                      # Supabase in Docker; first run downloads images
+npm run db:migrate                    # apply new migrations (never needed after db:reset)
+npm run dev                           # app on http://localhost:3000
+
+# second terminal: the worker (PDF rendering, job fetch, ranking, digest)
+cd worker
+cp ../.env.local .env                 # or export DATABASE_URL, R2_*, ...
+uv sync
+uv run worker
+```
+
+Studio (database UI) is at http://127.0.0.1:54323. Without the worker the app still works,
+but PDFs stay "Queued", the live Typst preview is unavailable, and no jobs are fetched.
+
+Checks:
+
+```bash
+npx tsc --noEmit
+npm run build
+npx ts-node -T --project tsconfig.scripts.json scripts/test-import.ts   # import helpers
+cd worker && uv run pytest -q                                           # worker
+```
+
+### Using MinIO instead of R2 (tests, offline dev)
+
+```bash
+docker run -d --name orbithire-minio -p 127.0.0.1:9000:9000 \
+  -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin minio/minio server /data
+# create a bucket (e.g. with the MinIO console on :9001 or boto3), then:
+R2_ENDPOINT=http://127.0.0.1:9000 R2_BUCKET=orbithire-dev \
+R2_ACCESS_KEY_ID=minioadmin R2_SECRET_ACCESS_KEY=minioadmin npm run dev
+```
+
+## Environment variables
+
+`.env.example` lists them all; the app reads `.env.local`, the worker reads `worker/.env`
+(same names, so one file can serve both).
+
+| Group | Variables | Notes |
+|---|---|---|
+| App | `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SITE_URL`, `AUTH_COOKIE_DOMAIN` (prod) | links in emails, cookie domain |
+| Supabase | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET` | `supabase status -o env` locally |
+| Storage (R2) | `R2_ENDPOINT` or `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_PUBLIC_BASE_URL` | MinIO works for dev/tests |
+| AI | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GROQ_API_KEY` | platform keys; users can add their own in Settings |
+| Secrets | `ENCRYPTION_KEY` (≥ 32 chars) | encrypts users' own API keys (app + worker) |
+| Email | `RESEND_API_KEY`, `FOLLOW_UP_FROM_EMAIL`, `DIGEST_FROM_EMAIL` | follow-ups and morning digest |
+| Worker | `DATABASE_URL` (direct/session connection), `WORKER_URL` (app → worker preview), `WORKER_CONCURRENCY`, `WORKER_TIMEOUTS`, `WORKER_POLL_INTERVAL`, `WORKER_BACKOFF_BASE`, `WORKER_HTTP_HOST`, `WORKER_HTTP_PORT`, `TYPST_TEMPLATES_DIR` | see [worker/README.md](worker/README.md) |
+| Ranking | `RANKING_PLATFORM_LLM` (`quota`/`always`/`never`), `RANKING_PLATFORM_DAILY_LIMIT`, optional `RANKING_ANTHROPIC_MODEL`, `RANKING_OPENAI_MODEL`, `EMBEDDING_MODEL` | when the platform key may be used for LLM scoring |
+| Job sources | `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `JOOBLE_API_KEY`, `REED_API_KEY`, `USAJOBS_API_KEY`, `USAJOBS_USER_AGENT` | optional extra job APIs; a source without keys is skipped |
+| MCP | `MCP_RATE_LIMIT_PER_MIN` (60, in-memory per process), `MCP_WRITE_LIMIT_PER_HOUR` (20) | `/api/mcp` limits per token |
+| Analytics | `POSTHOG_API_KEY`, `POSTHOG_HOST` | optional |
+
+Never commit `.env.local` / `worker/.env`. The service role key and `DATABASE_URL` bypass
+RLS: server and worker only.
+
+## Main features and where they live
+
+| Feature | UI | API / worker |
+|---|---|---|
+| Job Inbox, shortlist, create application | `/jobs` | `app/api/jobs/**`, `fetch_jobs`, `rank_jobs` |
+| Applications + follow-ups | `/companies` | `app/api/companies/**` |
+| Resume / cover letter editor, live preview, version history | `/documents/[id]` | `app/api/documents/**`, `render_pdf`, worker `/preview` |
+| Templates (Typst + classic HTML) | `/templates` | `templates/typst/`, `lib/templateCatalog.ts` |
+| Failed PDFs + "Retry all" | dashboard, `/companies` | `GET/POST /api/documents/failed` |
+| Import from ai-job-search (tracker CSV, PDFs, profile) | Settings → Import (`/import`) | `app/api/import/**`, `worker/orbithire_worker/import_legacy.py` |
+| AI connections (MCP for Claude / ChatGPT) | Settings → AI connections | `/api/mcp`, `mcp_tokens` |
+| Admin: users, credits, background tasks | `/admin` | service role |
+
+## MCP server
+
+`/api/mcp` is a stateless Streamable HTTP MCP endpoint. Auth: personal access token
+`Authorization: Bearer orb_…`, created in Settings → AI connections (scope read or
+read+write, shown once, revocable; only a hash is stored in `mcp_tokens`, which also
+records `last_client`). Tools: `get_profile`, `search_jobs`, `get_job`,
+`list_applications`, `get_application`, `list_templates`, `get_resume_schema`,
+`get_document` (read); `save_resume`, `save_cover_letter`, `create_application`,
+`update_application_status` (write). Prompts: `tailor_resume(job_id)`,
+`write_cover_letter(job_id)`. Every MCP save creates a new resume / cover letter + version
+and queues its PDF. Client setup (Claude Desktop via `mcp-remote`, Claude Code) is in
+[docs/USER_GUIDE.md](docs/USER_GUIDE.md#7-using-claude-or-chatgpt-mcp); claude.ai and
+ChatGPT connectors need OAuth (Phase 5, not built yet). Smoke test: `npm run mcp:smoke`.
+
+## Security notes
+
+- RLS on every user-owned table (`user_id = auth.uid()`); admin pages use the service role.
+- Files are private in R2 and served only through `/api/files/<key>` after an auth check.
+- `document_versions` are immutable (insert/read/delete only); restoring creates a new version.
+- Imports never overwrite silently: tracker rows only fill empty fields, PDFs are deduplicated
+  by storage key, profile fields are applied one by one after a side-by-side review.

@@ -10,6 +10,8 @@ export interface PdfStatusInfo {
 	pdf_error: string | null;
 	pdf_url: string | null;
 	engine?: string;
+	/** Last change of the row; used to offer a retry for renders that look stuck. */
+	updated_at?: string | null;
 }
 
 interface PdfStatusBadgeProps {
@@ -25,6 +27,8 @@ interface PdfStatusBadgeProps {
 }
 
 const POLL_MS = 2000;
+/** Same threshold as POST /api/documents/:id/retry, which re-queues renders older than this. */
+const STUCK_MS = 120_000;
 
 const STYLES: Record<PdfStatus, { label: string; cls: string }> = {
 	none: { label: "No PDF", cls: "bg-muted text-muted-foreground" },
@@ -52,6 +56,7 @@ export function PdfStatusBadge({
 		pdf_error: initial?.pdf_error ?? null,
 		pdf_url: initial?.pdf_url ?? null,
 		engine: initial?.engine,
+		updated_at: initial?.updated_at ?? null,
 	});
 	const [retrying, setRetrying] = useState(false);
 	const onChangeRef = useRef(onChange);
@@ -68,6 +73,7 @@ export function PdfStatusBadge({
 				pdf_error: data.pdf_error,
 				pdf_url: data.pdf_url,
 				engine: data.engine,
+				updated_at: data.updated_at ?? null,
 			};
 			const prev = statusRef.current;
 			if (
@@ -106,6 +112,7 @@ export function PdfStatusBadge({
 					pdf_error: data.status.pdf_error,
 					pdf_url: data.status.pdf_url,
 					engine: data.status.engine,
+					updated_at: data.status.updated_at ?? null,
 				};
 				statusRef.current = next;
 				setStatus(next);
@@ -128,6 +135,9 @@ export function PdfStatusBadge({
 					? Loader2
 					: Clock;
 	const retryingNote = status.pdf_status === "queued" && status.pdf_error;
+	const stuck =
+		active && !!status.updated_at && Date.now() - new Date(status.updated_at).getTime() > STUCK_MS;
+	const canRetry = status.pdf_status === "failed" || status.pdf_status === "none" || stuck;
 
 	return (
 		<span className={cn("inline-flex items-center gap-1.5", className)}>
@@ -139,16 +149,22 @@ export function PdfStatusBadge({
 				<Icon className={cn("h-3 w-3", status.pdf_status === "rendering" && "animate-spin")} />
 				{retryingNote ? "Retrying" : style.label}
 			</span>
-			{showRetry && (status.pdf_status === "failed" || status.pdf_status === "none") && (
+			{showRetry && canRetry && (
 				<button
 					type="button"
 					onClick={retry}
 					disabled={retrying}
 					className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
-					title={status.pdf_status === "failed" ? `Retry: ${status.pdf_error ?? ""}` : "Render PDF"}
+					title={
+						status.pdf_status === "failed"
+							? `Retry: ${status.pdf_error ?? ""}`
+							: stuck
+								? "This render is taking unusually long – queue it again"
+								: "Render PDF"
+					}
 				>
 					{retrying ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
-					{status.pdf_status === "failed" ? "Retry" : "Render"}
+					{status.pdf_status === "failed" || stuck ? "Retry" : "Render"}
 				</button>
 			)}
 		</span>

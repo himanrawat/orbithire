@@ -57,7 +57,10 @@ work through a transaction-mode pooler (Supavisor port 6543).
 | `DATABASE_URL` | `postgresql://postgres:postgres@127.0.0.1:54322/postgres` | service role (bypasses RLS) |
 | `R2_ENDPOINT` / `R2_ACCOUNT_ID` | – | endpoint wins; otherwise built from account id |
 | `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_PUBLIC_BASE_URL` | – | same names as the Next app |
-| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `RESEND_API_KEY` | – | later phases |
+| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `RESEND_API_KEY` | – | embeddings / LLM scoring / digest |
+| `ENCRYPTION_KEY`, `SUPABASE_JWT_SECRET` | – | decrypt users' own API keys (same as the app) |
+| `RANKING_PLATFORM_LLM`, `RANKING_PLATFORM_DAILY_LIMIT` | `quota` / `15` | platform-key policy for LLM scoring |
+| `ADZUNA_APP_ID` + `ADZUNA_APP_KEY`, `JOOBLE_API_KEY`, `REED_API_KEY`, `USAJOBS_API_KEY` + `USAJOBS_USER_AGENT` | – | optional job APIs; skipped when unset |
 | `WORKER_ID` | `hostname:pid` | stored in `tasks.locked_by` |
 | `WORKER_POLL_INTERVAL` | `10` | seconds |
 | `WORKER_CONCURRENCY` | `render_pdf=2,fetch_jobs=1` | `type=n,…` or JSON; merged with defaults |
@@ -151,6 +154,41 @@ uv run python -m orbithire_worker.import_portals --user-email you@example.com \
     --path ~/Desktop/Projects/career-ops/portals.yml [--keyword "Frontend Developer"] \
     [--location Bangalore] [--site linkedin --site naukri] [--results-wanted 20] [--dry-run]
 ```
+
+## One-time import from ai-job-search (`import_legacy`)
+
+CLI twin of the portal's **Settings → Import** (same rules as `lib/import/*.ts`; keep both
+in sync, tests in `tests/test_import_legacy.py` and `scripts/test-import.ts`). Run the
+tracker first so the PDFs can be matched to the applications it creates. Both commands
+print JSON and accept `--dry-run` (writes nothing).
+
+```bash
+# job_search_tracker.csv -> companies (applications)
+uv run python -m orbithire_worker.import_legacy tracker \
+    --user-email you@example.com --path ~/Desktop/ai-job-search/job_search_tracker.csv --dry-run
+
+# cv/*.pdf -> resumes, cover_letters/*.pdf -> cover letters (source = 'import', pdf_status = 'ready')
+uv run python -m orbithire_worker.import_legacy pdfs \
+    --user-email you@example.com --path ~/Desktop/ai-job-search --dry-run [--include-examples]
+```
+
+- **Tracker**: status mapping `drafted→saved`, `applied→applied`, `interview→interviewing`,
+  `offer/hired→offered`, `rejected/no_response→rejected`, `offer_declined/withdrawn→withdrawn`
+  (unknown → saved, noted). `date` becomes `applied_at` once a row is past `drafted`. Fit
+  rating, sector, role type, channel, deadline, file names and notes go into `notes`.
+  Dedupe on (company, job title), case-insensitive: an existing application only gets empty
+  fields filled and its status moved forward (never backwards).
+- **PDFs**: matched to applications via the tracker's `cv_file` / `cover_letter_file`
+  columns, else by filename (`main_<company>_<role>.pdf`: exact role, likely role, company
+  only); unmatched files are imported unattached, `*example*` files are skipped. Stored in
+  R2 as `{user}/{resumes|cover-letters}/import-<file>.pdf`, which also makes re-runs skip
+  files already imported. Text is extracted with pypdf into `resumes.content_text` /
+  `cover_letters.content`.
+- **Profile** (CLAUDE.md) is portal-only, because each field is reviewed against the
+  current value before it is applied.
+
+Use the `R2_*` env of the target environment. For tests, point them at MinIO
+(`R2_ENDPOINT=http://127.0.0.1:9000 …`); never import test data into the real bucket.
 
 ## Enqueue a test task
 

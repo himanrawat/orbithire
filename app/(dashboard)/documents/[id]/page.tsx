@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PdfStatusBadge, type PdfStatusInfo } from "@/components/PdfStatusBadge";
 import { TypstPreview } from "@/components/TypstPreview";
+import { VersionHistory } from "@/components/documents/VersionHistory";
 import {
 	DEFAULT_TYPST_COVER,
 	DEFAULT_TYPST_RESUME,
@@ -270,6 +271,12 @@ export default function DocumentEditorPage() {
 					Save
 				</Button>
 			</div>
+			{row.source === "import" && Object.keys(row.content_json || {}).length === 0 && (type === "resume" || !row.content) && (
+				<div className="rounded-lg border bg-muted/40 p-3 text-sm">
+					This document was imported as a finished PDF, so there are no form fields to edit yet. Download the PDF
+					above, or fill in the form and save to render a new PDF with a template (the imported PDF is replaced).
+				</div>
+			)}
 			{error && <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
 			{message && <div className="rounded-lg border bg-muted/40 p-3 text-sm">{message}</div>}
 
@@ -470,6 +477,27 @@ export default function DocumentEditorPage() {
 							)}
 						</CardContent>
 					</Card>
+					<VersionHistory
+						documentId={row.id}
+						documentType={type}
+						engine={engine === "typst" ? "typst" : "html"}
+						templateId={templateId || (type === "resume" ? DEFAULT_TYPST_RESUME : DEFAULT_TYPST_COVER)}
+						paper={paper}
+						currentContent={previewData}
+						refreshKey={refreshKey}
+						onRestored={(doc, msg) => {
+							if (doc) {
+								setRow(doc);
+								const c = type === "resume" ? doc.content_json || {} : letterFromRow(doc);
+								setContent(c);
+								setAccent(c?.meta?.accent ?? "");
+								setPaper(c?.meta?.paper === "letter" ? "letter" : "a4");
+							}
+							setMessage(msg);
+							setError(null);
+							setRefreshKey((k) => k + 1);
+						}}
+					/>
 				</aside>
 			</div>
 		</div>
