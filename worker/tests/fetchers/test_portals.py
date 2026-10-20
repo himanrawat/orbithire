@@ -20,7 +20,20 @@ from .conftest import FIXTURES
         ("https://jobs.ashbyhq.com/lovable", ("ashby", "lovable", "us")),
         ("https://api.ashbyhq.com/posting-api/job-board/n8n", ("ashby", "n8n", "us")),
         ("https://retool.com/careers", (None, None, "us")),
-        ("https://apply.workable.com/huggingface/", (None, None, "us")),
+        ("https://apply.workable.com/huggingface/", ("workable", "huggingface", "us")),
+        ("https://apply.workable.com/api/v1/widget/accounts/skroutz?details=true", ("workable", "skroutz", "us")),
+        ("https://apply.workable.com/j/B4A0F1A2AB", (None, None, "us")),
+        ("https://acme.workable.com/", ("workable", "acme", "us")),
+        ("https://jobs.smartrecruiters.com/Ubisoft2", ("smartrecruiters", "Ubisoft2", "us")),
+        ("https://careers.smartrecruiters.com/BoschGroup/", ("smartrecruiters", "BoschGroup", "us")),
+        ("https://api.smartrecruiters.com/v1/companies/Visa/postings", ("smartrecruiters", "Visa", "us")),
+        ("https://bunq.recruitee.com/", ("recruitee", "bunq", "us")),
+        ("https://bunq.recruitee.com/api/offers/", ("recruitee", "bunq", "us")),
+        ("https://personio.jobs.personio.de/", ("personio", "personio", "eu")),
+        ("https://acme.jobs.personio.com/job/123", ("personio", "acme", "us")),
+        ("https://polestar.teamtailor.com/jobs", ("teamtailor", "polestar", "eu")),
+        ("https://acme.na.teamtailor.com/jobs.rss", ("teamtailor", "acme", "us")),
+        ("www.teamtailor.com", (None, None, "us")),
         (None, (None, None, "us")),
     ],
 )
@@ -37,7 +50,8 @@ def test_load_portals_fixture():
     assert by_name["Lovable"].ats == "ashby" and by_name["Lovable"].board_token == "lovable"
     assert by_name["Loom (Atlassian)"].ats == "lever" and by_name["Loom (Atlassian)"].board_token == "loom"
     assert by_name["Retool"].ats is None and by_name["Retool"].careers_url == "https://retool.com/careers"
-    assert by_name["Hugging Face"].ats is None and by_name["Hugging Face"].enabled is False
+    hf = by_name["Hugging Face"]
+    assert (hf.ats, hf.board_token, hf.enabled) == ("workable", "huggingface", False)
     polyai = by_name["PolyAI"]
     assert (polyai.ats, polyai.board_token, polyai.region, polyai.enabled) == ("greenhouse", "polyai", "eu", False)
 

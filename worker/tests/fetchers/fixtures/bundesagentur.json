@@ -1,0 +1,103 @@
+{
+ "ergebnisliste": [
+  {
+   "stellenangebotsart": "ARBEIT",
+   "stellenangebotsTitel": "Odoo / Python Developer (m/w/d) – Vollzeit oder Werkstudent",
+   "weitereBerufe": [
+    "Python Developer",
+    "Odoo Developer",
+    "ERP Developer",
+    "Werkstudent Softwareentwicklung"
+   ],
+   "arbeitszeitSchichtNachtWochenende": false,
+   "arbeitszeitTeilzeitAbend": false,
+   "arbeitszeitTeilzeitNachmittag": true,
+   "arbeitszeitTeilzeitVormittag": true,
+   "arbeitszeitTeilzeitFlexibel": false,
+   "arbeitszeitVollzeit": true,
+   "eintrittszeitraum": {
+    "von": "2026-10-20"
+   },
+   "verguetungsangabe": "KEINE_ANGABEN",
+   "vertragsdauer": "UNBEFRISTET",
+   "stellenlokationen": [
+    {
+     "adresse": {
+      "strasse": "Helgoländer Ufer",
+      "hausnummer": "7",
+      "plz": "10557",
+      "ort": "Berlin",
+      "region": "BERLIN",
+      "land": "DEUTSCHLAND"
+     },
+     "breite": 52.521993,
+     "laenge": 13.348917
+    }
+   ],
+   "veroeffentlichungszeitraum": {
+    "von": "2026-10-20"
+   },
+   "datumErsteVeroeffentlichung": "2026-10-20",
+   "aenderungsdatum": "2026-10-20T11:05:33.302",
+   "hauptberuf": "Softwareentwickler/in",
+   "alternativBeruf1": "Informatiker/in",
+   "firma": "Apimiel GmbH",
+   "arbeitgeberKundennummerHash": "acXRTUc-bR3rcCgQb_iRHRBcpqwRMxvMk8RzmhPbFU4=",
+   "referenznummer": "10001-1003883299-S",
+   "entfernung": 5,
+   "alleBerufe": [
+    "Python Developer",
+    "Softwareentwickler/in",
+    "Informatiker/in",
+    "Odoo Developer",
+    "ERP Developer",
+    "Werkstudent Softwareentwicklung"
+   ]
+  },
+  {
+   "stellenangebotsart": "ARBEIT",
+   "stellenangebotsTitel": "Software Development Specialist (Python) Machine Learning for Railway Traffic Optimization (w/m/d)",
+   "quereinstiegGeeignet": false,
+   "arbeitszeitTeilzeitAbend": true,
+   "arbeitszeitTeilzeitNachmittag": true,
+   "arbeitszeitTeilzeitVormittag": true,
+   "arbeitszeitVollzeit": true,
+   "eintrittszeitraum": {
+    "von": "2026-12-01"
+   },
+   "verguetungsangabe": "KEINE_ANGABEN",
+   "vertragsdauer": "BEFRISTET",
+   "befristungInMonaten": 12,
+   "istGeringfuegigeBeschaeftigung": false,
+   "stellenlokationen": [
+    {
+     "adresse": {
+      "plz": "10789",
+      "ort": "Berlin",
+      "region": "BERLIN",
+      "land": "DEUTSCHLAND"
+     },
+     "breite": 52.501586474,
+     "laenge": 13.337444575
+    }
+   ],
+   "chiffrenummer": "PBN61169",
+   "veroeffentlichungszeitraum": {
+    "von": "2026-10-19"
+   },
+   "datumErsteVeroeffentlichung": "2026-10-19",
+   "aenderungsdatum": "2026-10-19T17:19:59.683",
+   "hauptberuf": "Machine Learning Engineer",
+   "firma": "DB Zeitarbeit GmbH",
+   "arbeitgeberKundennummerHash": "pFUKgECj9AUv1Hu4fiXArdXnmznS22U4gDkw2is8USo=",
+   "referenznummer": "12456-1645058-1-S",
+   "entfernung": 6,
+   "alleBerufe": [
+    "Machine Learning Engineer"
+   ]
+  }
+ ],
+ "maxErgebnisse": 2,
+ "page": 1,
+ "size": 2
+}

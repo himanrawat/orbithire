@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:tt="https://teamtailor.com/locations">
+  <channel>
+    <title>Polestar</title>
+    <description>Our job openings</description>
+    <link>https://polestar.teamtailor.com/jobs</link>
+    <item>
+      <title>Head of Customer Engagement Benelux</title>
+      <description>&lt;h3&gt;&lt;strong&gt;Let us describe the challenge we offer&lt;/strong&gt;&lt;/h3&gt;&lt;p&gt;&lt;span&gt;We are looking for an experienced &lt;strong&gt;Head of Customer Engagement&lt;/strong&gt; to lead and elevate the customer journey across the Benelux region.&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;span</description>
+      <pubDate>Thu, 15 Oct 2026 13:14:55 +0200</pubDate>
+      <link>https://polestar.teamtailor.com/jobs/8551558-head-of-customer-engagement-benelux</link>
+      <remoteStatus>none</remoteStatus>
+      <guid>a775edab-0c00-4863-bc99-eba96799d7f8</guid>
+      <company_name>Polestar</company_name>
+      <company_uuid>K5gBpFXnPio</company_uuid>
+      <tt:locations>
+        <tt:location>
+          <tt:name>Beesd, Netherlands</tt:name>
+          <tt:address/>
+          <tt:zip>4153</tt:zip>
+          <tt:city>Beesd</tt:city>
+          <tt:country>Netherlands</tt:country>
+        </tt:location>
+      </tt:locations>
+      <tt:department>Customer Experience</tt:department>
+      <tt:role/>
+    </item>
+<item>
+      <title>Head of Customer Engagement Benelux</title>
+      <description>&lt;p&gt;&lt;/p&gt;&lt;p&gt;&amp;nbsp;&lt;/p&gt;&lt;p&gt;&lt;strong&gt;Let us describe the challenge we offer&lt;/strong&gt;&lt;/p&gt;&lt;p&gt;&lt;span&gt;We are looking for an experienced &lt;strong&gt;Head of Customer Engagement&lt;/strong&gt; to lead and elevate the customer journey across the Benelux region.&lt;/span&gt;&lt;/p&gt;&lt;p class="MsoNormal"&gt;&lt;span</description>
+      <pubDate>Thu, 15 Oct 2026 11:09:19 +0200</pubDate>
+      <link>https://polestar.teamtailor.com/jobs/8550506-head-of-customer-engagement-benelux</link>
+      <remoteStatus>none</remoteStatus>
+      <guid>bd1e4a2d-1af6-4d18-9392-c57d0fa5da0e</guid>
+      <company_name>Polestar</company_name>
+      <company_uuid>K5gBpFXnPio</company_uuid>
+      <tt:locations>
+        <tt:location>
+          <tt:name>Brussels, Belgium</tt:name>
+          <tt:address/>
+          <tt:zip>1000</tt:zip>
+          <tt:city>Brussels</tt:city>
+          <tt:country>Belgium</tt:country>
+        </tt:location>
+      </tt:locations>
+      <tt:department>Customer Experience</tt:department>
+      <tt:role/>
+    </item>
+  </channel>
+</rss>

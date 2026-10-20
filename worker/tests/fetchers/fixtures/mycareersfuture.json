@@ -1,0 +1,408 @@
+{
+ "results": [
+  {
+   "uuid": "89e66595b18011fbb000a84e30c7fcd6",
+   "sourceCode": "Employer Portal",
+   "title": "Python Engineer",
+   "description": "<h2>Job Description</h2><p>We are seeking an experienced <strong>Python Engineer</strong> to design, develop and support Python-based automation solutions for enterprise and banking-related workflows.</p><p>The successful candidate will be responsible for developing backend automation, APIs and system integrations supporting business processes such as <strong>Loans, KYC/AML, onboarding and compliance workflows</strong>. The role will also support custom integrations with <strong>Microsoft Copilot Studio</strong> and the broader <strong>Power Platform ecosystem</strong>.</p><h2>Key Responsibili",
+   "minimumYearsExperience": 7,
+   "shiftPattern": null,
+   "schemes": [],
+   "skills": [
+    {
+     "skill": "Git",
+     "uuid": "0bcc70105ad279503e31fe7b3f47b665",
+     "confidence": null,
+     "isKeySkill": false
+    },
+    {
+     "skill": "Workflow Automation",
+     "uuid": "16ec70acba751d849e6ef52830926045",
+     "confidence": null,
+     "isKeySkill": false
+    },
+    {
+     "skill": "Computer Engineering",
+     "uuid": "2a7bd24a3d93d25d37b22f89592fc31a",
+     "confidence": null,
+     "isKeySkill": false
+    },
+    {
+     "skill": "Scalable Applications",
+     "uuid": "356c1c33d9bbdb79d0a15aac6f505ff4",
+     "confidence": null,
+     "isKeySkill": false
+    },
+    {
+     "skill": "Integration Management",
+     "uuid": "3ae895bab60a0dd9e972f8fae06b813e",
+     "confidence": null,
+     "isKeySkill": false
+    },
+    {
+     "skill": "REST APIs development",
+     "uuid": "5b7c0545d35a2170de186ff77170ad27",
+     "confidence": null,
+     "isKeySkill": false
+    },
+    {
+     "skill": "Technological Proficiency",
+     "uuid": "75c17af36cfdaab1bdbd5c219e0a7776",
+     "confidence": null,
+     "isKeySkill": false
+    },
+    {
+     "skill": "Computer Science",
+     "uuid": "8329f5105520a1b72d062628c077ddfa",
+     "confidence": null,
+     "isKeySkill": false
+    },
+    {
+     "skill": "Sales Force Automation",
+     "uuid": "869f2a13164261f504e69de2da76d9c5",
+     "confidence": null,
+     "isKeySkill": false
+    },
+    {
+     "skill": "Relational Databases",
+     "uuid": "ad92865a62927e7d80f3dfc08c0fad63",
+     "confidence": null,
+     "isKeySkill": false
+    },
+    {
+     "skill": "Developing Frameworks",
+     "uuid": "bb063e1204256b572bd97c52644dc3b0",
+     "confidence": null,
+     "isKeySkill": false
+    },
+    {
+     "skill": "Performance Tuning",
+     "uuid": "bffe7898e0faada14e4fb09bd6717314",
+     "confidence": null,
+     "isKeySkill": false
+    },
+    {
+     "skill": "Microsoft Platform",
+     "uuid": "c4de925016756601aa56a8d3c3a8b5e0",
+     "confidence": null,
+     "isKeySkill": false
+    },
+    {
+     "skill": "GitHub Copilot",
+     "uuid": "c6d47bc80b8b6d4df5a243add8aa815f",
+     "confidence": null,
+     "isKeySkill": false
+    },
+    {
+     "skill": "Workflow System",
+     "uuid": "e18e1f2733a46ce32f3e9794a028bf72",
+     "confidence": null,
+     "isKeySkill": false
+    },
+    {
+     "skill": "Enterprise Database System Administration",
+     "uuid": "f09a4913cbd706fc872875c92c3d3d19",
+     "confidence": null,
+     "isKeySkill": false
+    }
+   ],
+   "flexibleWorkArrangements": [],
+   "otherRequirements": null,
+   "ssocCode": "25121",
+   "occupationId": "OCC002119",
+   "ssocVersion": "2020v3",
+   "workingHours": null,
+   "numberOfVacancies": 1,
+   "psdUrl": null,
+   "categories": [
+    {
+     "id": 21,
+     "category": "Information Technology"
+    }
+   ],
+   "employmentTypes": [
+    {
+     "id": 3,
+     "employmentType": "Contract"
+    }
+   ],
+   "positionLevels": [
+    {
+     "id": 8,
+     "position": "Senior Executive"
+    }
+   ],
+   "status": {
+    "id": 102,
+    "jobStatus": "Open"
+   },
+   "ssecEqa": "70",
+   "ssecFos": "0919",
+   "hiringCompany": null,
+   "address": {
+    "overseasCountry": null,
+    "foreignAddress1": null,
+    "foreignAddress2": null,
+    "block": "32",
+    "street": "PEKIN STREET",
+    "floor": null,
+    "unit": null,
+    "building": "",
+    "postalCode": "048762",
+    "isOverseas": false,
+    "districts": [
+     {
+      "id": 1,
+      "location": "D01 Marina, Raffles Place, People's Park, Cecil",
+      "region": "Central",
+      "sectors": [
+       "01",
+       "02",
+       "03",
+       "04",
+       "05",
+       "06"
+      ],
+      "regionId": "Central"
+     }
+    ],
+    "lat": 1.28358593763021,
+    "lng": 103.848349468678
+   },
+   "metadata": {
+    "jobPostId": "MCF-2026-1735933",
+    "deletedAt": null,
+    "createdBy": "0677a195-af53-448e-a473-b70ef5665850",
+    "createdAt": "2026-10-01T09:44:48.000Z",
+    "updatedAt": "2026-10-01T09:44:48.000Z",
+    "emailRecipient": "0677a195-af53-448e-a473-b70ef5665850",
+    "editCount": 0,
+    "repostCount": 0,
+    "totalNumberOfView": 149,
+    "newPostingDate": "2026-10-01",
+    "originalPostingDate": "2026-10-01",
+    "expiryDate": "2026-10-31",
+    "totalNumberJobApplication": 5,
+    "isJdEnhanced": false,
+    "isPostedOnBehalf": false,
+    "isHideSalary": false,
+    "isHideCompanyAddress": false,
+    "isHideHiringEmployerName": false,
+    "isHideEmployerName": false,
+    "jobDetailsUrl": "https://www.mycareersfuture.gov.sg/job/information-technology/python-engineer-tekishub-consulting-services-89e66595b18011fbb000a84e30c7fcd6",
+    "matchedSkillsScore": null
+   },
+   "salary": {
+    "maximum": 6500,
+    "minimum": 6000,
+    "type": {
+     "id": 4,
+     "salaryType": "Monthly"
+    }
+   },
+   "jobTitles": [],
+   "postedCompany": {
+    "name": "ACME PTE. LTD.",
+    "uen": "1"
+   }
+  },
+  {
+   "uuid": "8ecba28a0337755d7c9539e7c7780b91",
+   "sourceCode": "Employer Portal",
+   "title": "Full Stack Engineer (AI/Python/React)",
+   "description": "<p>12 Months Contract<br />Working Location: Central<br />Monday - Friday, 9am to 6pm<br /></p><p><strong>Overview:</strong><br />We are seeking a Full Stack Engineer with practical experience building and deploying AI-enabled applications on Microsoft Azure. You will develop UCore AI HR using Python and FastAPI for backend services and the API gateway, React and TypeScript for the frontend, and SQL database in Microsoft Fabric for operational data.</p><p>You will turn HR requirements into secure, tested features that work across the user interface, APIs and database. Working with the Technica",
+   "minimumYearsExperience": 4,
+   "shiftPattern": null,
+   "schemes": [],
+   "skills": [
+    {
+     "skill": "Hr Services",
+     "uuid": "08fdaec587704eb4bf7c141653ce0cf4",
+     "confidence": null,
+     "isKeySkill": true
+    },
+    {
+     "skill": "Onboarding",
+     "uuid": "10bf8b475a2a2eae831a99fa82bd172b",
+     "confidence": null,
+     "isKeySkill": false
+    },
+    {
+     "skill": "Validation",
+     "uuid": "13148717f8faa9037f37d28971dfc219",
+     "confidence": null,
+     "isKeySkill": false
+    },
+    {
+     "skill": "Safety Auditing",
+     "uuid": "1eb4589def9d88c7dd393b091e31fcf2",
+     "confidence": null,
+     "isKeySkill": false
+    },
+    {
+     "skill": "Computer Engineering",
+     "uuid": "2a7bd24a3d93d25d37b22f89592fc31a",
+     "confidence": null,
+     "isKeySkill": true
+    },
+    {
+     "skill": "HR Operations",
+     "uuid": "59189c14a20d2aa5f10ea6574b883674",
+     "confidence": null,
+     "isKeySkill": false
+    },
+    {
+     "skill": "Software Engineering",
+     "uuid": "607c057459161394d748df802b30f07b",
+     "confidence": null,
+     "isKeySkill": true
+    },
+    {
+     "skill": "Asynchronous Programming",
+     "uuid": "71bf2ff8cc3130ce553f600892cd3361",
+     "confidence": null,
+     "isKeySkill": false
+    },
+    {
+     "skill": "Computer Science",
+     "uuid": "8329f5105520a1b72d062628c077ddfa",
+     "confidence": null,
+     "isKeySkill": true
+    },
+    {
+     "skill": "Voice Solutions",
+     "uuid": "8a8954964b12fcac281ae2be2748dea4",
+     "confidence": null,
+     "isKeySkill": false
+    },
+    {
+     "skill": "API Gateway",
+     "uuid": "8c567ca49dc8d5e5c91bb07d11b36170",
+     "confidence": null,
+     "isKeySkill": true
+    },
+    {
+     "skill": "Windows Registry",
+     "uuid": "98cb3ffae8b3a932f4cfd497594f0f59",
+     "confidence": null,
+     "isKeySkill": false
+    },
+    {
+     "skill": "IP Routing",
+     "uuid": "9d317d69e60ede53971c912beeb5886a",
+     "confidence": null,
+     "isKeySkill": false
+    },
+    {
+     "skill": "WebSockets",
+     "uuid": "bf4e3c3f0fc3aee351d560e6e026f805",
+     "confidence": null,
+     "isKeySkill": false
+    },
+    {
+     "skill": "Progressive Web Apps (PWA)",
+     "uuid": "bf9d40eb3f1ad45776875b9b22e998db",
+     "confidence": null,
+     "isKeySkill": false
+    },
+    {
+     "skill": "Recruitment",
+     "uuid": "e1de43dd18d19451febfc1584ab33767",
+     "confidence": null,
+     "isKeySkill": false
+    }
+   ],
+   "flexibleWorkArrangements": [],
+   "otherRequirements": null,
+   "ssocCode": "25121",
+   "occupationId": "OCC013772",
+   "ssocVersion": "2020v3",
+   "workingHours": null,
+   "numberOfVacancies": 2,
+   "psdUrl": null,
+   "categories": [
+    {
+     "id": 21,
+     "category": "Information Technology"
+    }
+   ],
+   "employmentTypes": [
+    {
+     "id": 3,
+     "employmentType": "Contract"
+    }
+   ],
+   "positionLevels": [
+    {
+     "id": 7,
+     "position": "Professional"
+    }
+   ],
+   "status": {
+    "id": 102,
+    "jobStatus": "Open"
+   },
+   "ssecEqa": "70",
+   "ssecFos": "0913",
+   "hiringCompany": null,
+   "address": {
+    "overseasCountry": null,
+    "foreignAddress1": null,
+    "foreignAddress2": null,
+    "block": null,
+    "street": null,
+    "floor": null,
+    "unit": null,
+    "building": null,
+    "postalCode": null,
+    "isOverseas": false,
+    "districts": [
+     {
+      "id": 998,
+      "location": "Islandwide",
+      "region": "Islandwide",
+      "sectors": [],
+      "regionId": "Islandwide"
+     }
+    ]
+   },
+   "metadata": {
+    "jobPostId": "MCF-2026-1792982",
+    "deletedAt": null,
+    "createdBy": "f5f17aed-486c-43cd-a1bf-a23e70fa6217",
+    "createdAt": "2026-10-10T06:10:47.000Z",
+    "updatedAt": "2026-10-10T06:10:47.000Z",
+    "emailRecipient": "f5f17aed-486c-43cd-a1bf-a23e70fa6217",
+    "editCount": 0,
+    "repostCount": 0,
+    "totalNumberOfView": 88,
+    "newPostingDate": "2026-10-10",
+    "originalPostingDate": "2026-10-10",
+    "expiryDate": "2026-10-24",
+    "totalNumberJobApplication": 8,
+    "isJdEnhanced": false,
+    "isPostedOnBehalf": false,
+    "isHideSalary": false,
+    "isHideCompanyAddress": false,
+    "isHideHiringEmployerName": false,
+    "isHideEmployerName": false,
+    "jobDetailsUrl": "https://www.mycareersfuture.gov.sg/job/information-technology/full-stack-engineer-persol-singapore-8ecba28a0337755d7c9539e7c7780b91",
+    "matchedSkillsScore": null
+   },
+   "salary": {
+    "maximum": 12000,
+    "minimum": 8000,
+    "type": {
+     "id": 4,
+     "salaryType": "Monthly"
+    }
+   },
+   "jobTitles": [],
+   "postedCompany": {
+    "name": "ACME PTE. LTD.",
+    "uen": "1"
+   }
+  }
+ ],
+ "total": 2
+}

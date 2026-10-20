@@ -17,9 +17,9 @@ def load_fixture(name: str):
 
 @pytest.fixture(autouse=True)
 def _no_sleep(monkeypatch):
-    from orbithire_worker.fetchers import ats
+    from orbithire_worker.fetchers import http
 
     async def _instant(_s: float) -> None:
         return None
 
-    monkeypatch.setattr(ats, "_sleep", _instant)
+    monkeypatch.setattr(http, "_sleep", _instant)

@@ -27,40 +27,85 @@ _ATS_PATTERNS: list[tuple[AtsName, re.Pattern[str]]] = [
     ("greenhouse", re.compile(r"^(job-)?boards(\.eu)?\.greenhouse\.io$")),
     ("lever", re.compile(r"^(jobs|api)(\.eu)?\.lever\.co$")),
     ("ashby", re.compile(r"^(jobs|api)\.ashbyhq\.com$")),
+    # apply.workable.com/<slug>, apply.workable.com/api/v1/widget/accounts/<slug>, <slug>.workable.com
+    ("workable", re.compile(r"^(apply\.)?workable\.com$|^[a-z0-9-]+\.workable\.com$")),
+    # jobs|careers.smartrecruiters.com/<Company>, api.smartrecruiters.com/v1/companies/<Company>/postings
+    ("smartrecruiters", re.compile(r"^(jobs|careers|api)\.smartrecruiters\.com$")),
+    # <slug>.recruitee.com
+    ("recruitee", re.compile(r"^[a-z0-9-]+\.recruitee\.com$")),
+    # <slug>.jobs.personio.de / .com
+    ("personio", re.compile(r"^[a-z0-9-]+\.jobs\.personio\.(de|com)$")),
+    # <slug>.teamtailor.com, <slug>.na.teamtailor.com
+    ("teamtailor", re.compile(r"^[a-z0-9-]+\.(na\.)?teamtailor\.com$")),
 ]
+
+_SUBDOMAIN_RESERVED = {"www", "app", "api", "apply", "jobs", "careers", "help", "support", "na"}
+
+
+def _after(segments: list[str], key: str) -> str | None:
+    if key in segments and segments.index(key) + 1 < len(segments):
+        return segments[segments.index(key) + 1]
+    return None
+
+
+def _token_for(ats: str, host: str, segments: list[str], query: str) -> str | None:
+    sub = host.split(".", 1)[0]
+    if ats == "greenhouse":
+        if host.startswith("boards-api"):
+            return _after(segments, "boards")  # /v1/boards/<token>/jobs
+        if segments and segments[0] == "embed":  # /embed/job_board?for=<token>
+            q = dict(p.split("=", 1) for p in query.split("&") if "=" in p)
+            return q.get("for")
+        return segments[0] if segments else None
+    if ats == "lever":
+        if host.startswith("api."):
+            return _after(segments, "postings")  # /v0/postings/<token>
+        return segments[0] if segments else None
+    if ats == "ashby":
+        if host.startswith("api."):
+            return _after(segments, "job-board")  # /posting-api/job-board/<token>
+        return segments[0] if segments else None
+    if ats == "workable":
+        if host in ("apply.workable.com", "workable.com"):
+            if segments and segments[0] == "api":
+                return _after(segments, "accounts")
+            # apply.workable.com/j/<shortcode> is a single job, not a board
+            return segments[0] if segments and segments[0] not in ("j", "api") else None
+        return None if sub in _SUBDOMAIN_RESERVED else sub
+    if ats == "smartrecruiters":
+        if host.startswith("api."):
+            return _after(segments, "companies")
+        return segments[0] if segments else None
+    if ats in ("recruitee", "personio", "teamtailor"):
+        return None if sub in _SUBDOMAIN_RESERVED else sub
+    return None
 
 
 def detect_ats(url: str | None) -> tuple[AtsName | None, str | None, str]:
-    """Return (ats, board_token, region) inferred from a careers / API URL."""
+    """Return (ats, board_token, region) inferred from a careers / API URL.
+
+    region: Greenhouse/Lever "eu" hosts; Personio "eu" = .de, "us" = .com;
+    Teamtailor "us" = <slug>.na.teamtailor.com.
+    """
     if not url:
         return None, None, "us"
-    parsed = urlparse(url.strip())
+    raw = url.strip()
+    if "://" not in raw:
+        raw = "https://" + raw
+    parsed = urlparse(raw)
     host = (parsed.hostname or "").lower()
+    if host.startswith("www."):
+        host = host[4:]
     segments = [s for s in parsed.path.split("/") if s]
     region = "eu" if ".eu." in f".{host}" else "us"
     for ats, pattern in _ATS_PATTERNS:
         if not pattern.match(host):
             continue
-        token: str | None = None
-        if host.startswith("boards-api"):
-            # /v1/boards/<token>/jobs
-            if "boards" in segments and segments.index("boards") + 1 < len(segments):
-                token = segments[segments.index("boards") + 1]
-        elif host.startswith("api.") and ats == "lever":
-            # /v0/postings/<token>
-            if "postings" in segments and segments.index("postings") + 1 < len(segments):
-                token = segments[segments.index("postings") + 1]
-        elif host.startswith("api.") and ats == "ashby":
-            # /posting-api/job-board/<token>
-            if "job-board" in segments and segments.index("job-board") + 1 < len(segments):
-                token = segments[segments.index("job-board") + 1]
-        elif segments:
-            # greenhouse embed: boards.greenhouse.io/embed/job_board?for=<token>
-            if segments[0] == "embed":
-                q = dict(p.split("=", 1) for p in parsed.query.split("&") if "=" in p)
-                token = q.get("for")
-            else:
-                token = segments[0]
+        if ats == "personio":
+            region = "eu" if host.endswith(".de") else "us"
+        elif ats == "teamtailor":
+            region = "us" if ".na.teamtailor.com" in host else "eu"
+        token = _token_for(ats, host, segments, parsed.query)
         if token:
             return ats, token, region
     return None, None, region

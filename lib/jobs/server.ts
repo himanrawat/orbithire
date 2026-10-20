@@ -2,7 +2,18 @@
 import { NextResponse } from "next/server";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createServerSupabase } from "@/lib/supabaseServer";
-import { ATS_TYPES, JOB_SITES, type AtsType, type JobSite } from "./types";
+import {
+	API_SOURCE_IDS,
+	ATS_TYPES,
+	JOB_SITES,
+	MAX_JOB_SEARCHES,
+	countryByCode,
+	defaultSitesFor,
+	defaultSourcesFor,
+	type ApiSource,
+	type AtsType,
+	type JobSite,
+} from "./types";
 
 export type Authed =
 	| { supabase: SupabaseClient; user: User; error?: undefined }
@@ -23,6 +34,18 @@ export async function requireUser(): Promise<Authed> {
 
 export function badRequest(message: string) {
 	return NextResponse.json({ error: message }, { status: 400 });
+}
+
+export const SEARCH_LIMIT_MESSAGE = `You can have at most ${MAX_JOB_SEARCHES} job searches. Delete or edit an existing one.`;
+
+/** 409 for the "max job searches" limit (API pre-check or the DB trigger). */
+export function searchLimitReached() {
+	return NextResponse.json({ error: SEARCH_LIMIT_MESSAGE, code: "search_limit" }, { status: 409 });
+}
+
+/** True for the enforce_job_search_limit() trigger error (migration 025). */
+export function isSearchLimitError(err: { message?: string; code?: string } | null | undefined): boolean {
+	return !!err && (err.message || "").includes("job_search_limit");
 }
 
 export function serverError(message: string, err?: unknown) {
@@ -59,12 +82,32 @@ export function parseSearchInput(
 	if (!partial && !(data.keywords as string[] | undefined)?.length) {
 		return { data, error: "At least one search keyword is required" };
 	}
+	if (has("country") || !partial) {
+		const c = countryByCode(String(body.country ?? (partial ? "" : "IN")));
+		if (!c) return { data, error: "Unsupported country" };
+		data.country = c.code;
+	}
 	if (has("sites")) {
-		const sites = toStringList(body.sites).filter((s): s is JobSite =>
+		data.sites = toStringList(body.sites).filter((s): s is JobSite =>
 			(JOB_SITES as readonly string[]).includes(s)
 		);
-		if (!sites.length) return { data, error: "Pick at least one site" };
-		data.sites = sites;
+	} else if (!partial) {
+		data.sites = defaultSitesFor(data.country as string);
+	}
+	if (has("sources")) {
+		data.sources = toStringList(body.sources).filter((s): s is ApiSource =>
+			(API_SOURCE_IDS as readonly string[]).includes(s)
+		);
+	} else if (!partial) {
+		data.sources = defaultSourcesFor(data.country as string);
+	}
+	if (
+		("sites" in data || "sources" in data) &&
+		!partial &&
+		!(data.sites as string[]).length &&
+		!(data.sources as string[]).length
+	) {
+		return { data, error: "Pick at least one job board or source" };
 	}
 	if (has("remote_ok")) data.remote_ok = Boolean(body.remote_ok);
 	if (has("enabled")) data.enabled = Boolean(body.enabled);
@@ -95,7 +138,7 @@ export function parseWatchedInput(
 	if (has("ats") || !partial) {
 		const ats = String(body.ats ?? "");
 		if (!(ATS_TYPES as readonly string[]).includes(ats)) {
-			return { data, error: "ATS must be greenhouse, lever or ashby" };
+			return { data, error: `ATS must be one of: ${ATS_TYPES.join(", ")}` };
 		}
 		data.ats = ats as AtsType;
 	}

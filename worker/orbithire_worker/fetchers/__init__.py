@@ -1,23 +1,26 @@
 """Job fetchers (pure: no DB access).
 
-Public API used by the Wave 2 `fetch_jobs` handler:
+Public API used by the `fetch_jobs` handler:
 
-    await fetch_search(spec: SearchSpec) -> FetchResult      # JobSpy boards
-    await fetch_company(company: WatchedCompany) -> FetchResult  # ATS APIs
+    await fetch_search(spec: SearchSpec) -> FetchResult      # JobSpy boards + job APIs
+    await fetch_company(company: WatchedCompany) -> FetchResult  # ATS boards
 """
 
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
 import httpx
 
 from .ats import AtsError, fetch_ats, html_to_text
+from .ats_more import enrich_smartrecruiters
+from .countries import COUNTRIES, UnsupportedCountry, country_info, split_sites
 from .filters import title_matches
 from .jobspy_source import scrape_search
 from .models import (
+    ATS_NAMES,
     FetchResult,
     NormalizedPosting,
     SearchSpec,
@@ -25,9 +28,17 @@ from .models import (
     normalize_location,
 )
 from .portals import PortalsConfig, detect_ats, load_portals, parse_portals
+from .sources import API_SOURCE_ENV, API_SOURCES, fetch_api_sources
 
 __all__ = [
+    "API_SOURCES",
+    "API_SOURCE_ENV",
+    "ATS_NAMES",
     "AtsError",
+    "COUNTRIES",
+    "UnsupportedCountry",
+    "country_info",
+    "fetch_api_sources",
     "FetchResult",
     "NormalizedPosting",
     "PortalsConfig",
@@ -81,20 +92,45 @@ def _finish(
 
 
 async def fetch_search(
-    spec: SearchSpec, *, scrape: Callable[..., Any] | None = None, **kwargs: Any
+    spec: SearchSpec,
+    *,
+    scrape: Callable[..., Any] | None = None,
+    client: httpx.AsyncClient | None = None,
+    env: Mapping[str, str] | None = None,
+    **kwargs: Any,
 ) -> FetchResult:
-    """Run a JobSpy search (in a worker thread). Never raises for site failures;
-    see `FetchResult.errors` (keyed by site)."""
-    res = await asyncio.to_thread(scrape_search, spec, scrape=scrape, **kwargs)
-    postings, filtered, dupes = _finish(
-        res.postings, spec.title_include, spec.title_exclude, spec.remote_ok
-    )
+    """Run a search: JobSpy boards (sequential, in a worker thread) concurrently
+    with the API sources (bounded concurrency). Never raises for source failures;
+    see `FetchResult.errors` / `.skipped` (keyed by site / source id)."""
+    try:
+        country_info(spec.country)
+    except UnsupportedCountry as e:
+        return FetchResult(errors={"country": str(e)})
+    sites, skipped = split_sites(list(spec.sites), spec.country)
+
+    async def jobspy() -> FetchResult:
+        if not sites:
+            return FetchResult()
+        res = await asyncio.to_thread(
+            scrape_search, spec.model_copy(update={"sites": sites}), scrape=scrape, **kwargs
+        )
+        return FetchResult(postings=res.postings, errors=res.errors, counts=res.counts)
+
+    async def apis() -> FetchResult:
+        if not spec.sources:
+            return FetchResult()
+        return await fetch_api_sources(spec, client=client, env=env)
+
+    a, b = await asyncio.gather(jobspy(), apis())
+    raw = a.postings + b.postings
+    postings, filtered, dupes = _finish(raw, spec.title_include, spec.title_exclude, spec.remote_ok)
     return FetchResult(
         postings=postings,
-        errors=res.errors,
-        counts=res.counts,
+        errors={**a.errors, **b.errors},
+        counts={**a.counts, **b.counts},
         filtered_out=filtered,
         duplicates=dupes,
+        skipped={**skipped, **b.skipped},
     )
 
 
@@ -114,6 +150,15 @@ async def fetch_company(
     except httpx.HTTPError as e:
         return FetchResult(errors={source: f"{type(e).__name__}: {e}"}, counts={source: 0})
     postings, filtered, dupes = _finish(raw, include or [], exclude or [])
+    if company.ats == "smartrecruiters" and company.board_token and postings:
+        # list endpoint has no descriptions: fetch details for the kept ones (capped)
+        if client is None:
+            from .http import make_client
+
+            async with make_client() as own:
+                await enrich_smartrecruiters(own, company.board_token, postings)
+        else:
+            await enrich_smartrecruiters(client, company.board_token, postings)
     return FetchResult(
         postings=postings,
         counts={source: len(raw)},

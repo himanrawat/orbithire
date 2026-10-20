@@ -10,7 +10,11 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-AtsName = Literal["greenhouse", "lever", "ashby"]
+AtsName = Literal[
+    "greenhouse", "lever", "ashby",
+    "workable", "smartrecruiters", "recruitee", "personio", "teamtailor",
+]
+ATS_NAMES: tuple[str, ...] = AtsName.__args__  # type: ignore[attr-defined]
 
 # --------------------------------------------------------------------------- #
 # Normalisation helpers used by dedupe_key()
@@ -139,13 +143,25 @@ class SearchSpec(BaseModel):
     name: str | None = None
     keywords: list[str]
     locations: list[str] = Field(default_factory=lambda: ["India"])
+    # JobSpy boards (linkedin, indeed, naukri, glassdoor, google, ...)
     sites: list[str] = Field(default_factory=lambda: ["linkedin", "naukri", "indeed"])
+    # API sources (adzuna, jooble, reed, remotive, ...), see fetchers/sources
+    sources: list[str] = Field(default_factory=list)
+    # ISO 3166-1 alpha-2 of the market searched (job_searches.country)
+    country: str = "IN"
     remote_ok: bool = True
     hours_old: int = 24
     results_wanted: int = 20
-    country_indeed: str = "india"
+    # JobSpy country_indeed override; default derived from `country`
+    country_indeed: str | None = None
     title_include: list[str] = Field(default_factory=list)
     title_exclude: list[str] = Field(default_factory=list)
+
+    @property
+    def jobspy_country(self) -> str:
+        from .countries import jobspy_country
+
+        return self.country_indeed or jobspy_country(self.country)
 
 
 class WatchedCompany(BaseModel):
@@ -156,7 +172,8 @@ class WatchedCompany(BaseModel):
     board_token: str | None = None
     careers_url: str | None = None
     enabled: bool = True
-    # Greenhouse / Lever have separate EU hosts (job-boards.eu.greenhouse.io).
+    # Greenhouse / Lever have separate EU hosts (job-boards.eu.greenhouse.io);
+    # Personio: "eu" = try .jobs.personio.de first, "us" = .com first (falls back).
     region: Literal["us", "eu"] = "us"
 
 
@@ -166,3 +183,6 @@ class FetchResult(BaseModel):
     counts: dict[str, int] = Field(default_factory=dict)  # source -> raw rows fetched
     filtered_out: int = 0  # dropped by title / remote filters
     duplicates: int = 0  # dropped by in-batch dedupe
+    # source -> why it was not queried (not available for the country, remote-only
+    # board with remote excluded). Not a failure.
+    skipped: dict[str, str] = Field(default_factory=dict)
