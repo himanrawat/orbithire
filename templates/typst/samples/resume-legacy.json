@@ -1,0 +1,40 @@
+{
+  "personal": {
+    "name": "Priya Natarajan",
+    "headline": "Product Manager",
+    "email": "priya.n@example.com",
+    "phone": "+44 20 7946 0000",
+    "location": "London, UK",
+    "linkedin": "https://linkedin.com/in/priyan",
+    "portfolio": "priyan.example.com"
+  },
+  "summary": "Product manager with 5 years shipping B2B SaaS products from discovery to scale.",
+  "experience": [
+    {
+      "id": "1",
+      "company": "Ledgerly",
+      "title": "Senior Product Manager",
+      "location": "London",
+      "start_date": "2021-05-01",
+      "end_date": null,
+      "is_current": true,
+      "bullets": ["Grew self-serve revenue 3x by redesigning onboarding", "Ran 40+ experiments per quarter with a team of 8"]
+    }
+  ],
+  "education": [
+    {
+      "id": "e1",
+      "institution": "University of Edinburgh",
+      "degree": "MA (Hons)",
+      "field": "Economics",
+      "location": "Edinburgh",
+      "start_date": "2012-09-01",
+      "end_date": "2016-06-01",
+      "honors": ["First Class Honours"]
+    }
+  ],
+  "skills": [{ "category": "Product", "skills": ["Discovery", "Roadmapping", "SQL", "Experimentation"] }],
+  "certifications": [{ "name": "Certified Scrum Product Owner", "issuer": "Scrum Alliance", "date": "2020-02" }],
+  "languages": [{ "language": "English", "proficiency": "native" }, { "language": "Tamil", "proficiency": "fluent" }],
+  "custom_sections": [{ "title": "Speaking", "entries": [{ "title": "Mind the Product London 2023", "description": "Talk: pricing experiments that did not break trust." }] }]
+}

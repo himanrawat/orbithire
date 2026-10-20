@@ -1,0 +1,298 @@
+{
+  "basics": {
+    "name": "Alexandra Okonkwo-Fitzgerald",
+    "label": "Principal Engineer, Platform & Infrastructure",
+    "email": "alexandra.okonkwo@example.com",
+    "phone": "+1 (555) 123-4567",
+    "url": "https://jordanrivera.dev",
+    "summary": "Principal engineer with 14 years of experience designing distributed systems, developer platforms and data infrastructure at scale. Track record of turning ambiguous, cross-team problems into durable platforms: built the internal deployment platform used by 900 engineers, led a multi-region active-active migration with zero customer-visible downtime, and grew two platform teams from scratch. Equally at home in a design review, an incident bridge or a hiring loop.",
+    "location": {
+      "city": "Austin",
+      "region": "TX",
+      "countryCode": "US"
+    },
+    "profiles": [
+      {
+        "network": "LinkedIn",
+        "username": "jordanrivera",
+        "url": "https://linkedin.com/in/jordanrivera"
+      },
+      {
+        "network": "GitHub",
+        "username": "jrivera",
+        "url": "https://github.com/jrivera"
+      }
+    ]
+  },
+  "work": [
+    {
+      "name": "Helios Payments",
+      "position": "Principal Engineer",
+      "location": "San Francisco, CA",
+      "startDate": "2020-01",
+      "summary": "Technical lead for the core payments platform (ledger, risk, payouts) serving 3M merchants.",
+      "highlights": [
+        "Defined the multi-year platform strategy adopted by the CTO staff; aligned 11 teams on a shared service mesh and golden paths",
+        "Led a multi-region active-active migration of the ledger (40 TB, 25k writes/s) with zero customer-visible downtime",
+        "Built the internal deployment platform used by 900 engineers, cutting median lead time for changes from 3 days to 40 minutes",
+        "Reduced cloud spend by 27% ($6.1M/year) through right-sizing, spot capacity and storage tiering",
+        "Created the incident-review programme and on-call standards; MTTR dropped from 94 to 31 minutes",
+        "Hired and grew two platform teams (14 engineers) and mentored 6 engineers to senior and staff levels"
+      ]
+    },
+    {
+      "name": "Helios Payments",
+      "position": "Staff Engineer",
+      "location": "San Francisco, CA",
+      "startDate": "2017-04",
+      "summary": "",
+      "highlights": [
+        "Defined the multi-year platform strategy adopted by the CTO staff; aligned 11 teams on a shared service mesh and golden paths",
+        "Led a multi-region active-active migration of the ledger (40 TB, 25k writes/s) with zero customer-visible downtime",
+        "Built the internal deployment platform used by 900 engineers, cutting median lead time for changes from 3 days to 40 minutes",
+        "Reduced cloud spend by 27% ($6.1M/year) through right-sizing, spot capacity and storage tiering",
+        "Created the incident-review programme and on-call standards; MTTR dropped from 94 to 31 minutes"
+      ],
+      "endDate": "2019-12"
+    },
+    {
+      "name": "Quanta Cloud",
+      "position": "Senior Software Engineer",
+      "location": "Seattle, WA",
+      "startDate": "2014-02",
+      "summary": "",
+      "highlights": [
+        "Defined the multi-year platform strategy adopted by the CTO staff; aligned 11 teams on a shared service mesh and golden paths",
+        "Led a multi-region active-active migration of the ledger (40 TB, 25k writes/s) with zero customer-visible downtime",
+        "Built the internal deployment platform used by 900 engineers, cutting median lead time for changes from 3 days to 40 minutes",
+        "Reduced cloud spend by 27% ($6.1M/year) through right-sizing, spot capacity and storage tiering"
+      ],
+      "endDate": "2017-03"
+    },
+    {
+      "name": "Quanta Cloud",
+      "position": "Software Engineer",
+      "location": "Seattle, WA",
+      "startDate": "2012-07",
+      "summary": "",
+      "highlights": [
+        "Defined the multi-year platform strategy adopted by the CTO staff; aligned 11 teams on a shared service mesh and golden paths",
+        "Led a multi-region active-active migration of the ledger (40 TB, 25k writes/s) with zero customer-visible downtime",
+        "Built the internal deployment platform used by 900 engineers, cutting median lead time for changes from 3 days to 40 minutes"
+      ],
+      "endDate": "2014-01"
+    },
+    {
+      "name": "Redwood Labs",
+      "position": "Software Engineering Intern",
+      "location": "Palo Alto, CA",
+      "startDate": "2011-06",
+      "summary": "",
+      "highlights": [
+        "Defined the multi-year platform strategy adopted by the CTO staff; aligned 11 teams on a shared service mesh and golden paths",
+        "Led a multi-region active-active migration of the ledger (40 TB, 25k writes/s) with zero customer-visible downtime"
+      ],
+      "endDate": "2011-09"
+    }
+  ],
+  "education": [
+    {
+      "institution": "Stanford University",
+      "area": "Computer Science",
+      "studyType": "Master of Science",
+      "location": "Stanford, CA",
+      "startDate": "2010-09",
+      "endDate": "2012-06",
+      "honors": [
+        "Distributed Systems research assistant"
+      ]
+    },
+    {
+      "institution": "University of Colorado Boulder",
+      "area": "Computer Science",
+      "studyType": "Bachelor of Science",
+      "location": "Boulder, CO",
+      "startDate": "2012-08",
+      "endDate": "2016-05",
+      "score": "3.8",
+      "courses": [
+        "Distributed Systems",
+        "Algorithms",
+        "Databases",
+        "Human-Computer Interaction"
+      ]
+    }
+  ],
+  "skills": [
+    {
+      "name": "Languages",
+      "keywords": [
+        "TypeScript",
+        "Go",
+        "Python",
+        "SQL",
+        "Bash"
+      ]
+    },
+    {
+      "name": "Frameworks",
+      "keywords": [
+        "React",
+        "Next.js",
+        "Node.js",
+        "gRPC",
+        "GraphQL"
+      ]
+    },
+    {
+      "name": "Infrastructure",
+      "keywords": [
+        "AWS",
+        "Kubernetes",
+        "Terraform",
+        "Docker",
+        "PostgreSQL",
+        "Kafka"
+      ]
+    },
+    {
+      "name": "Practices",
+      "keywords": [
+        "System design",
+        "Observability",
+        "TDD",
+        "Mentoring"
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "name": "tracekit",
+      "url": "https://github.com/jrivera/tracekit",
+      "description": "Open-source OpenTelemetry toolkit for Go services.",
+      "highlights": [
+        "1.8k GitHub stars; used in production by 40+ companies"
+      ],
+      "keywords": [
+        "Go",
+        "OpenTelemetry"
+      ]
+    },
+    {
+      "name": "Open-source contributions",
+      "description": "Maintainer of a popular Kubernetes operator; contributor to etcd and Envoy.",
+      "keywords": [
+        "Go",
+        "Kubernetes",
+        "Envoy"
+      ],
+      "highlights": [
+        "Authored the leader-election rewrite used in 300+ clusters",
+        "Regular reviewer for the SIG-Scheduling sub-project"
+      ]
+    },
+    {
+      "name": "Conference talks",
+      "description": "Speaker at KubeCon (2022, 2024) and QCon SF (2023) on platform engineering.",
+      "highlights": []
+    }
+  ],
+  "certificates": [
+    {
+      "name": "AWS Certified Solutions Architect – Associate",
+      "issuer": "Amazon Web Services",
+      "date": "2023-06"
+    },
+    {
+      "name": "Certified Kubernetes Administrator (CKA)",
+      "issuer": "CNCF",
+      "date": "2022-03"
+    },
+    {
+      "name": "Google Professional Cloud Architect",
+      "issuer": "Google Cloud",
+      "date": "2021-11"
+    }
+  ],
+  "languages": [
+    {
+      "language": "English",
+      "fluency": "Native"
+    },
+    {
+      "language": "Spanish",
+      "fluency": "Professional"
+    },
+    {
+      "language": "French",
+      "fluency": "Intermediate"
+    }
+  ],
+  "meta": {
+    "sectionOrder": [],
+    "hiddenSections": []
+  },
+  "awards": [
+    {
+      "title": "Engineering Excellence Award",
+      "date": "2022",
+      "awarder": "Helios Payments",
+      "summary": "For leading the multi-region migration."
+    },
+    {
+      "title": "Best Paper",
+      "date": "2012",
+      "awarder": "SoCC Student Workshop"
+    }
+  ],
+  "publications": [
+    {
+      "name": "Consistent Hashing Under Churn",
+      "publisher": "ACM SoCC",
+      "releaseDate": "2012-10",
+      "url": "https://example.org/paper"
+    }
+  ],
+  "volunteer": [
+    {
+      "organization": "Code for Good",
+      "position": "Mentor",
+      "startDate": "2018-01",
+      "summary": "Weekly mentoring for early-career engineers from under-represented backgrounds."
+    }
+  ],
+  "interests": [
+    {
+      "name": "Outdoors",
+      "keywords": [
+        "Trail running",
+        "Climbing"
+      ]
+    },
+    {
+      "name": "Making",
+      "keywords": [
+        "Woodworking",
+        "Electronics"
+      ]
+    }
+  ],
+  "customSections": [
+    {
+      "title": "Leadership",
+      "entries": [
+        {
+          "title": "Architecture Council chair",
+          "date": "2021-01",
+          "description": "Chaired the cross-org architecture council (12 members) reviewing all tier-0 designs."
+        }
+      ]
+    }
+  ],
+  "references": [
+    {
+      "name": "Available on request",
+      "reference": ""
+    }
+  ]
+}

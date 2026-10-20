@@ -1,0 +1,46 @@
+{
+  "id": "compact",
+  "name": "Compact",
+  "kind": "resume",
+  "description": "Dense one-page layout with tight spacing and inline entry headers, built to fit a full career on a single page.",
+  "regions": [
+    "US",
+    "CA",
+    "UK",
+    "IN",
+    "AU",
+    "global"
+  ],
+  "sections": [
+    "summary",
+    "experience",
+    "education",
+    "skills",
+    "projects",
+    "certificates",
+    "awards",
+    "publications",
+    "volunteer",
+    "languages",
+    "interests",
+    "references",
+    "custom"
+  ],
+  "photo": false,
+  "fonts": [
+    "Lato"
+  ],
+  "page": {
+    "default": "a4",
+    "options": [
+      "a4",
+      "letter"
+    ]
+  },
+  "accent": {
+    "default": "#0f6b5c",
+    "customizable": true
+  },
+  "onePage": true,
+  "pairsWith": "cover-modern"
+}

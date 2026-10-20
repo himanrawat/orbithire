@@ -1,0 +1,83 @@
+{
+  "basics": {
+    "name": "Lena Müller",
+    "label": "Data Engineer",
+    "email": "lena.mueller@example.de",
+    "phone": "+49 151 2345 6789",
+    "url": "https://lenamueller.example.de",
+    "summary": "Data engineer with 6 years of experience building batch and streaming pipelines for e-commerce and mobility companies. Strong in Python, Spark and dbt; passionate about data quality and well-documented, testable pipelines.",
+    "location": { "address": "Lindenstraße 12", "postalCode": "10969", "city": "Berlin", "countryCode": "DE", "country": "Germany" },
+    "birthDate": "1994-04-17",
+    "nationality": "German",
+    "personalDetails": [{ "label": "Work permit", "value": "EU citizen" }],
+    "profiles": [
+      { "network": "LinkedIn", "username": "lenamueller", "url": "https://www.linkedin.com/in/lenamueller" },
+      { "network": "GitHub", "username": "lmueller", "url": "https://github.com/lmueller" }
+    ]
+  },
+  "work": [
+    {
+      "name": "Fahrwerk Mobility GmbH",
+      "position": "Senior Data Engineer",
+      "location": "Berlin",
+      "startDate": "2022-02",
+      "highlights": [
+        "Designed a Kafka + Flink streaming platform ingesting 3 billion vehicle events per month",
+        "Introduced dbt and data contracts, reducing broken dashboards by 80%",
+        "Led a team of three engineers and coordinated with five product squads"
+      ]
+    },
+    {
+      "name": "Marktplatz SE",
+      "position": "Data Engineer",
+      "location": "Hamburg",
+      "startDate": "2019-09",
+      "endDate": "2022-01",
+      "highlights": [
+        "Migrated 200+ Airflow DAGs from on-premise Hadoop to AWS (EMR, S3, Redshift)",
+        "Built a customer 360 data mart used by marketing, finance and customer service"
+      ]
+    },
+    {
+      "name": "Fraunhofer Institute",
+      "position": "Student Research Assistant",
+      "location": "Munich",
+      "startDate": "2017-10",
+      "endDate": "2019-08",
+      "highlights": ["Developed Python tooling for sensor data analysis in an industrial IoT project"]
+    }
+  ],
+  "education": [
+    {
+      "institution": "Technische Universität München",
+      "studyType": "M.Sc.",
+      "area": "Informatics",
+      "location": "Munich",
+      "startDate": "2017-10",
+      "endDate": "2019-08",
+      "score": "1.3"
+    },
+    {
+      "institution": "Universität Stuttgart",
+      "studyType": "B.Sc.",
+      "area": "Computer Science",
+      "location": "Stuttgart",
+      "startDate": "2014-10",
+      "endDate": "2017-09"
+    }
+  ],
+  "skills": [
+    { "name": "Data", "keywords": ["Python", "SQL", "Spark", "Flink", "Kafka", "dbt", "Airflow"] },
+    { "name": "Cloud", "keywords": ["AWS", "GCP", "Terraform", "Kubernetes"] }
+  ],
+  "certificates": [
+    { "name": "Databricks Certified Data Engineer Professional", "issuer": "Databricks", "date": "2023-09" }
+  ],
+  "languages": [
+    { "language": "German", "fluency": "Native" },
+    { "language": "English", "fluency": "C1" },
+    { "language": "French", "fluency": "B1" }
+  ],
+  "interests": [{ "name": "Sports", "keywords": ["Cycling", "Bouldering"] }, { "name": "Community", "keywords": ["Open data initiatives", "PyData Berlin volunteer"] }],
+  "meta": { "sectionOrder": ["summary", "experience", "education", "skills", "projects"], "hiddenSections": [] }
+}

@@ -1,0 +1,27 @@
+{
+  "basics": {
+    "name": "Jordan Rivera",
+    "label": "Senior Software Engineer",
+    "email": "jordan.rivera@example.com",
+    "phone": "+1 (555) 123-4567",
+    "url": "https://jordanrivera.dev",
+    "location": "Austin, TX"
+  },
+  "recipient": {
+    "name": "Morgan Patel",
+    "title": "Engineering Manager, Platform",
+    "company": "Acme Robotics",
+    "address": ["500 Congress Ave, Suite 300", "Austin, TX 78701"]
+  },
+  "date": "2026-10-20",
+  "subject": "Application for Senior Platform Engineer",
+  "salutation": "Dear Morgan Patel,",
+  "paragraphs": [
+    "I am excited to apply for the Senior Platform Engineer role at Acme Robotics. Over the past seven years I have built and operated high-traffic systems in Go and TypeScript, most recently leading the migration of a 400k-line monolith to fourteen services on Kubernetes at Northwind Analytics, which cut p95 latency by 48% and saved $310k a year in infrastructure costs.",
+    "What draws me to Acme is the challenge of running reliable software next to real hardware. Your posting emphasises observability and safe, frequent deploys; at Brightline Health I took our release cadence from weekly to more than twenty deploys a day by rebuilding CI/CD on GitHub Actions and Terraform, and I maintain tracekit, an open-source OpenTelemetry toolkit used by more than forty companies.",
+    "I also care about the people side of platform work. I have mentored five engineers, introduced design reviews that halved production incidents, and I enjoy partnering with product teams so the platform solves their real problems rather than imagined ones.",
+    "I would welcome the chance to discuss how I can help Acme's platform team scale with the fleet. Thank you for your time and consideration."
+  ],
+  "closing": "Sincerely,",
+  "signature": "Jordan Rivera"
+}

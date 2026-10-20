@@ -1,0 +1,91 @@
+{
+  "basics": {
+    "name": "Jordan Rivera",
+    "label": "Senior Software Engineer",
+    "email": "jordan.rivera@example.com",
+    "phone": "+1 (555) 123-4567",
+    "url": "https://jordanrivera.dev",
+    "summary": "Senior software engineer with 7+ years building reliable, high-traffic web platforms. Specialised in TypeScript, Go and cloud infrastructure; led teams of up to six engineers and shipped products used by 2M+ people. Comfortable owning systems end-to-end, from data model to on-call.",
+    "location": { "city": "Austin", "region": "TX", "countryCode": "US" },
+    "profiles": [
+      { "network": "LinkedIn", "username": "jordanrivera", "url": "https://linkedin.com/in/jordanrivera" },
+      { "network": "GitHub", "username": "jrivera", "url": "https://github.com/jrivera" }
+    ]
+  },
+  "work": [
+    {
+      "name": "Northwind Analytics",
+      "position": "Senior Software Engineer",
+      "location": "Austin, TX",
+      "url": "https://northwind.example.com",
+      "startDate": "2021-03",
+      "highlights": [
+        "Led the migration of a 400k-line monolith to 14 Go services on Kubernetes, cutting p95 latency by 48% and infra cost by $310k/year",
+        "Designed an event-sourced billing pipeline processing 12M events/day with exactly-once guarantees",
+        "Mentored 5 engineers; introduced design reviews that halved production incidents quarter over quarter",
+        "Partnered with product and data science to launch usage-based pricing, adding $4.2M ARR in the first year"
+      ]
+    },
+    {
+      "name": "Brightline Health",
+      "position": "Software Engineer II",
+      "location": "Remote",
+      "startDate": "2018-06",
+      "endDate": "2021-02",
+      "highlights": [
+        "Built a HIPAA-compliant patient messaging platform in TypeScript and PostgreSQL serving 300k monthly users",
+        "Reduced page load time by 62% through code splitting, image CDN and query optimisation",
+        "Owned the CI/CD pipeline (GitHub Actions, Terraform), taking deploys from weekly to 20+ per day"
+      ]
+    },
+    {
+      "name": "Pixel & Pine Studio",
+      "position": "Frontend Developer",
+      "location": "Denver, CO",
+      "startDate": "2016-08",
+      "endDate": "2018-05",
+      "highlights": [
+        "Delivered 25+ responsive client sites and a shared component library adopted across all projects",
+        "Implemented accessibility fixes reaching WCAG 2.1 AA on every new build"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "institution": "University of Colorado Boulder",
+      "area": "Computer Science",
+      "studyType": "Bachelor of Science",
+      "location": "Boulder, CO",
+      "startDate": "2012-08",
+      "endDate": "2016-05",
+      "score": "3.8",
+      "courses": ["Distributed Systems", "Algorithms", "Databases", "Human-Computer Interaction"]
+    }
+  ],
+  "skills": [
+    { "name": "Languages", "keywords": ["TypeScript", "Go", "Python", "SQL", "Bash"] },
+    { "name": "Frameworks", "keywords": ["React", "Next.js", "Node.js", "gRPC", "GraphQL"] },
+    { "name": "Infrastructure", "keywords": ["AWS", "Kubernetes", "Terraform", "Docker", "PostgreSQL", "Kafka"] },
+    { "name": "Practices", "keywords": ["System design", "Observability", "TDD", "Mentoring"] }
+  ],
+  "projects": [
+    {
+      "name": "tracekit",
+      "url": "https://github.com/jrivera/tracekit",
+      "description": "Open-source OpenTelemetry toolkit for Go services.",
+      "highlights": ["1.8k GitHub stars; used in production by 40+ companies"],
+      "keywords": ["Go", "OpenTelemetry"]
+    }
+  ],
+  "certificates": [
+    { "name": "AWS Certified Solutions Architect – Associate", "issuer": "Amazon Web Services", "date": "2023-06" }
+  ],
+  "languages": [
+    { "language": "English", "fluency": "Native" },
+    { "language": "Spanish", "fluency": "Professional" }
+  ],
+  "meta": {
+    "sectionOrder": ["summary", "skills", "experience", "education", "projects"],
+    "hiddenSections": []
+  }
+}
