@@ -45,6 +45,7 @@ import {
 	Zap,
 	ChevronLeft,
 	Briefcase,
+	Plug,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProviderSelector } from "@/components/settings/ProviderSelector";
@@ -52,10 +53,11 @@ import { ModelDropdown } from "@/components/settings/ModelDropdown";
 import { DeprecationWarning } from "@/components/settings/DeprecationWarning";
 import { JobSearchSettings } from "@/components/jobs/JobSearchSettings";
 import { RankingSettings } from "@/components/settings/RankingSettings";
+import { AiConnections } from "@/components/settings/AiConnections";
 import { getProviderModels, type ModelInfo } from "@/lib/ai/providers/registry";
 
 type Provider = "openai" | "groq" | "anthropic" | "gemini" | "custom";
-type Tab = "ai-provider" | "job-search" | "account" | "billing" | "integrations";
+type Tab = "ai-provider" | "ai-connections" | "job-search" | "account" | "billing" | "integrations";
 
 const tabs: {
 	id: Tab;
@@ -67,6 +69,11 @@ const tabs: {
 		id: "ai-provider",
 		label: "AI Provider",
 		icon: <Cpu className="h-4 w-4" />,
+	},
+	{
+		id: "ai-connections",
+		label: "AI connections",
+		icon: <Plug className="h-4 w-4" />,
 	},
 	{
 		id: "job-search",
@@ -373,6 +380,8 @@ export default function SettingsPage() {
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ duration: 0.2 }}
 						>
+							{activeTab === "ai-connections" && <AiConnections />}
+
 							{activeTab === "job-search" && (
 								<div className="grid gap-6">
 									<JobSearchSettings />
