@@ -44,15 +44,17 @@ import {
 	Receipt,
 	Zap,
 	ChevronLeft,
+	Briefcase,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProviderSelector } from "@/components/settings/ProviderSelector";
 import { ModelDropdown } from "@/components/settings/ModelDropdown";
 import { DeprecationWarning } from "@/components/settings/DeprecationWarning";
+import { JobSearchSettings } from "@/components/jobs/JobSearchSettings";
 import { getProviderModels, type ModelInfo } from "@/lib/ai/providers/registry";
 
 type Provider = "openai" | "groq" | "anthropic" | "gemini" | "custom";
-type Tab = "ai-provider" | "account" | "billing" | "integrations";
+type Tab = "ai-provider" | "job-search" | "account" | "billing" | "integrations";
 
 const tabs: {
 	id: Tab;
@@ -65,6 +67,11 @@ const tabs: {
 		label: "AI Provider",
 		icon: <Cpu className="h-4 w-4" />,
 	},
+	{
+		id: "job-search",
+		label: "Job search",
+		icon: <Briefcase className="h-4 w-4" />,
+	},
 	{ id: "account", label: "Account", icon: <User className="h-4 w-4" /> },
 	{ id: "billing", label: "Billing", icon: <CreditCard className="h-4 w-4" /> },
 	{
@@ -76,6 +83,12 @@ const tabs: {
 
 export default function SettingsPage() {
 	const [activeTab, setActiveTab] = useState<Tab>("ai-provider");
+
+	// Deep link: /settings?tab=job-search
+	useEffect(() => {
+		const tab = new URLSearchParams(window.location.search).get("tab");
+		if (tab && tabs.some((t) => t.id === tab)) setActiveTab(tab as Tab);
+	}, []);
 
 	// AI Provider state
 	const [provider, setProvider] = useState<Provider>("groq");
@@ -359,6 +372,8 @@ export default function SettingsPage() {
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ duration: 0.2 }}
 						>
+							{activeTab === "job-search" && <JobSearchSettings />}
+
 							{/* AI Provider Tab */}
 							{activeTab === "ai-provider" && (
 								<div className="grid gap-6">

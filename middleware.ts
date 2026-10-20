@@ -8,6 +8,7 @@ const PROTECTED_PATHS = [
 	"/generate",
 	"/upload",
 	"/companies",
+	"/jobs",
 	"/resumes",
 	"/settings",
 ];

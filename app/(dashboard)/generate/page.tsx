@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { DragEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { formatSalary } from "@/lib/jobs/types";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import {
@@ -314,6 +315,33 @@ export default function GeneratePage() {
 		notes: "",
 		followUpDate: "",
 	});
+
+	// Job Inbox -> "Generate documents" (/generate?job=<job_matches.id>): prefill
+	// the job details; after saving, the new application is linked to the match.
+	const [jobMatchId, setJobMatchId] = useState<string | null>(null);
+	useEffect(() => {
+		const id = new URLSearchParams(window.location.search).get("job");
+		if (!id) return;
+		fetch(`/api/jobs/${id}`)
+			.then((res) => (res.ok ? res.json() : null))
+			.then((data) => {
+				const job = data?.job;
+				if (!job) return;
+				setJobMatchId(job.id);
+				setForm((f) => ({
+					...f,
+					companyName: job.company || f.companyName,
+					jobTitle: job.title || f.jobTitle,
+					jobDescription: job.description || f.jobDescription,
+				}));
+				setTrackForm((t) => ({
+					...t,
+					jobUrl: job.url || t.jobUrl,
+					salaryRange: formatSalary(job) || t.salaryRange,
+				}));
+			})
+			.catch(() => {});
+	}, []);
 
 	// Editable content state - Resume
 	const [editedLabel, setEditedLabel] = useState("");
@@ -767,6 +795,14 @@ export default function GeneratePage() {
 
 			if (!response.ok) {
 				throw new Error(data.error || "Failed to save application");
+			}
+
+			if (jobMatchId && data.company?.id) {
+				await fetch(`/api/jobs/${jobMatchId}`, {
+					method: "PATCH",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ company_id: data.company.id }),
+				}).catch(() => {});
 			}
 
 			setShowTrackModal(false);

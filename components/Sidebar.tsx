@@ -15,6 +15,7 @@ import {
 	ChevronRight,
 	Menu,
 	LogOut,
+	Briefcase,
 } from "lucide-react";
 
 type SidebarContextType = {
@@ -57,6 +58,7 @@ type NavItem = {
 const mainNavItems: NavItem[] = [
 	{ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
 	{ label: "Generate Resume", href: "/generate", icon: Sparkles },
+	{ label: "Job Inbox", href: "/jobs", icon: Briefcase },
 	{ label: "Companies", href: "/companies", icon: Building2 },
 	{ label: "My Resumes", href: "/resumes", icon: FileText },
 ];
