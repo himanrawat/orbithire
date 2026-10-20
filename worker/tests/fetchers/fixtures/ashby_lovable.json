@@ -1,0 +1,140 @@
+{
+ "apiVersion": "1",
+ "jobs": [
+  {
+   "id": "cfef6fe1-e0c9-4139-8618-b51bfb1dc683",
+   "title": "Data Platform/Infrastructure Engineer",
+   "department": "EPD",
+   "team": "Data & Insights",
+   "employmentType": "FullTime",
+   "location": "Stockholm",
+   "shouldDisplayCompensationOnJobPostings": false,
+   "secondaryLocations": [],
+   "publishedAt": "2025-08-22T08:20:06.282+00:00",
+   "isListed": true,
+   "isRemote": false,
+   "workplaceType": "OnSite",
+   "address": {
+    "postalAddress": {
+     "addressRegion": "Stockholm County",
+     "addressCountry": "Sweden",
+     "addressLocality": "Stockholm"
+    }
+   },
+   "jobUrl": "https://jobs.ashbyhq.com/lovable/cfef6fe1-e0c9-4139-8618-b51bfb1dc683",
+   "applyUrl": "https://jobs.ashbyhq.com/lovable/cfef6fe1-e0c9-4139-8618-b51bfb1dc683/application",
+   "descriptionHtml": "<p style=\"min-height:1.5em\"><strong>TL;DR</strong> - We are looking for data engineers to design, build, and maintain the end-to-end declarative data platform that powers ingestion, transformation, and consumption across Lovable. You are obsessed about empowering teams to ensure data systems are scalable, reliable, safe and easy to use.</p><p style=\"min-height:1.5em\"></p><h2><strong>Why Lovable?</strong></h2><p style=\"min-height:1.5em\">Lovable is the software creation platform that gives people the power to act on the problems closest to them. For decades, turning an idea into software required so much capital, technical fluency, and time that many ideas never came to life. Lovable is the counterargument: a platform for all people with ideas, ambition, and problems worth solving. From solopreneurs to small business owners to teams at companies like Adidas and Zendesk, people have built over 60 million projects on Lovable since its launch in November 2024. And we’re just getting started.</p><p style=\"min-height:1.5em\">We’re building a generational company from Stockholm, with growing teams in London, Boston, New York, and San Francisco. Our team is small, talent-dense, and moving quickly, with a culture rooted in extreme ownership, high velocity, and low-ego collaboration. We look for people who care deeply, ship fast, and are eager to make a dent in the world.</p><p style=\"min-height:1.5em\">Lovable is one of TIME’s 100 Most Influential Companies and has been recognized on the",
+   "descriptionPlain": "TL;DR - We are looking for data engineers to design, build, and maintain the end-to-end declarative data platform that powers ingestion, transformation, and consumption across Lovable. You are obsessed about empowering teams to ensure data systems are scalable, reliable, safe and easy to use.\n\n\n\n\nWHY LOVABLE?\n\nLovable is the software creation platform that gives people the power to act on the problems closest to them. For decades, turning an idea into software required so much capital, technical fluency, and time that many ideas never came to life. Lovable is the counterargument: a platform for all people with ideas, ambition, and problems worth solving. From solopreneurs to small business owners to teams at companies like Adidas and Zendesk, people have built over 60 million projects on Lovable since its launch in November 2024. And we’re just getting started.\n\nWe’re building a generational company from Stockholm, with growing teams in London, Boston, New York, and San Francisco. Our team is small, talent-dense, and moving quickly, with a culture rooted in extreme ownership, high velocity, and low-ego collaboration. We look for people who care deeply, ship fast, and are eager to make a dent in the world.\n\nLovable is one of TIME’s 100 Most Influential Companies and has been recognized on the Forbes AI 50 and CNBC Disruptor 50, reflecting our momentum as one of Europe’s fastest-growing AI companies and one of the most ambitious places to build in this next era of software.\n\n\n\n",
+   "compensation": {
+    "compensationTierSummary": null,
+    "scrapeableCompensationSalarySummary": null,
+    "compensationTiers": [],
+    "summaryComponents": []
+   }
+  },
+  {
+   "id": "ac61dda2-bff0-4f22-adca-a48b0b2f560c",
+   "title": "Solutions Architect, San Francisco",
+   "department": "GTM",
+   "team": "Revenue",
+   "employmentType": "FullTime",
+   "location": "San Francisco ",
+   "shouldDisplayCompensationOnJobPostings": true,
+   "secondaryLocations": [],
+   "publishedAt": "2026-10-13T13:45:35.994+00:00",
+   "isListed": true,
+   "isRemote": false,
+   "workplaceType": "OnSite",
+   "address": {
+    "postalAddress": {
+     "addressRegion": "California",
+     "addressCountry": "United States",
+     "addressLocality": "San Francisco "
+    }
+   },
+   "jobUrl": "https://jobs.ashbyhq.com/lovable/ac61dda2-bff0-4f22-adca-a48b0b2f560c",
+   "applyUrl": "https://jobs.ashbyhq.com/lovable/ac61dda2-bff0-4f22-adca-a48b0b2f560c/application",
+   "descriptionHtml": "<p style=\"min-height:1.5em\"><strong>TL;DR - </strong>We’re looking for a Solutions Architect to bridge product depth with business outcomes at Lovable. You’ll help customers understand how Lovable fits into their architecture, design solutions that win enterprise trust, and partner with Sales, Product, and Engineering to drive adoption of AI-native software creation.</p><p style=\"min-height:1.5em\"></p><p style=\"min-height:1.5em\"><strong>Please note: </strong>this role is located in San Francisco. It is not eligible for remote work. At this time we are unable to support visa sponsorship or transfers. </p><p style=\"min-height:1.5em\"></p><h2><strong>Why Lovable?</strong></h2><p style=\"min-height:1.5em\">Lovable is the software creation platform that gives people the power to act on the problems closest to them. For decades, turning an idea into software required so much capital, technical fluency, and time that many ideas never came to life. Lovable is the counterargument: a platform for all people with ideas, ambition, and problems worth solving. From solopreneurs to small business owners to teams at companies like Adidas and Zendesk, people have built over 60 million projects on Lovable since its launch in November 2024. And we’re just getting started.</p><p style=\"min-height:1.5em\">We’re building a generational company from Stockholm, with growing teams in London, Boston, New York, and San Francisco. Our team is small, talent-dense, and moving quickly, with a culture rooted in",
+   "descriptionPlain": "TL;DR - We’re looking for a Solutions Architect to bridge product depth with business outcomes at Lovable. You’ll help customers understand how Lovable fits into their architecture, design solutions that win enterprise trust, and partner with Sales, Product, and Engineering to drive adoption of AI-native software creation.\n\n\n\nPlease note: this role is located in San Francisco. It is not eligible for remote work. At this time we are unable to support visa sponsorship or transfers. \n\n\n\n\nWHY LOVABLE?\n\nLovable is the software creation platform that gives people the power to act on the problems closest to them. For decades, turning an idea into software required so much capital, technical fluency, and time that many ideas never came to life. Lovable is the counterargument: a platform for all people with ideas, ambition, and problems worth solving. From solopreneurs to small business owners to teams at companies like Adidas and Zendesk, people have built over 60 million projects on Lovable since its launch in November 2024. And we’re just getting started.\n\nWe’re building a generational company from Stockholm, with growing teams in London, Boston, New York, and San Francisco. Our team is small, talent-dense, and moving quickly, with a culture rooted in extreme ownership, high velocity, and low-ego collaboration. We look for people who care deeply, ship fast, and are eager to make a dent in the world.\n\nLovable is one of TIME’s 100 Most Influential Companies and has been recognized on",
+   "compensation": {
+    "compensationTierSummary": "$181K – $246.5K • Offers Equity",
+    "scrapeableCompensationSalarySummary": "$181K - $246.5K",
+    "compensationTiers": [
+     {
+      "id": "2210918f-33ec-4f2f-b570-9895ab426951",
+      "tierSummary": "The annual compensation range for this role is: $181K – $246.5K • Offers Equity",
+      "title": null,
+      "additionalInformation": null,
+      "components": [
+       {
+        "id": "87c8c1fe-fac8-47b9-a7c6-af2884e57b39",
+        "summary": "The annual compensation range for this role is: $181K – $246.5K",
+        "compensationType": "Salary",
+        "interval": "1 YEAR",
+        "currencyCode": "USD",
+        "minValue": 181000,
+        "maxValue": 246500
+       },
+       {
+        "id": "05bec3d9-91a6-420a-8f14-a27052088fe6",
+        "summary": "Offers Equity",
+        "compensationType": "EquityPercentage",
+        "interval": "NONE",
+        "currencyCode": null,
+        "minValue": null,
+        "maxValue": null
+       }
+      ]
+     }
+    ],
+    "summaryComponents": [
+     {
+      "compensationType": "Salary",
+      "interval": "1 YEAR",
+      "currencyCode": "USD",
+      "minValue": 181000,
+      "maxValue": 246500
+     },
+     {
+      "compensationType": "EquityPercentage",
+      "interval": "NONE",
+      "currencyCode": null,
+      "minValue": null,
+      "maxValue": null
+     }
+    ]
+   }
+  },
+  {
+   "id": "unlisted-1",
+   "title": "Unlisted role",
+   "department": "EPD",
+   "team": "Engineering",
+   "employmentType": "FullTime",
+   "location": "Stockholm",
+   "shouldDisplayCompensationOnJobPostings": false,
+   "secondaryLocations": [],
+   "publishedAt": "2026-06-22T12:38:26.761+00:00",
+   "isListed": false,
+   "isRemote": false,
+   "workplaceType": "OnSite",
+   "address": {
+    "postalAddress": {
+     "addressRegion": "Stockholm County",
+     "addressCountry": "Sweden",
+     "addressLocality": "Stockholm"
+    }
+   },
+   "jobUrl": "https://jobs.ashbyhq.com/lovable/79e04665-0e50-45f8-92e3-9237bcb4e0bc",
+   "applyUrl": "https://jobs.ashbyhq.com/lovable/79e04665-0e50-45f8-92e3-9237bcb4e0bc/application",
+   "descriptionHtml": "<p style=\"min-height:1.5em\"><strong>TL;DR</strong> - We’re looking for a hands-on research and engineering leader to get the best performance out of commercial and open source frontier models, in order to power the future of AI software engineering. You’ll own experiments end-to-end—from dataset design to model alignment and performance optimization. Must be curious, experimental, and obsessed with squeezing the most out of models.ae</p><p style=\"min-height:1.5em\"></p><h2><strong>Why Lovable?</strong></h2><p style=\"min-height:1.5em\">Lovable is the software creation platform that gives people the power to act on the problems closest to them. For decades, turning an idea into software required so much capital, technical fluency, and time that many ideas never came to life. Lovable is the counterargument: a platform for all people with ideas, ambition, and problems worth solving. From solopreneurs to small business owners to teams at companies like Adidas and Zendesk, people have built over 60 million projects on Lovable since its launch in November 2024. And we’re just getting started.</p><p style=\"min-height:1.5em\">We’re building a generational company from Stockholm, with growing teams in London, Boston, New York, and San Francisco. Our team is small, talent-dense, and moving quickly, with a culture rooted in extreme ownership, high velocity, and low-ego collaboration. We look for people who care deeply, ship fast, and are eager to make a dent in the world.</p><p style=\"min-h",
+   "descriptionPlain": "TL;DR - We’re looking for a hands-on research and engineering leader to get the best performance out of commercial and open source frontier models, in order to power the future of AI software engineering. You’ll own experiments end-to-end—from dataset design to model alignment and performance optimization. Must be curious, experimental, and obsessed with squeezing the most out of models.ae\n\n\n\n\nWHY LOVABLE?\n\nLovable is the software creation platform that gives people the power to act on the problems closest to them. For decades, turning an idea into software required so much capital, technical fluency, and time that many ideas never came to life. Lovable is the counterargument: a platform for all people with ideas, ambition, and problems worth solving. From solopreneurs to small business owners to teams at companies like Adidas and Zendesk, people have built over 60 million projects on Lovable since its launch in November 2024. And we’re just getting started.\n\nWe’re building a generational company from Stockholm, with growing teams in London, Boston, New York, and San Francisco. Our team is small, talent-dense, and moving quickly, with a culture rooted in extreme ownership, high velocity, and low-ego collaboration. We look for people who care deeply, ship fast, and are eager to make a dent in the world.\n\nLovable is one of TIME’s 100 Most Influential Companies and has been recognized on the Forbes AI 50 and CNBC Disruptor 50, reflecting our momentum as one of Europe’s fastest-g",
+   "compensation": {
+    "compensationTierSummary": null,
+    "scrapeableCompensationSalarySummary": null,
+    "compensationTiers": [],
+    "summaryComponents": []
+   }
+  }
+ ]
+}

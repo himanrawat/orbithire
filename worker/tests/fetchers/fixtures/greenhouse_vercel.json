@@ -1,0 +1,169 @@
+{
+ "jobs": [
+  {
+   "absolute_url": "https://job-boards.greenhouse.io/vercel/jobs/6136160004",
+   "data_compliance": [
+    {
+     "type": "gdpr",
+     "requires_consent": false,
+     "requires_processing_consent": false,
+     "requires_retention_consent": false,
+     "retention_period": null,
+     "demographic_data_consent_applies": true
+    }
+   ],
+   "internal_job_id": 5196261004,
+   "location": {
+    "name": "Hybrid - London"
+   },
+   "metadata": [
+    {
+     "id": 18783104004,
+     "name": "Career Site Categories",
+     "value": "Sales",
+     "value_type": "single_select"
+    }
+   ],
+   "id": 6136160004,
+   "updated_at": "2026-09-24T13:34:54-04:00",
+   "requisition_id": "1311",
+   "title": "Account Executive, Commercial",
+   "company_name": "Vercel",
+   "first_published": "2026-08-06T12:50:10-04:00",
+   "language": "en",
+   "application_deadline": null,
+   "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;h2&gt;About Vercel:&lt;/h2&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;Vercel is the agentic infrastructure company, freeing people and agents to ship what&#39;s next. For more than a decade we&#39;ve helped builders move from idea to production with speed, security, and exceptional developer experience.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;Now we&#39;re scaling our products for both agents and people to ship and run software, built in the open and trusted by OpenAI, PayPal, Ramp, Supreme, and millions of developers worldwide.&lt;/span&gt;&lt;/p&gt;&lt;/div&gt;&lt;h2&gt;About the Role:&lt;/h2&gt;\n&lt;p&gt;Vercel&#39;s sales team is built on people who are technically fluent, commercially sharp, and deeply curious about the companies they sell into.&lt;/p&gt;\n&lt;p&gt;You’ll run full-cycle deals in close partnership with Solutions Architects, Marketing, and Customer Success, and you’ll help shape how Vercel goes to market as we continue to expand our Commercial segment. We’re building a team with a strong preference to grow talent internally. If you want a path to larger scopes and leadership over time, this is a great place to do it.&lt;/p&gt;\n&lt;p&gt;This is a high-impact, net-new logo role on a fast-growing, technical sales team. You’ll sell to developers and engineering leaders at modern, digital-native companies, connecting Vercel’s front-end cloud and developer experience to measurable business outcomes (speed, conversion, productivity, reliability).&lt;/p&gt;\n&lt;p&gt;You’ll be at the leading edge of modern web and AI, working with customers who build and ship fast. You’ll collaborate closely with Solutions Architects, Marketing, Product, and Customer Success to help teams adopt Vercel and expand their impact as they scale.&lt;/p&gt;\n&lt;p&gt;Our team is based out of our London office three days a week - and soon, we&#39;ll be moving into our brand-new space in King&#39;s Cross. Come be part of building what&#39;s next!&lt;/p&gt;\n&lt;h2&gt;What You Will Do:&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Own a net-new revenue number by building and progressing pipeline from first meeting through close&lt;/li&gt;\n&lt;li&gt;Build pipeline in partnership with your BDR and generate your own outbound pipeline through prospecting, multi-threading, and thoughtful account research&lt;/li&gt;\n&lt;li&gt;Develop and execute territory and account plans to drive consistent new logo ",
+   "departments": [
+    {
+     "id": 4085775004,
+     "name": "Account Executive",
+     "child_ids": [],
+     "parent_id": null
+    }
+   ],
+   "offices": [
+    {
+     "id": 4091069004,
+     "name": "Office - London",
+     "location": "London, England, United Kingdom",
+     "child_ids": [],
+     "parent_id": 4014161004
+    }
+   ],
+   "ai_disclaimer": null,
+   "include_ai_disclaimer": null,
+   "ai_opt_out_request_url": "http://app4.greenhouse.io/ai_opt_out_request/job_post/6136160004/ai_opt_out"
+  },
+  {
+   "absolute_url": "https://job-boards.greenhouse.io/vercel/jobs/6129441004",
+   "data_compliance": [
+    {
+     "type": "gdpr",
+     "requires_consent": false,
+     "requires_processing_consent": false,
+     "requires_retention_consent": false,
+     "retention_period": null,
+     "demographic_data_consent_applies": false
+    }
+   ],
+   "internal_job_id": 5193154004,
+   "location": {
+    "name": "Remote - United States"
+   },
+   "metadata": [
+    {
+     "id": 18783104004,
+     "name": "Career Site Categories",
+     "value": "Design",
+     "value_type": "single_select"
+    }
+   ],
+   "id": 6129441004,
+   "updated_at": "2026-09-24T13:19:48-04:00",
+   "requisition_id": "1303",
+   "title": "Design Engineer",
+   "company_name": "Vercel",
+   "first_published": "2026-09-15T17:56:29-04:00",
+   "language": "en",
+   "application_deadline": null,
+   "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;h2&gt;About Vercel:&lt;/h2&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;Vercel is the agentic infrastructure company, freeing people and agents to ship what&#39;s next. For more than a decade we&#39;ve helped builders move from idea to production with speed, security, and exceptional developer experience.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;Now we&#39;re scaling our products for both agents and people to ship and run software, built in the open and trusted by OpenAI, PayPal, Ramp, Supreme, and millions of developers worldwide.&lt;/span&gt;&lt;/p&gt;&lt;/div&gt;&lt;h2&gt;About the Role:&lt;/h2&gt;\n&lt;p&gt;AI Gateway gives developers one place to connect applications and agents to hundreds of models with one API key. It handles provider routing and fallbacks, unifies billing and observability, and lets teams manage spend and security controls across production AI workloads.&lt;/p&gt;\n&lt;p&gt;Designing this well is a systems problem. A developer should be able to choose the right model, make and verify a first request, diagnose a failed request, and configure routing, budgets, credentials, and security controls without losing sight of the application they are trying to build. The right interface might be in the dashboard, on the public model catalog, in the CLI, in an API response, or in code.&lt;/p&gt;\n&lt;p&gt;You will be the Design Engineer for AI Gateway, owning product design and frontend implementation across those surfaces. You will work with customers, a Product Manager, and engineers to understand the problem, explore solutions, build the production experience, ship it, and learn from what happens after launch.&lt;/p&gt;\n&lt;p&gt;AI Gateway is live, the model ecosystem changes every week, and the team can move from an observed problem to production quickly. This is a rare chance to use your product judgment, design craft, and code to shape a developer product and ship the experience yourself.&lt;/p&gt;\n&lt;p&gt;You will be the design owner embedded with a Product Manager and a dedicated engineering team. You will also have the Product Design team around you for critique, collaboration, and support. AI Gateway will be your main product area, with room to pursue design-led improvements across Vercel. You will report to the Design Team.&lt;/p&gt;\n&lt;p&gt;If you’re based within a pre-determined commuting distance of one of our offices (SF, NY, London, or B",
+   "departments": [
+    {
+     "id": 4063261004,
+     "name": "Design",
+     "child_ids": [],
+     "parent_id": null
+    }
+   ],
+   "offices": [
+    {
+     "id": 4091065004,
+     "name": "Office - San Francisco",
+     "location": "San Francisco, California, United States",
+     "child_ids": [],
+     "parent_id": 4014159004
+    }
+   ],
+   "ai_disclaimer": null,
+   "include_ai_disclaimer": null,
+   "ai_opt_out_request_url": "http://app4.greenhouse.io/ai_opt_out_request/job_post/6129441004/ai_opt_out"
+  },
+  {
+   "absolute_url": "https://job-boards.greenhouse.io/vercel/jobs/6122437004",
+   "data_compliance": [
+    {
+     "type": "gdpr",
+     "requires_consent": false,
+     "requires_processing_consent": false,
+     "requires_retention_consent": false,
+     "retention_period": null,
+     "demographic_data_consent_applies": false
+    }
+   ],
+   "internal_job_id": 5190494004,
+   "location": {
+    "name": "Hybrid - San Francisco, New York City, Austin"
+   },
+   "metadata": [
+    {
+     "id": 18783104004,
+     "name": "Career Site Categories",
+     "value": "Engineering",
+     "value_type": "single_select"
+    }
+   ],
+   "id": 6122437004,
+   "updated_at": "2026-09-24T20:05:49-04:00",
+   "requisition_id": "1297",
+   "title": "DevRel Engineer, Agentic Infrastructure",
+   "company_name": "Vercel",
+   "first_published": "2026-07-22T13:27:13-04:00",
+   "language": "en",
+   "application_deadline": null,
+   "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;h2&gt;About Vercel:&lt;/h2&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;Vercel is the agentic infrastructure company, freeing people and agents to ship what&#39;s next. For more than a decade we&#39;ve helped builders move from idea to production with speed, security, and exceptional developer experience.&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span data-sheets-root=&quot;1&quot;&gt;Now we&#39;re scaling our products for both agents and people to ship and run software, built in the open and trusted by OpenAI, PayPal, Ramp, Supreme, and millions of developers worldwide.&lt;/span&gt;&lt;/p&gt;&lt;/div&gt;&lt;h2&gt;About the role:&lt;/h2&gt;\n&lt;p&gt;We&#39;re hiring a DevRel Engineer to work inside the product teams building Vercel&#39;s agentic infrastructure: &lt;a href=&quot;https://vercel.com/ai-gateway&quot;&gt;AI Gateway&lt;/a&gt;, &lt;a href=&quot;https://vercel.com/docs/vercel-sandbox&quot;&gt;Sandbox&lt;/a&gt;, and the primitives that come after them. You&#39;ll sit with product and engineering, build with these tools before anyone else can, and show the world what they make possible. You will report to the Head of AI Infrastructure and can be located anywhere.&lt;/p&gt;\n&lt;p&gt;If you’re based within a pre-determined commuting distance of one of our offices (SF, NY, London, or Berlin), the role includes in-office anchor days on Monday, Tuesday, and Friday, even if the role is listed as remote. For location-specific details, please connect with our recruiting team.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;When applying, include a link to something you made that taught developers something, a talk, a repo, a post, a video. Applications without one will not be considered.&lt;/strong&gt;&lt;/p&gt;\n&lt;h2&gt;What you will do:&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Build agents and applications on AI Gateway and Sandbox before they ship, then turn what you learn into demos, templates, and open source projects developers actually clone and run.&lt;/li&gt;\n&lt;li&gt;Teach developers how to build with agentic infrastructure through writing, talks, videos, and live coding. You set the canonical examples the ecosystem emulates.&lt;/li&gt;\n&lt;li&gt;Shape the products themselves. You sit in the same planning meetings as the PMs and engineers, and your job is to hit the rough edges first and make sure they get fixed before launch.&lt;/li&gt;\n&lt;li&gt;Own the important pieces of launches: example repos, launch demos, docs",
+   "departments": [
+    {
+     "id": 4042495004,
+     "name": "Engineering",
+     "child_ids": [],
+     "parent_id": null
+    }
+   ],
+   "offices": [
+    {
+     "id": 4091065004,
+     "name": "Office - San Francisco",
+     "location": "San Francisco, California, United States",
+     "child_ids": [],
+     "parent_id": 4014159004
+    }
+   ],
+   "ai_disclaimer": null,
+   "include_ai_disclaimer": null,
+   "ai_opt_out_request_url": "http://app4.greenhouse.io/ai_opt_out_request/job_post/6122437004/ai_opt_out"
+  }
+ ],
+ "meta": {
+  "total": 3
+ }
+}
