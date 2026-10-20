@@ -5,7 +5,7 @@ host / compose network, never the public internet.
 
 Routes:
   GET  /health   – db ok?, slots in use, counters (503 when db is down)
-  POST /preview  – fast Typst preview; 501 until Phase 1 implements it
+  POST /preview  – fast Typst preview: page 1 as PNG/SVG (see rendering/preview.py)
 
 Register more routes with ``server.route("POST", "/path")(async_fn)``.
 """
@@ -89,7 +89,17 @@ class HttpServer:
         return Response.json(data, status=200 if data["ok"] else 503)
 
     async def _preview(self, req: Request) -> Response:
-        return Response.json({"error": "preview not implemented yet (Phase 1)"}, status=501)
+        from .rendering.preview import PreviewError, render_preview
+
+        try:
+            body = req.json()
+        except ValueError:
+            return Response.json({"error": "invalid JSON"}, status=400)
+        try:
+            data, content_type, headers = await render_preview(body)
+        except PreviewError as exc:
+            return Response.json({"error": str(exc)}, status=exc.status)
+        return Response(status=200, body=data, content_type=content_type, headers=headers)
 
     # -------------------------------------------------------------- protocol
     async def _handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:

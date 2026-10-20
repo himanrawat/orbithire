@@ -27,6 +27,8 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { PdfStatusBadge } from "@/components/PdfStatusBadge";
+import type { PdfStatus } from "@/lib/types/database";
 
 // Data types
 type Resume = {
@@ -36,6 +38,9 @@ type Resume = {
 	template: string;
 	country: string;
 	pdfUrl: string | null;
+	engine: "html" | "typst";
+	pdfStatus: PdfStatus;
+	pdfError: string | null;
 	createdAt: string;
 	updatedAt: string;
 };
@@ -72,6 +77,9 @@ export default function ResumesPage() {
 					template,
 					country,
 					pdf_url,
+					engine,
+					pdf_status,
+					pdf_error,
 					created_at,
 					updated_at,
 					companies (
@@ -94,6 +102,9 @@ export default function ResumesPage() {
 				template: r.template || "default",
 				country: r.country || "US",
 				pdfUrl: r.pdf_url,
+				engine: r.engine === "typst" ? "typst" : "html",
+				pdfStatus: r.pdf_status || (r.pdf_url ? "ready" : "none"),
+				pdfError: r.pdf_error ?? null,
 				createdAt: new Date(r.created_at).toLocaleDateString(),
 				updatedAt: new Date(r.updated_at).toLocaleDateString(),
 			}));
@@ -243,13 +254,33 @@ export default function ResumesPage() {
 															<span>·</span>
 														</>
 													)}
-													<span>{resume.template}</span>
+													<span>
+														{resume.template}
+														{resume.engine === "typst" ? " (Typst)" : ""}
+													</span>
 													<span>·</span>
 													<span>{resume.country}</span>
 												</div>
 												<div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
 													<Calendar className="h-3 w-3" />
 													<span>Created {resume.createdAt}</span>
+												</div>
+												<div className="mt-1 flex items-center gap-2">
+													<PdfStatusBadge
+														documentId={resume.id}
+														documentType="resume"
+														initial={{ pdf_status: resume.pdfStatus, pdf_error: resume.pdfError, pdf_url: resume.pdfUrl }}
+														onChange={(st) =>
+															setResumes((prev) =>
+																prev.map((r) =>
+																	r.id === resume.id ? { ...r, pdfUrl: st.pdf_url, pdfStatus: st.pdf_status, pdfError: st.pdf_error } : r
+																)
+															)
+														}
+													/>
+													<Link href={`/documents/${resume.id}?type=resume`} className="text-xs text-primary hover:underline">
+														Edit
+													</Link>
 												</div>
 											</div>
 										</div>

@@ -29,7 +29,12 @@ const nextConfig = {
     ],
     // Ensure the Chromium binary is traced into the /api/companies lambda for PDF generation
     outputFileTracingIncludes: {
-      "/api/companies": ["./node_modules/@sparticuz/chromium/bin/**"],
+      "/api/companies": ["./node_modules/@sparticuz/chromium/bin/**", "./templates/typst/*/meta.json"],
+      "/api/documents/[id]": ["./node_modules/@sparticuz/chromium/bin/**", "./templates/typst/*/meta.json"],
+      "/api/documents/[id]/retry": ["./node_modules/@sparticuz/chromium/bin/**"],
+      // Typst template catalog + thumbnails are read from disk at runtime
+      "/api/templates": ["./templates/typst/*/meta.json"],
+      "/api/templates/typst/[id]/thumbnail": ["./templates/typst/*/thumbnail.png"],
     },
   },
 };

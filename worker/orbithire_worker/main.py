@@ -15,6 +15,15 @@ from .worker import Worker
 log = logging.getLogger("orbithire_worker")
 
 
+def _warm_typst() -> None:
+    try:
+        from .rendering import get_engine
+
+        get_engine().warm_up()
+    except Exception:  # noqa: BLE001
+        log.exception("Typst warm-up failed")
+
+
 async def amain() -> None:
     settings = get_settings()
     load_all()
@@ -32,6 +41,8 @@ async def amain() -> None:
     if settings.worker_http_enabled:
         http = HttpServer(worker, settings.worker_http_host, settings.worker_http_port)
         await http.start()
+        # Warm the Typst compiler pool so the first editor preview is fast.
+        asyncio.get_running_loop().run_in_executor(None, _warm_typst)
     try:
         await worker.run()
     finally:

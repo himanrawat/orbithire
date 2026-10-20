@@ -10,6 +10,8 @@ const PROTECTED_PATHS = [
 	"/companies",
 	"/resumes",
 	"/settings",
+	"/documents",
+	"/templates",
 ];
 
 async function getAuthState(req: NextRequest) {

@@ -63,7 +63,16 @@ import {
 	type ResumeSection,
 } from "@/lib/sampleResume";
 import { TemplateGallery } from "@/components/TemplateGallery";
-import { ResumePreview, type ResumeTemplate } from "@/components/ResumePreview";
+import { ResumePreview } from "@/components/ResumePreview";
+import { TypstPreview } from "@/components/TypstPreview";
+import {
+	DEFAULT_TYPST_COVER,
+	DEFAULT_TYPST_RESUME,
+	HTML_TEMPLATES,
+	parseTemplateKey,
+	templateKey,
+	type TemplateInfo,
+} from "@/lib/templateCatalog";
 import { ProfileCompletionBanner } from "@/components/ProfileCompletionBanner";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 
@@ -123,87 +132,6 @@ interface GeneratedContent {
 	};
 }
 
-// Template definitions - using working themes only
-const templates: ResumeTemplate[] = [
-	{
-		id: "standard",
-		name: "Standard",
-		style: "Classic",
-		description:
-			"The official reference theme - clean, professional, and widely recognized",
-		tags: ["Official", "ATS-Friendly", "Classic"],
-		previewHtml: "",
-	},
-	{
-		id: "professional",
-		name: "Professional",
-		style: "Executive",
-		description:
-			"Modern and elegant design with great typography for senior roles",
-		tags: ["Executive", "Corporate", "Premium"],
-		previewHtml: "",
-	},
-	{
-		id: "even",
-		name: "Even",
-		style: "Modern Flat",
-		description:
-			"Clean, flat design with excellent readability and modern aesthetics",
-		tags: ["Modern", "ATS-Friendly", "Popular"],
-		previewHtml: "",
-	},
-	{
-		id: "elegant",
-		name: "Elegant",
-		style: "Minimalist",
-		description: "Detailed, professional layout with comprehensive sections",
-		tags: ["Corporate", "Detailed", "Executive"],
-		previewHtml: "",
-	},
-	{
-		id: "flat",
-		name: "Flat",
-		style: "Contemporary",
-		description: "Contemporary flat design with clean lines and bold sections",
-		tags: ["Modern", "Clean", "Tech"],
-		previewHtml: "",
-	},
-	{
-		id: "spartacus",
-		name: "Spartacus",
-		style: "Bold",
-		description: "Bold and impactful layout with strong visual hierarchy",
-		tags: ["Bold", "Visual", "Standout"],
-		previewHtml: "",
-	},
-	{
-		id: "paper",
-		name: "Paper",
-		style: "Minimal",
-		description: "Minimal paper-like design focused purely on content",
-		tags: ["Minimal", "Print-Ready", "Clean"],
-		previewHtml: "",
-	},
-	{
-		id: "compact",
-		name: "Compact",
-		style: "ATS-Optimized",
-		description:
-			"Single column, keyword-dense format optimized for ATS systems",
-		tags: ["ATS-Friendly", "1 Page", "US Format"],
-		previewHtml: "",
-	},
-	{
-		id: "modern",
-		name: "Modern",
-		style: "Two-Column",
-		description:
-			"Sleek sidebar layout with skills and contact prominently displayed",
-		tags: ["Visual", "Tech", "Startups"],
-		previewHtml: "",
-	},
-];
-
 const DEFAULT_SECTION_ORDER: ResumeSection[] = [
 	"summary",
 	"skills",
@@ -233,7 +161,46 @@ export default function GeneratePage() {
 	const [contactEmail, setContactEmail] = useState("");
 	const [canOverrideEmail, setCanOverrideEmail] = useState(false);
 	const [profileEmail, setProfileEmail] = useState("");
-	const [selectedTemplateId, setSelectedTemplateId] = useState("standard");
+	// Selection key "<engine>:<id>" (see lib/templateCatalog.ts)
+	const [selectedTemplateId, setSelectedTemplateId] = useState(
+		templateKey("typst", DEFAULT_TYPST_RESUME)
+	);
+	const [catalog, setCatalog] = useState<TemplateInfo[]>(HTML_TEMPLATES);
+	const [accent, setAccent] = useState<string>("");
+	const [paper, setPaper] = useState<"a4" | "letter">("a4");
+	const selectedTemplate = parseTemplateKey(selectedTemplateId);
+	const isTypst = selectedTemplate.engine === "typst";
+	const selectedInfo = catalog.find((t) => t.key === selectedTemplateId);
+
+	// Template catalog: Typst templates (from templates/typst) + Classic (HTML)
+	useEffect(() => {
+		let cancelled = false;
+		fetch("/api/templates?kind=resume")
+			.then((r) => (r.ok ? r.json() : null))
+			.then((data) => {
+				if (cancelled || !data?.templates?.length) return;
+				const list = data.templates as TemplateInfo[];
+				setCatalog(list);
+				setSelectedTemplateId((prev) =>
+					list.some((t) => t.key === prev)
+						? prev
+						: templateKey("html", "standard")
+				);
+			})
+			.catch(() => {
+				if (!cancelled) setSelectedTemplateId(templateKey("html", "standard"));
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+
+	// Reset accent/paper to the template defaults when switching templates
+	useEffect(() => {
+		if (!selectedInfo) return;
+		setAccent(selectedInfo.accentDefault ?? "");
+		setPaper(selectedInfo.paperDefault);
+	}, [selectedInfo?.key]); // eslint-disable-line react-hooks/exhaustive-deps
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [generatedContent, setGeneratedContent] =
 		useState<GeneratedContent | null>(null);
@@ -393,7 +360,7 @@ export default function GeneratePage() {
 					companyName: form.companyName.trim(),
 					recruiterName: form.recruiterName.trim() || undefined,
 					recruiterEmail: form.recruiterEmail.trim() || undefined,
-					templateId: selectedTemplateId,
+					templateId: selectedTemplate.id,
 					generateCoverLetter: true,
 					contactEmail:
 						canOverrideEmail && contactEmail.trim().length > 0
@@ -581,6 +548,19 @@ export default function GeneratePage() {
 		contactEmail,
 	]);
 
+	// Typst: accent / paper travel in content_json.meta (read by the templates)
+	const typstResume = useMemo(() => {
+		if (!finalResume) return null;
+		return {
+			...finalResume,
+			meta: {
+				...(finalResume.meta || {}),
+				...(accent ? { accent } : {}),
+				paper,
+			},
+		};
+	}, [finalResume, accent, paper]);
+
 	const handleCopy = (type: "resume" | "cover") => {
 		if (!generatedContent) return;
 
@@ -601,7 +581,13 @@ export default function GeneratePage() {
 	};
 
 	// Handle opening preview for any template (uses sample data for template selection step)
-	const handleTemplatePreview = (templateId: string) => {
+	const handleTemplatePreview = (key: string) => {
+		const info = catalog.find((t) => t.key === key);
+		const { engine, id: templateId } = parseTemplateKey(key);
+		if (engine === "typst") {
+			if (info) window.open(info.thumbnailUrl, "_blank");
+			return;
+		}
 		setPreviewTemplateId(templateId);
 		setPreviewResume(sampleResume);
 		setShowPreview(true);
@@ -610,7 +596,7 @@ export default function GeneratePage() {
 	// Handle opening preview after generation (uses generated data)
 	const handleOpenPreview = () => {
 		if (finalResume) {
-			setPreviewTemplateId(selectedTemplateId);
+			setPreviewTemplateId(selectedTemplate.id);
 			setPreviewResume(finalResume);
 			setShowPreview(true);
 		}
@@ -619,6 +605,11 @@ export default function GeneratePage() {
 	// Handle PDF download
 	const handleDownloadPDF = async () => {
 		if (!finalResume) return;
+		if (isTypst) {
+			// Typst PDFs are rendered by the worker once the application is saved.
+			setShowTrackModal(true);
+			return;
+		}
 
 		try {
 			// Fetch the rendered HTML from the API
@@ -627,7 +618,7 @@ export default function GeneratePage() {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					resume: finalResume,
-					templateId: selectedTemplateId,
+					templateId: selectedTemplate.id,
 				}),
 			});
 
@@ -757,9 +748,13 @@ export default function GeneratePage() {
 					appliedAt:
 						trackForm.status === "applied" ? trackForm.appliedAt : null,
 					followUpDate: trackForm.followUpDate || null,
-					resume: finalResume,
+					resume: isTypst ? typstResume : finalResume,
 					coverLetter: editedCoverLetter,
-					templateId: selectedTemplateId,
+					templateId: selectedTemplate.id,
+					engine: selectedTemplate.engine,
+					coverLetterTemplateId: isTypst
+						? selectedInfo?.pairsWith || DEFAULT_TYPST_COVER
+						: undefined,
 				}),
 			});
 
@@ -1067,7 +1062,9 @@ export default function GeneratePage() {
 									)}
 
 									<TemplateGallery
-										templates={templates}
+										templates={catalog
+											.filter((t) => t.kind === "resume")
+											.map((t) => ({ ...t, id: t.key }))}
 										selectedId={selectedTemplateId}
 										onSelect={setSelectedTemplateId}
 										onPreview={handleTemplatePreview}
@@ -1148,6 +1145,12 @@ export default function GeneratePage() {
 							animate={{ opacity: 1, y: 0 }}
 							exit={{ opacity: 0, y: 20 }}
 						>
+							<div
+								className={cn(
+									isTypst &&
+										"grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]"
+								)}
+							>
 							<Card className="border-border/50 bg-card/80 backdrop-blur">
 								<CardHeader>
 									<div className="flex items-center justify-between">
@@ -1167,7 +1170,7 @@ export default function GeneratePage() {
 											</Button> */}
 											<Button onClick={handleDownloadPDF}>
 												<Download className="mr-2 h-4 w-4" />
-												Download PDF
+												{isTypst ? "Save & render PDF" : "Download PDF"}
 											</Button>
 										</div>
 									</div>
@@ -1724,6 +1727,78 @@ export default function GeneratePage() {
 									</div>
 								</CardContent>
 							</Card>
+							{isTypst && typstResume && (
+								<aside className="space-y-3 lg:sticky lg:top-4">
+									<Card className="border-border/50 bg-card/80 backdrop-blur">
+										<CardHeader className="pb-3">
+											<CardTitle className="text-base">Live preview</CardTitle>
+											<CardDescription>
+												{selectedInfo?.name ?? selectedTemplate.id} · Typst. The PDF
+												is rendered in the background when you save.
+											</CardDescription>
+										</CardHeader>
+										<CardContent className="space-y-3">
+											<div className="flex flex-wrap items-end gap-3">
+												<div className="space-y-1">
+													<Label className="text-xs">Template</Label>
+													<Select
+														value={selectedTemplateId}
+														onValueChange={setSelectedTemplateId}
+													>
+														<SelectTrigger className="h-8 w-44 text-xs">
+															<SelectValue />
+														</SelectTrigger>
+														<SelectContent>
+															{catalog
+																.filter((t) => t.kind === "resume")
+																.map((t) => (
+																	<SelectItem key={t.key} value={t.key}>
+																		{t.name}
+																		{t.engine === "html" ? " · Classic (HTML)" : ""}
+																	</SelectItem>
+																))}
+														</SelectContent>
+													</Select>
+												</div>
+												{selectedInfo?.accentCustomizable && (
+													<div className="space-y-1">
+														<Label className="text-xs">Accent</Label>
+														<input
+															type="color"
+															value={accent || selectedInfo.accentDefault || "#1f4e79"}
+															onChange={(e) => setAccent(e.target.value)}
+															className="h-8 w-12 cursor-pointer rounded border bg-transparent"
+															aria-label="Accent colour"
+														/>
+													</div>
+												)}
+												<div className="space-y-1">
+													<Label className="text-xs">Paper</Label>
+													<Select
+														value={paper}
+														onValueChange={(v) => setPaper(v as "a4" | "letter")}
+													>
+														<SelectTrigger className="h-8 w-24 text-xs">
+															<SelectValue />
+														</SelectTrigger>
+														<SelectContent>
+															<SelectItem value="a4">A4</SelectItem>
+															<SelectItem value="letter">Letter</SelectItem>
+														</SelectContent>
+													</Select>
+												</div>
+											</div>
+											<TypstPreview
+												templateId={selectedTemplate.id}
+												data={typstResume}
+												accent={accent || null}
+												paper={paper}
+											/>
+										</CardContent>
+									</Card>
+								</aside>
+							)}
+							</div>
 						</motion.div>
 					)}
 				</AnimatePresence>
@@ -1733,7 +1808,7 @@ export default function GeneratePage() {
 			{showPreview && previewResume && (
 				<ResumePreview
 					resume={previewResume}
-					templateId={previewTemplateId || selectedTemplateId}
+					templateId={previewTemplateId || selectedTemplate.id}
 					isOpen={showPreview}
 					onClose={() => {
 						setShowPreview(false);
