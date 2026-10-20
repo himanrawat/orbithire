@@ -1,7 +1,7 @@
 """`fetch_jobs` task: fetch postings for one job_search or a user's ATS watchlist.
 
 payload:
-  {"user_id": <uuid>, "search_id": <uuid>}   JobSpy boards for that job_search
+  {"user_id": <uuid>, "search_id": <uuid>}   JobSpy boards + API sources of that job_search
   {"user_id": <uuid>, "watchlist": true}     every enabled watched_company (ATS APIs)
   (+ informational "trigger": "cron" | "manual")
 
@@ -11,22 +11,44 @@ job_matches (status 'new', prefilter_pass NULL) -> expire postings not seen for
 with payload {"user_id"} (skipped if one is already queued for the user).
 
 If every source failed and nothing was fetched the task raises (-> retry with
-backoff); partial source failures are reported in the result.
+backoff); partial source failures are reported in the result. Sources skipped
+for configuration reasons (missing API key, not available for the search's
+country) never cause a retry.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import os
+from pathlib import Path
 from typing import Any
 
 from .. import fetchers, jobs_db
 from ..fetchers import FetchResult, SearchSpec, WatchedCompany
+from ..fetchers.sources import MISSING_KEY
 from ..registry import Task, TaskContext, handler
 
 log = logging.getLogger(__name__)
 
 ATS_CONCURRENCY = 4
+
+
+def source_env() -> dict[str, str]:
+    """API keys for the job sources: process env, falling back to worker/.env
+    (pydantic-settings reads .env for Settings but does not export it)."""
+    from dotenv import dotenv_values
+
+    file_vals: dict[str, str | None] = {}
+    env_path = Path(".env")
+    if env_path.is_file():
+        file_vals = dotenv_values(env_path)
+    out = {}
+    for k in fetchers.API_SOURCE_ENV:
+        v = os.environ.get(k) or file_vals.get(k)
+        if v:
+            out[k] = v
+    return out
 
 
 class FetchJobsError(RuntimeError):
@@ -39,6 +61,8 @@ def search_spec_from_row(row: dict[str, Any]) -> SearchSpec:
         keywords=[k for k in (row.get("keywords") or []) if k.strip()],
         locations=[loc for loc in (row.get("locations") or []) if loc.strip()],
         sites=list(row.get("sites") or []),
+        sources=list(row.get("sources") or []),
+        country=(row.get("country") or "IN").upper(),
         remote_ok=bool(row.get("remote_ok", True)),
         hours_old=int(row.get("hours_old") or 24),
         results_wanted=int(row.get("results_wanted") or 20),
@@ -113,8 +137,9 @@ async def fetch_jobs(task: Task, ctx: TaskContext) -> dict[str, Any]:
                 return {**result, "skipped": "search not found", "search_id": str(search_id)}
             spec = search_spec_from_row(row)
             result.update(kind="search", search_id=str(search_id), search_name=row.get("name"))
-            if not spec.keywords or not spec.sites:
-                return {**result, "skipped": "search has no keywords or sites"}
+            if not spec.keywords or not (spec.sites or spec.sources):
+                return {**result, "skipped": "search has no keywords or sources"}
+            result["country"] = spec.country
         else:
             companies = await jobs_db.load_watchlist(conn, user_id)
             include, exclude = await jobs_db.load_title_filters(conn, user_id)
@@ -124,10 +149,14 @@ async def fetch_jobs(task: Task, ctx: TaskContext) -> dict[str, Any]:
 
     # Network part: no DB connection held.
     if search_id:
-        fetched = await fetchers.fetch_search(spec)
+        fetched = await fetchers.fetch_search(spec, env=source_env())
         result["sources"] = {
-            s: {"fetched": fetched.counts.get(s, 0), **({"error": fetched.errors[s]} if s in fetched.errors else {})}
-            for s in sorted(set(fetched.counts) | set(fetched.errors))
+            s: {
+                "fetched": fetched.counts.get(s, 0),
+                **({"error": fetched.errors[s]} if s in fetched.errors else {}),
+                **({"skipped": fetched.skipped[s]} if s in fetched.skipped else {}),
+            }
+            for s in sorted(set(fetched.counts) | set(fetched.errors) | set(fetched.skipped))
         }
     else:
         fetched, per_company = await fetch_watchlist(companies, include, exclude)
@@ -137,17 +166,24 @@ async def fetch_jobs(task: Task, ctx: TaskContext) -> dict[str, Any]:
         result["companies"] = per_company
         result["companies_failed"] = sum(1 for v in per_company.values() if "error" in v)
     result["errors"] = fetched.errors
+    if fetched.skipped:
+        result["skipped_sources"] = fetched.skipped
     result["filtered_out"] = fetched.filtered_out
     result["duplicates_in_batch"] = fetched.duplicates
     result["postings_kept"] = len(fetched.postings)
 
     raw_total = sum(fetched.counts.values())
     if fetched.errors and raw_total == 0 and not fetched.postings:
-        all_failed = (
-            all("error" in v for v in result["sources"].values())
-            if search_id
-            else result["companies_failed"] == len(companies)
-        )
+        if search_id:
+            # config problems (missing key / bad country) won't fix themselves on retry
+            real = {
+                s: v for s, v in result["sources"].items()
+                if "skipped" not in v and not str(v.get("error", "")).startswith(MISSING_KEY)
+                and s != "country"
+            }
+            all_failed = bool(real) and all("error" in v for v in real.values())
+        else:
+            all_failed = result["companies_failed"] == len(companies)
         if all_failed:
             raise FetchJobsError(f"all sources failed: {fetched.errors}"[:3000])
 

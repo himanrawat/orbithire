@@ -15,13 +15,26 @@ import {
 } from "@/components/ui/card";
 import { Briefcase, Building2, Loader2, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import {
+	API_SOURCES,
+	ATS_TOKEN_HINTS,
 	ATS_TYPES,
+	COUNTRIES,
+	DEFAULT_COUNTRY,
 	JOB_SITES,
+	MAX_JOB_SEARCHES,
+	countryByCode,
+	defaultSitesFor,
+	defaultSourcesFor,
+	siteAvailable,
+	sourceAvailable,
+	type ApiSource,
 	type AtsType,
 	type JobSearch,
 	type JobSite,
+	type SourceGroup,
 	type WatchedCompany,
 } from "@/lib/jobs/types";
+import { detectAts } from "@/lib/jobs/portals";
 
 type SearchForm = {
 	name: string;
@@ -29,7 +42,9 @@ type SearchForm = {
 	include_keywords: string;
 	exclude_keywords: string;
 	locations: string;
+	country: string;
 	sites: JobSite[];
+	sources: ApiSource[];
 	remote_ok: boolean;
 	hours_old: number;
 	results_wanted: number;
@@ -42,7 +57,9 @@ const EMPTY_SEARCH: SearchForm = {
 	include_keywords: "",
 	exclude_keywords: "",
 	locations: "India",
-	sites: ["linkedin", "naukri"],
+	country: DEFAULT_COUNTRY,
+	sites: defaultSitesFor(DEFAULT_COUNTRY),
+	sources: defaultSourcesFor(DEFAULT_COUNTRY),
 	remote_ok: true,
 	hours_old: 24,
 	results_wanted: 20,
@@ -62,12 +79,29 @@ function toForm(s: JobSearch): SearchForm {
 		include_keywords: (s.include_keywords || []).join(", "),
 		exclude_keywords: s.exclude_keywords.join(", "),
 		locations: s.locations.join(", "),
+		country: s.country || DEFAULT_COUNTRY,
 		sites: s.sites,
+		sources: s.sources || [],
 		remote_ok: s.remote_ok,
 		hours_old: s.hours_old,
 		results_wanted: s.results_wanted,
 		enabled: s.enabled,
 	};
+}
+
+const SOURCE_GROUPS: SourceGroup[] = ["Global", "UK", "Europe", "Singapore", "USA", "Remote"];
+
+const countryName = (code: string) => countryByCode(code)?.name || code;
+
+/** Switch the form to another country: reset boards/sources to that country's defaults. */
+function withCountry(form: SearchForm, code: string): SearchForm {
+	const prevName = countryName(form.country);
+	const locs = splitList(form.locations);
+	const locations =
+		!locs.length || (locs.length === 1 && locs[0].toLowerCase() === prevName.toLowerCase())
+			? countryName(code)
+			: form.locations;
+	return { ...form, country: code, locations, sites: defaultSitesFor(code), sources: defaultSourcesFor(code) };
 }
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -89,6 +123,7 @@ export function JobSearchSettings() {
 	const [saving, setSaving] = useState(false);
 
 	const [company, setCompany] = useState({ company: "", ats: "greenhouse" as AtsType, board_token: "", careers_url: "" });
+	const atLimit = searches.length >= MAX_JOB_SEARCHES;
 	const [importing, setImporting] = useState(false);
 	const fileRef = useRef<HTMLInputElement>(null);
 
@@ -129,6 +164,8 @@ export function JobSearchSettings() {
 		setSaving(true);
 		const body = {
 			...form,
+			sites: form.sites.filter((x) => siteAvailable(x, form.country)),
+			sources: form.sources.filter((x) => sourceAvailable(x, form.country)),
 			keywords: splitList(form.keywords),
 			include_keywords: splitList(form.include_keywords),
 			exclude_keywords: splitList(form.exclude_keywords),
@@ -173,7 +210,7 @@ export function JobSearchSettings() {
 			}>("/api/jobs/import-portals", { method: "POST", body: fd });
 			setNotice(
 				`Imported: ${r.companiesAdded} companies added, ${r.companiesUpdated} updated, ` +
-					`${r.companiesSkipped.length} skipped (no Greenhouse/Lever/Ashby board)` +
+					`${r.companiesSkipped.length} skipped (no supported ATS board)` +
 					(r.search ? `; default search ${r.search.created ? "created" : "updated"}.` : ".")
 			);
 		});
@@ -206,9 +243,13 @@ export function JobSearchSettings() {
 					<CardTitle className="flex items-center gap-2 text-lg">
 						<Briefcase className="h-5 w-5" />
 						Job searches
+						<span className="ml-auto text-sm font-normal text-muted-foreground">
+							{searches.length} of {MAX_JOB_SEARCHES}
+						</span>
 					</CardTitle>
 					<CardDescription>
-						Fetched every morning at 07:00 IST from the selected job boards. Results land in your{" "}
+						Fetched every morning at 07:00 IST from the selected job boards and APIs (up to{" "}
+						{MAX_JOB_SEARCHES} searches). Results land in your{" "}
 						<Link href="/jobs" className="underline">
 							Job Inbox
 						</Link>
@@ -227,8 +268,9 @@ export function JobSearchSettings() {
 										{s.name} {!s.enabled && <span className="text-muted-foreground">(paused)</span>}
 									</p>
 									<p className="truncate text-muted-foreground">
-										{s.keywords.join(", ")} · {s.locations.join(", ") || "any location"} ·{" "}
-										{s.sites.join(", ")}
+										{s.keywords.join(", ")} · {countryName(s.country || DEFAULT_COUNTRY)} ·{" "}
+										{s.locations.join(", ") || "any location"} ·{" "}
+										{[...s.sites, ...(s.sources || [])].join(", ")}
 									</p>
 									<p className="text-xs text-muted-foreground">
 										last {s.hours_old}h · {s.results_wanted} per query · remote {s.remote_ok ? "ok" : "excluded"}
@@ -270,17 +312,32 @@ export function JobSearchSettings() {
 
 					{editing ? (
 						<div className="space-y-3 rounded-lg border p-4">
-							<div className="grid gap-3 sm:grid-cols-2">
+							<div className="grid gap-3 sm:grid-cols-3">
 								<div className="space-y-1">
 									<Label>Name</Label>
 									<Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+								</div>
+								<div className="space-y-1">
+									<Label htmlFor="job-search-country">Country</Label>
+									<select
+										id="job-search-country"
+										className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+										value={form.country}
+										onChange={(e) => setForm(withCountry(form, e.target.value))}
+									>
+										{COUNTRIES.map((c) => (
+											<option key={c.code} value={c.code}>
+												{c.name}
+											</option>
+										))}
+									</select>
 								</div>
 								<div className="space-y-1">
 									<Label>Locations (comma separated)</Label>
 									<Input
 										value={form.locations}
 										onChange={(e) => setForm({ ...form, locations: e.target.value })}
-										placeholder="Bangalore, Remote"
+										placeholder={form.country === "IN" ? "Bangalore, Remote" : countryName(form.country)}
 									/>
 								</div>
 							</div>
@@ -313,9 +370,9 @@ export function JobSearchSettings() {
 								</div>
 							</div>
 							<div className="space-y-1">
-								<Label>Sites</Label>
+								<Label>Job boards (scraped)</Label>
 								<div className="flex flex-wrap gap-3 text-sm">
-									{JOB_SITES.map((site) => (
+									{JOB_SITES.filter((site) => siteAvailable(site, form.country)).map((site) => (
 										<label key={site} className="flex items-center gap-1.5">
 											<input
 												type="checkbox"
@@ -333,6 +390,57 @@ export function JobSearchSettings() {
 										</label>
 									))}
 								</div>
+							</div>
+							<div className="space-y-2">
+								<Label>Job APIs</Label>
+								{SOURCE_GROUPS.map((group) => {
+									const items = API_SOURCES.filter(
+										(src) => src.group === group && sourceAvailable(src.id, form.country)
+									);
+									if (!items.length) return null;
+									return (
+										<div key={group} className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+											<span className="w-20 shrink-0 text-xs font-medium uppercase text-muted-foreground">
+												{group}
+											</span>
+											{items.map((src) => (
+												<label
+													key={src.id}
+													className="flex items-center gap-1.5"
+													title={
+														src.env.length
+															? `Needs ${src.env.join(" + ")} on the server`
+															: src.remoteOnly
+																? "Remote jobs only"
+																: undefined
+													}
+												>
+													<input
+														type="checkbox"
+														checked={form.sources.includes(src.id)}
+														disabled={src.remoteOnly && !form.remote_ok}
+														onChange={(e) =>
+															setForm({
+																...form,
+																sources: e.target.checked
+																	? [...form.sources, src.id]
+																	: form.sources.filter((x) => x !== src.id),
+															})
+														}
+													/>
+													{src.label}
+													{src.env.length > 0 && (
+														<span className="text-xs text-muted-foreground">(API key)</span>
+													)}
+												</label>
+											))}
+										</div>
+									);
+								})}
+								<p className="text-xs text-muted-foreground">
+									Sources marked “API key” only run when the server has that key configured. Remote boards
+									list remote jobs open to candidates in {countryName(form.country)}.
+								</p>
 							</div>
 							<div className="grid gap-3 sm:grid-cols-4">
 								<div className="space-y-1">
@@ -383,16 +491,23 @@ export function JobSearchSettings() {
 							</div>
 						</div>
 					) : (
-						<Button
-							variant="outline"
-							onClick={() => {
-								setForm(EMPTY_SEARCH);
-								setEditing("new");
-							}}
-						>
-							<Plus className="mr-2 h-4 w-4" />
-							Add search
-						</Button>
+						<div className="flex flex-wrap items-center gap-3">
+							<Button
+								variant="outline"
+								disabled={atLimit}
+								onClick={() => {
+									setForm(EMPTY_SEARCH);
+									setEditing("new");
+								}}
+							>
+								<Plus className="mr-2 h-4 w-4" />
+								Add search
+							</Button>
+							<span className="text-sm text-muted-foreground">
+								{searches.length} of {MAX_JOB_SEARCHES}
+								{atLimit && " – limit reached; edit or delete a search to add another"}
+							</span>
+						</div>
 					)}
 				</CardContent>
 			</Card>
@@ -405,8 +520,9 @@ export function JobSearchSettings() {
 						Watched companies
 					</CardTitle>
 					<CardDescription>
-						Company career boards on Greenhouse, Lever or Ashby, checked every morning. Titles are filtered
-						with the include / exclude words of your enabled searches.
+						Company career boards on Greenhouse, Lever, Ashby, Workable, SmartRecruiters, Recruitee, Personio
+						or Teamtailor, checked every morning. Paste a careers URL to fill in the ATS and token. Titles are
+						filtered with the include / exclude words of your enabled searches.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-3">
@@ -471,14 +587,22 @@ export function JobSearchSettings() {
 							))}
 						</select>
 						<Input
-							placeholder="Board token (e.g. vercel)"
+							placeholder={ATS_TOKEN_HINTS[company.ats]}
 							value={company.board_token}
 							onChange={(e) => setCompany({ ...company, board_token: e.target.value })}
 						/>
 						<Input
 							placeholder="Careers URL (optional)"
 							value={company.careers_url}
-							onChange={(e) => setCompany({ ...company, careers_url: e.target.value })}
+							onChange={(e) => {
+								const careers_url = e.target.value;
+								const d = detectAts(careers_url);
+								setCompany(
+									d.ats && d.token
+										? { ...company, careers_url, ats: d.ats, board_token: d.token }
+										: { ...company, careers_url }
+								);
+							}}
 						/>
 						<Button
 							onClick={async () => {
@@ -509,7 +633,7 @@ export function JobSearchSettings() {
 						Import from career-ops portals.yml
 					</CardTitle>
 					<CardDescription>
-						Adds every tracked company with a Greenhouse / Lever / Ashby board to the watchlist and creates
+						Adds every tracked company with a supported ATS board to the watchlist and creates
 						a default search from <code>title_filter</code> (positive / negative keywords). Safe to re-run.
 					</CardDescription>
 				</CardHeader>

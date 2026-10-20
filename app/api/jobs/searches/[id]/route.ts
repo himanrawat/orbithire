@@ -14,6 +14,19 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 	if ("keywords" in input && !(input.keywords as string[]).length) {
 		return badRequest("At least one search keyword is required");
 	}
+	if ("sites" in input || "sources" in input) {
+		// the search must keep at least one JobSpy board or API source
+		const { data: current } = await auth.supabase
+			.from("job_searches")
+			.select("sites, sources")
+			.eq("id", params.id)
+			.eq("user_id", auth.user.id)
+			.maybeSingle();
+		if (!current) return NextResponse.json({ error: "Search not found" }, { status: 404 });
+		const sites = (input.sites as string[] | undefined) ?? current.sites ?? [];
+		const sources = (input.sources as string[] | undefined) ?? current.sources ?? [];
+		if (!sites.length && !sources.length) return badRequest("Pick at least one job board or source");
+	}
 	const { data, error } = await auth.supabase
 		.from("job_searches")
 		.update(input)

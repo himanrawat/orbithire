@@ -1,22 +1,29 @@
-"""Async clients for public ATS job-board APIs: Greenhouse, Lever, Ashby."""
+"""Async clients for public ATS job-board APIs.
+
+Greenhouse, Lever and Ashby live here; Workable, SmartRecruiters, Recruitee,
+Personio and Teamtailor in `ats_more.py`. All share `http.request` (retries).
+"""
 
 from __future__ import annotations
 
-import asyncio
-import html
-import random
-import re
 from datetime import UTC, datetime
-from html.parser import HTMLParser
 from typing import Any
 
 import httpx
 
+from .common import annual_factor as _annual_factor
+from .common import html_to_text
+from .common import is_remote_text as _is_remote_text
+from .common import num as _num
+from .common import parse_iso as _parse_iso
+from .common import scale as _scale
 from .filters import title_matches  # re-exported for callers
+from .http import MAX_ATTEMPTS, USER_AGENT, SourceError, make_client, request
 from .models import NormalizedPosting, WatchedCompany
 
 __all__ = [
     "AtsError",
+    "MAX_ATTEMPTS",
     "USER_AGENT",
     "fetch_ashby",
     "fetch_ats",
@@ -27,155 +34,19 @@ __all__ = [
     "title_matches",
 ]
 
-USER_AGENT = "OrbitHire/0.1 (job-board API client; low volume)"
-DEFAULT_TIMEOUT = httpx.Timeout(20.0, connect=10.0)
-MAX_ATTEMPTS = 3
-MAX_RETRY_AFTER = 30.0
-
 GREENHOUSE_URL = "https://boards-api.greenhouse.io/v1/boards/{token}/jobs?content=true"
 GREENHOUSE_EU_URL = "https://boards-api.eu.greenhouse.io/v1/boards/{token}/jobs?content=true"
 LEVER_URL = "https://api.lever.co/v0/postings/{token}?mode=json"
 LEVER_EU_URL = "https://api.eu.lever.co/v0/postings/{token}?mode=json"
 ASHBY_URL = "https://api.ashbyhq.com/posting-api/job-board/{token}?includeCompensation=true"
 
-_sleep = asyncio.sleep  # patched in tests
 
-
-class AtsError(Exception):
+class AtsError(SourceError):
     pass
 
 
-def make_client() -> httpx.AsyncClient:
-    return httpx.AsyncClient(
-        timeout=DEFAULT_TIMEOUT,
-        headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
-        follow_redirects=True,
-    )
-
-
-# --------------------------------------------------------------------------- #
-# HTML -> text
-# --------------------------------------------------------------------------- #
-
-_BLOCK_TAGS = {
-    "p", "div", "br", "ul", "ol", "li", "h1", "h2", "h3", "h4", "h5", "h6",
-    "section", "article", "tr", "table", "blockquote", "pre", "hr",
-}
-
-
-class _TextExtractor(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.parts: list[str] = []
-        self._skip = 0
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if tag in ("script", "style"):
-            self._skip += 1
-        elif tag == "li":
-            self.parts.append("\n- ")
-        elif tag in _BLOCK_TAGS:
-            self.parts.append("\n")
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag in ("script", "style"):
-            self._skip = max(0, self._skip - 1)
-        elif tag in _BLOCK_TAGS and tag != "li":
-            self.parts.append("\n")
-
-    def handle_data(self, data: str) -> None:
-        if not self._skip:
-            self.parts.append(data)
-
-
-def html_to_text(content: str | None) -> str:
-    """Convert (possibly entity-escaped, as Greenhouse returns) HTML to clean text."""
-    if not content:
-        return ""
-    if "&lt;" in content and "<" not in content:
-        content = html.unescape(content)
-    parser = _TextExtractor()
-    parser.feed(content)
-    parser.close()
-    text = "".join(parser.parts).replace("\xa0", " ")
-    lines = [re.sub(r"[ \t]+", " ", line).strip() for line in text.splitlines()]
-    text = "\n".join(lines)
-    text = re.sub(r"\n- *\n", "\n", text)
-    return re.sub(r"\n{3,}", "\n\n", text).strip()
-
-
-# --------------------------------------------------------------------------- #
-# HTTP with retries
-# --------------------------------------------------------------------------- #
-
-
 async def _get_json(client: httpx.AsyncClient, url: str) -> Any:
-    last: str = ""
-    for attempt in range(MAX_ATTEMPTS):
-        try:
-            resp = await client.get(url)
-        except httpx.TransportError as e:
-            last = f"{type(e).__name__}: {e}"
-            delay = 2**attempt + random.random()
-        else:
-            if resp.status_code == 404:
-                raise AtsError(f"board not found (404): {url}")
-            if resp.status_code == 429 or resp.status_code >= 500:
-                last = f"HTTP {resp.status_code}"
-                delay = 2**attempt + random.random()
-                ra = resp.headers.get("retry-after")
-                if ra and ra.isdigit():
-                    delay = min(float(ra), MAX_RETRY_AFTER)
-            elif resp.status_code >= 400:
-                raise AtsError(f"HTTP {resp.status_code}: {url}")
-            else:
-                try:
-                    return resp.json()
-                except ValueError as e:
-                    raise AtsError(f"invalid JSON from {url}") from e
-        if attempt < MAX_ATTEMPTS - 1:
-            await _sleep(delay)
-    raise AtsError(f"giving up after {MAX_ATTEMPTS} attempts ({last}): {url}")
-
-
-# --------------------------------------------------------------------------- #
-# Helpers
-# --------------------------------------------------------------------------- #
-
-_INTERVAL_FACTOR = {"year": 1, "month": 12, "week": 52, "day": 260, "hour": 2080}
-
-
-def _annual_factor(interval: str | None) -> int:
-    s = (interval or "year").lower()
-    for key, factor in _INTERVAL_FACTOR.items():
-        if key in s:
-            return factor
-    return 1
-
-
-def _num(v: Any) -> float | None:
-    try:
-        return None if v is None else float(v)
-    except (TypeError, ValueError):
-        return None
-
-
-def _scale(v: float | None, factor: int) -> float | None:
-    return None if v is None else round(v * factor, 2)
-
-
-def _parse_iso(value: str | None) -> datetime | None:
-    if not value:
-        return None
-    try:
-        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
-
-
-def _is_remote_text(*texts: str | None) -> bool:
-    return any(t and "remote" in t.lower() for t in texts)
+    return await request(client, "GET", url, error_cls=AtsError)
 
 
 # --------------------------------------------------------------------------- #
@@ -305,7 +176,7 @@ async def fetch_ashby(
     return [map_ashby(j, company) for j in data.get("jobs", []) if j.get("isListed", True)]
 
 
-_FETCHERS = {"greenhouse": fetch_greenhouse, "lever": fetch_lever, "ashby": fetch_ashby}
+_FETCHERS: dict[str, Any] = {"greenhouse": fetch_greenhouse, "lever": fetch_lever, "ashby": fetch_ashby}
 
 
 async def fetch_ats(
@@ -314,7 +185,11 @@ async def fetch_ats(
     """Fetch all open postings for one watched company. Raises AtsError."""
     if not company.ats or not company.board_token:
         raise AtsError(f"{company.company}: no supported ATS / board token")
-    fetcher = _FETCHERS[company.ats]
+    from .ats_more import EXTRA_FETCHERS
+
+    fetcher = _FETCHERS.get(company.ats) or EXTRA_FETCHERS.get(company.ats)
+    if fetcher is None:
+        raise AtsError(f"{company.company}: unsupported ATS {company.ats!r}")
     if client is None:
         async with make_client() as own:
             return await fetcher(own, company.board_token, company.company, company.region)

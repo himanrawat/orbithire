@@ -1,0 +1,123 @@
+{
+ "offset": 0,
+ "limit": 2,
+ "totalFound": 328,
+ "content": [
+  {
+   "id": "744000156377199",
+   "name": "R&D Engineer (C++)",
+   "uuid": "60c0142a-2f73-43f5-b670-a192fd66684b",
+   "jobAdId": "10c06f3b-7ee1-4867-995c-f234ce379ee2",
+   "defaultJobAd": true,
+   "refNumber": "REF31950B",
+   "company": {
+    "identifier": "Ubisoft2",
+    "name": "Ubisoft"
+   },
+   "releasedDate": "2026-10-19T16:30:44.596Z",
+   "location": {
+    "city": "Pune",
+    "region": "MH",
+    "country": "in",
+    "remote": false,
+    "hybrid": false,
+    "latitude": "18.5246091",
+    "longitude": "73.8786239",
+    "fullLocation": "Pune, MH, India"
+   },
+   "industry": {
+    "id": "entertainment",
+    "label": "Entertainment"
+   },
+   "department": {
+    "id": "13847731",
+    "label": "Ubisoft"
+   },
+   "function": {
+    "id": "information_technology",
+    "label": "Information Technology"
+   },
+   "typeOfEmployment": {
+    "id": "permanent",
+    "label": "Full-time"
+   },
+   "experienceLevel": {
+    "id": "associate",
+    "label": "Associate"
+   },
+   "customField": [
+    {
+     "fieldId": "56c253c2e4b0cabf01d19d37",
+     "fieldLabel": "Organizational Unit",
+     "valueId": "dab915b3-de09-4b87-a685-51027b27af42",
+     "valueLabel": "Pune Test studio"
+    }
+   ],
+   "visibility": "PUBLIC",
+   "ref": "https://api.smartrecruiters.com/v1/companies/Ubisoft2/postings/744000156377199",
+   "language": {
+    "code": "en",
+    "label": "English",
+    "labelNative": "English (US)"
+   }
+  },
+  {
+   "id": "744000156360539",
+   "name": "Growth Marketing Assistant – Internship (6-month) January 2027 (W/M/NB)",
+   "uuid": "f45908d8-9335-4553-a460-a97e1abeff06",
+   "jobAdId": "9242aae9-8951-4227-b207-0d81ad657b0b",
+   "defaultJobAd": false,
+   "refNumber": "REF32173P",
+   "company": {
+    "identifier": "Ubisoft2",
+    "name": "Ubisoft"
+   },
+   "releasedDate": "2026-10-19T15:30:57.623Z",
+   "location": {
+    "city": "Paris",
+    "region": "IDF",
+    "country": "fr",
+    "remote": false,
+    "hybrid": false,
+    "latitude": "48.8575475",
+    "longitude": "2.3513765",
+    "fullLocation": "Paris, IDF, France"
+   },
+   "industry": {
+    "id": "entertainment",
+    "label": "Entertainment"
+   },
+   "department": {
+    "id": "13847731",
+    "label": "Ubisoft"
+   },
+   "function": {
+    "id": "marketing",
+    "label": "Marketing"
+   },
+   "typeOfEmployment": {
+    "id": "intern",
+    "label": "Intern"
+   },
+   "experienceLevel": {
+    "id": "internship",
+    "label": "Internship"
+   },
+   "customField": [
+    {
+     "fieldId": "56c253c2e4b0cabf01d19d37",
+     "fieldLabel": "Organizational Unit",
+     "valueId": "99b89174-7ec8-45a4-adaf-52ca55f8592c",
+     "valueLabel": "Ketchapp Studio"
+    }
+   ],
+   "visibility": "PUBLIC",
+   "ref": "https://api.smartrecruiters.com/v1/companies/Ubisoft2/postings/744000156360539",
+   "language": {
+    "code": "en",
+    "label": "English",
+    "labelNative": "English (US)"
+   }
+  }
+ ]
+}

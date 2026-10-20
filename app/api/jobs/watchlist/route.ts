@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, parseWatchedInput, requireUser, serverError } from "@/lib/jobs/server";
+import { detectAts } from "@/lib/jobs/portals";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,12 +18,20 @@ export async function GET() {
 	return NextResponse.json({ companies: data || [] });
 }
 
-// POST /api/jobs/watchlist – add a watched company.
+// POST /api/jobs/watchlist – add a watched company. `ats` / `board_token` may be
+// omitted when `careers_url` is a recognisable board URL (detectAts).
 export async function POST(req: NextRequest) {
 	const auth = await requireUser();
 	if (auth.error) return auth.error;
 	const body = await req.json().catch(() => null);
 	if (!body || typeof body !== "object") return badRequest("Invalid JSON body");
+	if (body.careers_url && (!body.ats || !body.board_token)) {
+		const d = detectAts(String(body.careers_url));
+		if (d.ats && d.token) {
+			body.ats = d.ats;
+			body.board_token = d.token;
+		}
+	}
 	const { data: input, error: inputError } = parseWatchedInput(body, false);
 	if (inputError) return badRequest(inputError);
 	const { data, error } = await auth.supabase

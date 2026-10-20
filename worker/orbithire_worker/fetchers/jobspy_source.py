@@ -23,6 +23,10 @@ log = logging.getLogger(__name__)
 DELAY_RANGE = (2.0, 5.0)
 # Stop querying a site after this many consecutive failures (likely blocked).
 MAX_CONSECUTIVE_FAILURES = 2
+# keyword x location pairs per site, and a wall-clock budget for the whole JobSpy
+# part, so a search run stays well under the worker's 5-minute fetch timeout.
+MAX_QUERIES_PER_SITE = 6
+TIME_BUDGET_S = 200.0
 
 _ANNUAL_FACTOR = {"yearly": 1, "monthly": 12, "weekly": 52, "daily": 260, "hourly": 2080}
 # Sites that report Indian salaries without always setting a currency.
@@ -201,6 +205,8 @@ def scrape_search(
     sleep: Callable[[float], None] = time.sleep,
     delay_range: tuple[float, float] = DELAY_RANGE,
     jobspy_kwargs: dict[str, Any] | None = None,
+    time_budget: float = TIME_BUDGET_S,
+    clock: Callable[[], float] = time.monotonic,
 ) -> JobSpyResult:
     """Run spec.keywords x spec.locations for each site, one JobSpy call per site.
 
@@ -211,9 +217,13 @@ def scrape_search(
     scrape = scrape or _scrape_jobs()
     desc_kwargs = {**_default_kwargs(scrape), **(jobspy_kwargs or {})}
     result = JobSpyResult()
-    locations: list[str | None] = list(spec.locations) or [None]
-    queries = [(kw, loc) for kw in spec.keywords for loc in locations]
+    from .countries import default_location
+
+    locations: list[str | None] = list(spec.locations) or [default_location(spec.country)]
+    queries = [(kw, loc) for kw in spec.keywords for loc in locations][:MAX_QUERIES_PER_SITE]
+    country_indeed = spec.jobspy_country
     first_call = True
+    deadline = clock() + time_budget
 
     for site in spec.sites:
         site_errors: list[str] = []
@@ -222,6 +232,9 @@ def scrape_search(
         for kw, loc in queries:
             if consecutive >= MAX_CONSECUTIVE_FAILURES:
                 site_errors.append("skipped remaining queries after repeated failures")
+                break
+            if clock() >= deadline:
+                site_errors.append("time budget exhausted; remaining queries skipped")
                 break
             if not first_call:
                 sleep(random.uniform(*delay_range))
@@ -233,7 +246,7 @@ def scrape_search(
                     location=loc,
                     hours_old=spec.hours_old,
                     results_wanted=spec.results_wanted,
-                    country_indeed=spec.country_indeed,
+                    country_indeed=country_indeed,
                     verbose=0,
                     **desc_kwargs,
                 )

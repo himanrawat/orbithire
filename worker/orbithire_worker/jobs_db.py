@@ -18,6 +18,9 @@ from .fetchers.models import NormalizedPosting, WatchedCompany
 from .fetchers.portals import PortalsConfig, detect_ats
 
 EXPIRE_AFTER_DAYS = 14
+# Mirrors the enforce_job_search_limit() trigger (migration 025) and
+# MAX_JOB_SEARCHES in lib/jobs/types.ts.
+MAX_JOB_SEARCHES = 3
 
 
 # --------------------------------------------------------------------------- #
@@ -309,20 +312,26 @@ async def import_portals_config(
             )
             search_created = False
         else:
-            cur = await conn.execute(
-                """INSERT INTO job_searches (user_id, name, keywords, include_keywords,
-                          exclude_keywords, locations, sites, results_wanted)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
-                (user_id, IMPORTED_SEARCH_NAME, *values),
-            )
-            (search_id,) = await cur.fetchone()  # type: ignore[misc]
-            search_created = True
+            cur = await conn.execute("SELECT count(*) FROM job_searches WHERE user_id = %s", (user_id,))
+            (n_searches,) = await cur.fetchone()  # type: ignore[misc]
+            search_id = None
+            search_created = False
+            if n_searches < MAX_JOB_SEARCHES:
+                cur = await conn.execute(
+                    """INSERT INTO job_searches (user_id, name, keywords, include_keywords,
+                              exclude_keywords, locations, sites, results_wanted)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+                    (user_id, IMPORTED_SEARCH_NAME, *values),
+                )
+                (search_id,) = await cur.fetchone()  # type: ignore[misc]
+                search_created = True
     return {
         "companies_added": added,
         "companies_updated": updated,
         "companies_skipped": skipped,
-        "search_id": str(search_id),
+        "search_id": str(search_id) if search_id else None,
         "search_created": search_created,
+        **({} if search_id else {"search_skipped": f"job search limit reached ({MAX_JOB_SEARCHES})"}),
         "keywords": spec.keywords,
         "include_keywords": len(spec.title_include),
         "exclude_keywords": len(spec.title_exclude),

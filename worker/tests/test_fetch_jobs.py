@@ -141,7 +141,7 @@ async def test_search_fetch_inserts_then_rerun_has_no_duplicates(ctx, user_id, m
     batch.append(posting(99, source="naukri"))
     calls = []
 
-    async def fake_fetch_search(spec):
+    async def fake_fetch_search(spec, **_kw):
         calls.append(spec)
         return FetchResult(postings=list(batch), counts={"linkedin": 5, "naukri": 1},
                            errors={"naukri": "partial: 1 query blocked"})
@@ -193,7 +193,7 @@ async def test_description_not_overwritten_once_set(ctx, user_id, monkeypatch):
     second = [posting(1, description="changed")]
     seq = iter([first, second])
 
-    async def fake(spec):
+    async def fake(spec, **_kw):
         return FetchResult(postings=next(seq), counts={"linkedin": 1})
 
     monkeypatch.setattr(fetchers, "fetch_search", fake)
@@ -204,7 +204,7 @@ async def test_description_not_overwritten_once_set(ctx, user_id, monkeypatch):
 
 
 async def test_14_day_expiry(ctx, user_id, monkeypatch):
-    async def fake(spec):
+    async def fake(spec, **_kw):
         return FetchResult(postings=[posting(1), posting(2), posting(3)], counts={"linkedin": 3})
 
     monkeypatch.setattr(fetchers, "fetch_search", fake)
@@ -219,7 +219,7 @@ async def test_14_day_expiry(ctx, user_id, monkeypatch):
         await c.execute("UPDATE job_matches m SET status='skipped' FROM job_postings p "
                         "WHERE p.id=m.job_posting_id AND p.external_id='linkedin-3'")
 
-    async def fake_only_1(spec):
+    async def fake_only_1(spec, **_kw):
         return FetchResult(postings=[posting(1)], counts={"linkedin": 1})
 
     monkeypatch.setattr(fetchers, "fetch_search", fake_only_1)
@@ -238,7 +238,7 @@ async def test_14_day_expiry(ctx, user_id, monkeypatch):
     }
 
     # seen again later -> active, match revived to 'new'
-    async def fake_2(spec):
+    async def fake_2(spec, **_kw):
         return FetchResult(postings=[posting(2)], counts={"linkedin": 1})
 
     monkeypatch.setattr(fetchers, "fetch_search", fake_2)
@@ -293,7 +293,7 @@ async def test_watchlist_bounded_concurrency_and_filters(ctx, user_id, monkeypat
 
 
 async def test_all_sources_failed_raises(ctx, user_id, monkeypatch):
-    async def fake(spec):
+    async def fake(spec, **_kw):
         return FetchResult(errors={"linkedin": "429", "naukri": "blocked"},
                            counts={"linkedin": 0, "naukri": 0})
 
@@ -342,7 +342,7 @@ async def test_cron_and_fetch_now_rpc(ctx, user_id, supa_url):
 
 
 async def test_company_status_applied_syncs_match(ctx, user_id, supa_url, monkeypatch):
-    async def fake(spec):
+    async def fake(spec, **_kw):
         return FetchResult(postings=[posting(1)], counts={"linkedin": 1})
 
     monkeypatch.setattr(fetchers, "fetch_search", fake)
@@ -380,3 +380,129 @@ async def test_import_portals_config(ctx, user_id):
         kw, inc, exc = await cur.fetchone()
     assert kw == ["Frontend", "React", "TypeScript"] and len(inc) == 4 and exc == ["Junior"]
     assert await scalar(ctx, "SELECT enabled FROM watched_companies WHERE board_token='loom'") is False
+
+
+# --------------------------------------------------------------------------- migration 025
+
+
+def test_job_search_limit_trigger(supa_url, user_id):
+    """Max 3 job_searches per user, enforced by a BEFORE INSERT trigger."""
+    other = str(uuid.uuid4())
+    with psycopg.connect(supa_url, autocommit=True) as c:
+        c.execute("INSERT INTO auth.users (id, email) VALUES (%s, %s)", (other, f"{other}@test.local"))
+        c.execute("INSERT INTO profiles (id, email) VALUES (%s, %s) ON CONFLICT (id) DO NOTHING",
+                  (other, f"{other}@test.local"))
+        for i in range(3):
+            c.execute("INSERT INTO job_searches (user_id, name, keywords) VALUES (%s, %s, '{x}')",
+                      (user_id, f"s{i}"))
+        with pytest.raises(psycopg.errors.CheckViolation, match="at most 3 job searches") as ei:
+            c.execute("INSERT INTO job_searches (user_id, name, keywords) VALUES (%s, 's3', '{x}')",
+                      (user_id,))
+        assert ei.value.diag.message_primary.startswith("job_search_limit:")
+        assert "Delete or edit" in (ei.value.diag.message_hint or "")
+        # other users are unaffected; updates of existing searches still work
+        c.execute("INSERT INTO job_searches (user_id, keywords) VALUES (%s, '{x}')", (other,))
+        c.execute("UPDATE job_searches SET name = 'renamed' WHERE user_id = %s AND name = 's0'", (user_id,))
+        # after a delete there is room again
+        c.execute("DELETE FROM job_searches WHERE user_id = %s AND name = 'renamed'", (user_id,))
+        c.execute("INSERT INTO job_searches (user_id, keywords) VALUES (%s, '{x}')", (user_id,))
+        assert c.execute("SELECT count(*) FROM job_searches WHERE user_id=%s", (user_id,)).fetchone()[0] == 3
+        # same limit when inserting as the user through RLS (the app's path)
+        with pytest.raises(psycopg.errors.CheckViolation):
+            with c.transaction():
+                c.execute("SET LOCAL ROLE authenticated")
+                c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (user_id,))
+                c.execute("SELECT set_config('request.jwt.claims', %s, true)",
+                          ('{"sub":"%s","role":"authenticated"}' % user_id,))
+                c.execute("INSERT INTO job_searches (user_id, keywords) VALUES (%s, '{x}')", (user_id,))
+        c.execute("DELETE FROM job_searches WHERE user_id IN (%s, %s)", (user_id, other))
+
+
+def test_job_search_country_sources_and_ats_constraints(supa_url, user_id):
+    with psycopg.connect(supa_url, autocommit=True) as c:
+        row = c.execute(
+            "INSERT INTO job_searches (user_id, keywords) VALUES (%s, '{x}') RETURNING country, sources",
+            (user_id,),
+        ).fetchone()
+        assert row == ("IN", [])  # existing rows / defaults stay valid
+        c.execute(
+            "UPDATE job_searches SET country='GB', sources='{adzuna,reed,remotive}', sites='{linkedin}' "
+            "WHERE user_id=%s", (user_id,))
+        with pytest.raises(psycopg.errors.CheckViolation):
+            c.execute("UPDATE job_searches SET sources='{monster}' WHERE user_id=%s", (user_id,))
+        with pytest.raises(psycopg.errors.CheckViolation):
+            c.execute("UPDATE job_searches SET country='gbr' WHERE user_id=%s", (user_id,))
+        for ats in ("workable", "smartrecruiters", "recruitee", "personio", "teamtailor"):
+            c.execute("INSERT INTO watched_companies (user_id, company, ats, board_token) VALUES (%s,%s,%s,%s)",
+                      (user_id, ats, ats, f"tok-{ats}"))
+        with pytest.raises(psycopg.errors.CheckViolation):
+            c.execute("INSERT INTO watched_companies (user_id, company, ats, board_token) "
+                      "VALUES (%s,'x','workday','x')", (user_id,))
+        c.execute("DELETE FROM watched_companies WHERE user_id=%s", (user_id,))
+        c.execute("DELETE FROM job_searches WHERE user_id=%s", (user_id,))
+
+
+async def test_search_country_and_sources_reach_fetchers(ctx, user_id, monkeypatch):
+    seen = {}
+
+    async def fake(spec, **kw):
+        seen["spec"], seen["env"] = spec, kw.get("env")
+        return FetchResult(
+            postings=[posting(1, source="reed", location="London")],
+            counts={"reed": 1, "adzuna": 0},
+            errors={"adzuna": "missing API key (ADZUNA_APP_ID, ADZUNA_APP_KEY)"},
+            skipped={"naukri": "not available for United Kingdom"},
+        )
+
+    monkeypatch.setattr(fetchers, "fetch_search", fake)
+    monkeypatch.setenv("REED_API_KEY", "k-reed")
+    monkeypatch.delenv("ADZUNA_APP_ID", raising=False)
+    monkeypatch.chdir(Path(__file__).parent)  # no worker/.env leaking into the test
+    async with ctx.pool.connection() as c:
+        cur = await c.execute(
+            """INSERT INTO job_searches (user_id, keywords, sites, sources, country)
+               VALUES (%s, '{python}', '{}', '{reed,adzuna}', 'GB') RETURNING id""", (user_id,))
+        sid = str((await cur.fetchone())[0])
+    r = await fj.fetch_jobs(make_task({"user_id": user_id, "search_id": sid}), ctx)
+    spec = seen["spec"]
+    assert spec.country == "GB" and spec.sources == ["reed", "adzuna"] and spec.sites == []
+    assert seen["env"].get("REED_API_KEY") == "k-reed" and "ADZUNA_APP_ID" not in seen["env"]
+    assert r["country"] == "GB" and r["postings_inserted"] == 1
+    assert r["sources"]["naukri"] == {"fetched": 0, "skipped": "not available for United Kingdom"}
+    assert r["sources"]["adzuna"]["error"].startswith("missing API key")
+
+
+async def test_only_missing_keys_does_not_raise(ctx, user_id, monkeypatch):
+    async def fake(spec, **_kw):
+        return FetchResult(counts={"reed": 0}, errors={"reed": "missing API key (REED_API_KEY)"})
+
+    monkeypatch.setattr(fetchers, "fetch_search", fake)
+    async with ctx.pool.connection() as c:
+        cur = await c.execute(
+            "INSERT INTO job_searches (user_id, keywords, sites, sources, country) "
+            "VALUES (%s, '{python}', '{}', '{reed}', 'GB') RETURNING id", (user_id,))
+        sid = str((await cur.fetchone())[0])
+    r = await fj.fetch_jobs(make_task({"user_id": user_id, "search_id": sid}), ctx)
+    assert r["postings_kept"] == 0 and "missing API key" in r["errors"]["reed"]
+
+    async def failing(spec, **_kw):
+        return FetchResult(counts={"reed": 0}, errors={"reed": "HTTP 500"})
+
+    monkeypatch.setattr(fetchers, "fetch_search", failing)
+    with pytest.raises(fj.FetchJobsError):
+        await fj.fetch_jobs(make_task({"user_id": user_id, "search_id": sid}), ctx)
+
+
+async def test_import_portals_respects_search_limit(ctx, user_id):
+    async with ctx.pool.connection() as c:
+        for i in range(3):
+            await c.execute("INSERT INTO job_searches (user_id, name, keywords) VALUES (%s, %s, '{x}')",
+                            (user_id, f"s{i}"))
+        cfg = parse_portals({
+            "title_filter": {"positive": ["Frontend"]},
+            "tracked_companies": [{"name": "Skroutz", "careers_url": "https://apply.workable.com/skroutz/"}],
+        })
+        r = await jobs_db.import_portals_config(c, user_id, cfg)
+    assert r["companies_added"] == 1 and r["search_created"] is False and r["search_id"] is None
+    assert "limit" in r["search_skipped"]
+    assert await scalar(ctx, "SELECT ats FROM watched_companies WHERE user_id=%s", user_id) == "workable"

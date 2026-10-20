@@ -27,8 +27,20 @@ const ATS_PATTERNS: [AtsType, RegExp][] = [
 	["greenhouse", /^(job-)?boards(\.eu)?\.greenhouse\.io$/],
 	["lever", /^(jobs|api)(\.eu)?\.lever\.co$/],
 	["ashby", /^(jobs|api)\.ashbyhq\.com$/],
+	["workable", /^(apply\.)?workable\.com$|^[a-z0-9-]+\.workable\.com$/],
+	["smartrecruiters", /^(jobs|careers|api)\.smartrecruiters\.com$/],
+	["recruitee", /^[a-z0-9-]+\.recruitee\.com$/],
+	["personio", /^[a-z0-9-]+\.jobs\.personio\.(de|com)$/],
+	["teamtailor", /^[a-z0-9-]+\.(na\.)?teamtailor\.com$/],
 ];
 
+const SUBDOMAIN_RESERVED = new Set(["www", "app", "api", "apply", "jobs", "careers", "help", "support", "na"]);
+
+/**
+ * (ats, board token, region) from a careers / API URL.
+ * region: Greenhouse/Lever "eu" hosts; Personio "eu" = .de, "us" = .com;
+ * Teamtailor "us" = <slug>.na.teamtailor.com.
+ */
 export function detectAts(url: string | null | undefined): {
 	ats: AtsType | null;
 	token: string | null;
@@ -37,25 +49,56 @@ export function detectAts(url: string | null | undefined): {
 	if (!url) return { ats: null, token: null, region: "us" };
 	let parsed: URL;
 	try {
-		parsed = new URL(String(url).trim());
+		const raw = String(url).trim();
+		parsed = new URL(raw.includes("://") ? raw : `https://${raw}`);
 	} catch {
 		return { ats: null, token: null, region: "us" };
 	}
-	const host = parsed.hostname.toLowerCase();
+	let host = parsed.hostname.toLowerCase();
+	if (host.startsWith("www.")) host = host.slice(4);
 	const segments = parsed.pathname.split("/").filter(Boolean);
-	const region = `.${host}`.includes(".eu.") ? "eu" : "us";
+	let region: "us" | "eu" = `.${host}`.includes(".eu.") ? "eu" : "us";
 	const after = (key: string) => {
 		const i = segments.indexOf(key);
 		return i >= 0 && i + 1 < segments.length ? segments[i + 1] : null;
 	};
+	const sub = host.split(".")[0];
+	const subToken = SUBDOMAIN_RESERVED.has(sub) ? null : sub;
 	for (const [ats, pattern] of ATS_PATTERNS) {
 		if (!pattern.test(host)) continue;
 		let token: string | null = null;
-		if (host.startsWith("boards-api")) token = after("boards");
-		else if (host.startsWith("api.") && ats === "lever") token = after("postings");
-		else if (host.startsWith("api.") && ats === "ashby") token = after("job-board");
-		else if (segments.length) {
-			token = segments[0] === "embed" ? parsed.searchParams.get("for") : segments[0];
+		switch (ats) {
+			case "greenhouse":
+				if (host.startsWith("boards-api")) token = after("boards");
+				else if (segments.length)
+					token = segments[0] === "embed" ? parsed.searchParams.get("for") : segments[0];
+				break;
+			case "lever":
+				token = host.startsWith("api.") ? after("postings") : segments[0] || null;
+				break;
+			case "ashby":
+				token = host.startsWith("api.") ? after("job-board") : segments[0] || null;
+				break;
+			case "workable":
+				if (host === "apply.workable.com" || host === "workable.com") {
+					if (segments[0] === "api") token = after("accounts");
+					else token = segments[0] && segments[0] !== "j" ? segments[0] : null;
+				} else token = subToken;
+				break;
+			case "smartrecruiters":
+				token = host.startsWith("api.") ? after("companies") : segments[0] || null;
+				break;
+			case "personio":
+				region = host.endsWith(".de") ? "eu" : "us";
+				token = subToken;
+				break;
+			case "teamtailor":
+				region = host.includes(".na.teamtailor.com") ? "us" : "eu";
+				token = subToken;
+				break;
+			case "recruitee":
+				token = subToken;
+				break;
 		}
 		if (token) return { ats, token, region };
 	}
