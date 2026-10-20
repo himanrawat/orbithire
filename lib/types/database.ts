@@ -98,6 +98,14 @@ export interface Resume {
 	share_access_count: number;
 	is_public: boolean;
 
+	// v2: rendering + provenance (migration 20250101000018)
+	engine: DocumentEngine;
+	pdf_status: PdfStatus;
+	pdf_error: string | null;
+	source: DocumentSource;
+	source_client: string | null; // e.g. "claude", "chatgpt"
+	job_posting_id: string | null;
+
 	created_at: string;
 	updated_at: string;
 }
@@ -109,7 +117,8 @@ export interface CoverLetter {
 	resume_id: string | null; // Link to associated resume
 	title: string;
 
-	content: string;
+	content: string | null; // Legacy plain text; null allowed when content_json is set
+	content_json: CoverLetterContent | null;
 	job_description: string | null;
 	country: string;
 	template: string;
@@ -125,8 +134,44 @@ export interface CoverLetter {
 	share_access_count: number;
 	is_public: boolean;
 
+	// v2: rendering + provenance (migration 20250101000018)
+	engine: DocumentEngine;
+	pdf_status: PdfStatus;
+	pdf_error: string | null;
+	source: DocumentSource;
+	source_client: string | null;
+	job_posting_id: string | null;
+
 	created_at: string;
 	updated_at: string;
+}
+
+export type DocumentEngine = "html" | "typst";
+export type PdfStatus = "none" | "queued" | "rendering" | "ready" | "failed";
+export type DocumentSource = "portal" | "mcp" | "import";
+export type DocumentType = "resume" | "cover_letter";
+
+export interface CoverLetterContent {
+	recipient?: {
+		name?: string;
+		title?: string;
+		company?: string;
+		address?: string;
+	};
+	salutation: string;
+	paragraphs: string[];
+	closing: string;
+}
+
+export interface DocumentVersion {
+	id: string;
+	user_id: string;
+	document_type: DocumentType;
+	document_id: string; // resumes.id or cover_letters.id
+	version: number; // Auto-assigned (max + 1) when omitted on insert
+	content_json: Record<string, unknown>;
+	source: DocumentSource;
+	created_at: string;
 }
 
 // ==================== RESUME CONTENT STRUCTURE ====================
@@ -368,6 +413,151 @@ export interface CountryTemplate {
 
 	// Prompts
 	prompt_additions: string;
+}
+
+// ==================== TASK QUEUE ====================
+
+export type TaskType =
+	| "fetch_jobs"
+	| "rank_jobs"
+	| "render_pdf"
+	| "thumbnail"
+	| "digest"
+	| "noop";
+
+export type TaskStatus = "queued" | "running" | "done" | "failed";
+
+export interface Task {
+	id: string;
+	type: TaskType;
+	payload: Record<string, unknown>;
+	status: TaskStatus;
+	priority: number; // Higher runs first
+	attempts: number;
+	max_attempts: number;
+	run_after: string;
+	locked_at: string | null;
+	locked_by: string | null; // Worker id
+	last_error: string | null;
+	result: Record<string, unknown> | null;
+	user_id: string | null; // Null for system tasks
+	created_at: string;
+	updated_at: string;
+}
+
+/** Arguments for supabase.rpc("enqueue_task", ...) – returns the new task id */
+export interface EnqueueTaskArgs {
+	p_type: TaskType;
+	p_payload?: Record<string, unknown>;
+	p_priority?: number; // Clamped to [-10, 10] for logged-in users
+	p_user_id?: string | null; // Forced to auth.uid() for logged-in users
+}
+
+// ==================== JOB SEARCH ====================
+
+export type JobSite =
+	| "linkedin"
+	| "indeed"
+	| "naukri"
+	| "glassdoor"
+	| "google"
+	| "zip_recruiter"
+	| "bayt"
+	| "bdjobs";
+
+export interface JobSearch {
+	id: string;
+	user_id: string;
+	name: string;
+	keywords: string[];
+	exclude_keywords: string[];
+	locations: string[];
+	sites: JobSite[];
+	remote_ok: boolean;
+	hours_old: number; // Default 24
+	results_wanted: number;
+	enabled: boolean;
+	created_at: string;
+	updated_at: string;
+}
+
+export type AtsProvider = "greenhouse" | "lever" | "ashby";
+
+export interface WatchedCompany {
+	id: string;
+	user_id: string;
+	company: string;
+	ats: AtsProvider;
+	board_token: string;
+	careers_url: string | null;
+	enabled: boolean;
+	created_at: string;
+	updated_at: string;
+}
+
+/** Global, deduplicated posting (written by the worker only) */
+export interface JobPosting {
+	id: string;
+	dedupe_key: string; // Normalized company + title + location
+	source: string; // JobSite | AtsProvider
+	external_id: string | null;
+	url: string | null;
+	title: string;
+	company: string;
+	location: string | null;
+	is_remote: boolean | null;
+	salary_min: number | null;
+	salary_max: number | null;
+	currency: string | null;
+	salary_interval: string | null; // yearly | monthly | hourly ...
+	description: string | null;
+	posted_at: string | null;
+	first_seen_at: string;
+	last_seen_at: string;
+	is_active: boolean;
+	raw: Record<string, unknown> | null;
+	embedding: string | null; // pgvector(1536), serialized by PostgREST as "[0.1,...]"
+	created_at: string;
+	updated_at: string;
+}
+
+export type JobMatchStatus =
+	| "new"
+	| "shortlisted"
+	| "skipped"
+	| "applied"
+	| "expired";
+
+/** A posting as seen by one user */
+export interface JobMatch {
+	id: string;
+	user_id: string;
+	job_posting_id: string;
+	search_id: string | null; // Null when found via the watchlist
+	prefilter_pass: boolean | null;
+	similarity: number | null;
+	llm_score: number | null; // 0-100
+	llm_reasons: Record<string, unknown> | null;
+	deal_breakers: Record<string, unknown> | unknown[] | null;
+	status: JobMatchStatus;
+	company_id: string | null; // Set when it becomes an application
+	seen_at: string | null;
+	created_at: string;
+	updated_at: string;
+}
+
+// ==================== MCP TOKENS ====================
+
+export interface McpToken {
+	id: string;
+	user_id: string;
+	name: string;
+	token_hash: string; // Never the raw token
+	token_prefix: string | null; // Shown in the UI, e.g. "orb_ab12"
+	scopes: string[];
+	last_used_at: string | null;
+	revoked_at: string | null;
+	created_at: string;
 }
 
 // ==================== API TYPES ====================
