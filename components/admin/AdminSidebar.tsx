@@ -14,6 +14,7 @@ import {
 	ChevronLeft,
 	Menu,
 	UserCheck,
+	ListChecks,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
@@ -48,6 +49,11 @@ const baseNavigation = [
 		name: "Access Codes",
 		href: "/admin/access-codes",
 		icon: Shield,
+	},
+	{
+		name: "Tasks",
+		href: "/admin/tasks",
+		icon: ListChecks,
 	},
 	{
 		name: "Settings",

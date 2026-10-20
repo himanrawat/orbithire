@@ -1,0 +1,24 @@
+# Local development: run the worker next to `supabase start`.
+#
+#   supabase start            # repo root; Postgres on host port 54322
+#   cd worker && docker compose up --build
+#
+# The container reaches the Supabase Postgres through host.docker.internal.
+services:
+  worker:
+    build: .
+    image: orbithire-worker:dev
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: ${WORKER_DATABASE_URL:-postgresql://postgres:postgres@host.docker.internal:54322/postgres}
+      WORKER_ID: ${WORKER_ID:-compose-worker}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # needed on Linux; harmless on macOS
+    ports:
+      - "127.0.0.1:8787:8787"                  # internal HTTP, host loopback only
+    stop_signal: SIGTERM
+    stop_grace_period: 40s                     # > WORKER_SHUTDOWN_GRACE (30s)
