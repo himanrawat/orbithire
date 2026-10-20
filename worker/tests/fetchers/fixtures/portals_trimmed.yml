@@ -1,0 +1,83 @@
+# Trimmed copy of career-ops/portals.yml (same structure, fewer entries).
+
+title_filter:
+  positive:
+    - "Frontend"
+    - "Front-End"
+    - "React"
+    - "Next.js"
+    - "UI Engineer"
+    - "Design Engineer"
+    - "Full Stack"
+    - "Software Engineer"
+
+  negative:
+    - "Junior"
+    - "Intern"
+    - ".NET"
+    - "Java "
+    - "iOS"
+    - "C++"
+    - "Backend Engineer"
+    - "SAP "
+
+  seniority_boost:
+    - "Senior"
+    - "Staff"
+
+search_queries:
+  - name: Ashby — Senior Frontend Engineer
+    query: 'site:jobs.ashbyhq.com "Senior Frontend Engineer" OR "Senior React Engineer" remote'
+    enabled: true
+
+tracked_companies:
+
+  # =============================================
+  # -- Frontend Infrastructure & Developer Tools --
+  # =============================================
+
+  - name: Vercel
+    careers_url: https://job-boards.greenhouse.io/vercel
+    api: https://boards-api.greenhouse.io/v1/boards/vercel/jobs
+    notes: "Remote. Next.js creators."
+    enabled: true
+
+  - name: Retool
+    careers_url: https://retool.com/careers
+    scan_method: websearch
+    scan_query: 'site:retool.com/careers "Frontend" OR "React"'
+    notes: "Remote. Internal tools builder."
+    enabled: true
+
+  - name: Lovable
+    careers_url: https://jobs.ashbyhq.com/lovable
+    scan_method: websearch
+    scan_query: 'site:jobs.ashbyhq.com/lovable'
+    notes: "Stockholm SE."
+    enabled: true
+
+  - name: Loom (Atlassian)
+    careers_url: https://jobs.lever.co/loom
+    notes: "Remote."
+    enabled: true
+
+  - name: Airtable
+    careers_url: https://job-boards.greenhouse.io/airtable
+    api: https://boards-api.greenhouse.io/v1/boards/airtable/jobs
+    enabled: true
+
+  - name: PolyAI
+    careers_url: https://job-boards.eu.greenhouse.io/polyai
+    api: https://boards-api.greenhouse.io/v1/boards/polyai/jobs
+    notes: "Voice AI infra. Not relevant."
+    enabled: false
+
+  - name: Hugging Face
+    careers_url: https://apply.workable.com/huggingface/
+    notes: "ML hub. Not relevant."
+    enabled: false
+
+  - name: Qonto
+    careers_url: https://jobs.lever.co/qonto
+    notes: "SMB neobank."
+    enabled: false
