@@ -1,12 +1,14 @@
 CVLeap AI -- spec
 =================
 
-Goal: let candidates paste a job description, auto-tailor an ATS-friendly resume + cover letter (OpenAI + Groq), store/share versions company-wise, and track applications with 7-day follow-up emails (includes recruiter-facing message). Backend: Supabase (auth + DB + edge functions). File storage: Cloudflare R2 (presigned uploads/downloads). Region-ready templates (Germany/EU include optional profile photo slot).
+Goal: let candidates paste a job description, auto-tailor an ATS-friendly resume + cover letter (OpenAI + Groq), store/share versions company-wise, and track applications with 7-day follow-up emails (includes recruiter-facing message). Backend: self-hosted Supabase in Docker (auth + DB + edge functions). File storage: Cloudflare R2 (presigned uploads/downloads). Region-ready templates (Germany/EU include optional profile photo slot).
 
 Env setup
 ---------
-1) Copy `.env.example` to `.env` and fill values.  
-2) Required keys: Supabase URL + anon key (+ service role for edge), OpenAI + Groq, Cloudflare R2 (account, access, secret, bucket), email provider key (Resend), app URL, follow-up from email. Optional: PostHog.
+1) Copy `.env.example` to `.env.local` and fill values.  
+2) Start the database: `npm run db:start` (needs Docker + Supabase CLI). Full guide: [docs/DATABASE.md](docs/DATABASE.md).  
+3) Start the app: `npm run dev` -> http://localhost:3000. Database dashboard (Studio): http://127.0.0.1:54323.  
+4) Required keys: self-hosted Supabase URL + anon key + service role key + JWT secret (from `supabase status -o env`), OpenAI + Groq, Cloudflare R2 (account, access, secret, bucket), email provider key (Resend), app URL, follow-up from email. Optional: PostHog.
 
 User flow
 ---------
@@ -28,7 +30,7 @@ Key constraints
 Architecture
 ------------
 - Frontend: Next.js (App Router), React, TypeScript, Tailwind (or CSS-in-JS), client Supabase auth.
-- Backend: Supabase Postgres + RLS; Supabase Edge Functions for AI orchestration, parsing, follow-up scheduler, email delivery.
+- Backend: self-hosted Supabase (Docker) - Postgres + RLS; Supabase Edge Functions for AI orchestration, parsing, follow-up scheduler, email delivery.
 - AI: OpenAI (precision rewrite), Groq (fast extraction/diff). Prompt to enforce ATS structure (plain text/bullets, minimal styling).
 - Storage: Cloudflare R2 for originals and generated PDFs/Docx; store derived plain text in Postgres for semantic ops/search.
 - Email/notifications: Supabase Edge Function hooked to a provider (Resend/Postmark/SES) for follow-ups; web push/FCM for in-app notifications.

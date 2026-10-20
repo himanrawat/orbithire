@@ -1,5 +1,5 @@
 -- CVLeap AI Database Schema
--- Run this in your Supabase SQL Editor
+-- Applied automatically by `supabase start` / `supabase migration up` (see docs/DATABASE.md)
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

@@ -1,5 +1,5 @@
 -- Add job tracking fields to companies table
--- Run this in your Supabase SQL Editor
+-- Applied automatically by `supabase start` / `supabase migration up` (see docs/DATABASE.md)
 
 ALTER TABLE companies 
 ADD COLUMN IF NOT EXISTS job_title TEXT,

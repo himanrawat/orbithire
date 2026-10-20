@@ -15,8 +15,8 @@ const defaultMaxUploadBytes = 5 * 1024 * 1024; // 5MB
 /**
  * Server environment configuration.
  * Uses lazy getters to avoid throwing at module load time.
- * This is critical for Amplify/Vercel where env vars might not be
- * available during the build phase but are available at runtime.
+ * This is critical when env vars might not be available during the
+ * build phase but are available at runtime.
  */
 export const serverEnv = {
 	get supabaseUrl() {
@@ -45,17 +45,12 @@ export const serverEnv = {
 	},
 	// In production, require SITE_URL to be set. In development, allow localhost fallback.
 	get siteUrl() {
-		const devAmplifyUrl = "https://dev.d1pqsq7ljwpxt9.amplifyapp.com";
 		const url =
 			process.env.NEXT_PUBLIC_APP_URL ||
 			process.env.SITE_URL ||
 			process.env.NEXT_PUBLIC_SITE_URL;
 
 		if (!url) {
-			// Allow dev branch to fall back to the hosted preview domain
-			if (process.env.AMPLIFY_BRANCH === "dev") {
-				return devAmplifyUrl;
-			}
 			if (process.env.NODE_ENV === "production") {
 				throw new Error(
 					"Missing SITE_URL, NEXT_PUBLIC_APP_URL, or NEXT_PUBLIC_SITE_URL in production"
@@ -68,11 +63,6 @@ export const serverEnv = {
 	get authCookieDomain() {
 		// Only set cookie domain in production to allow localhost development
 		if (process.env.NODE_ENV !== "production") {
-			return undefined;
-		}
-		// Don't set cookie domain on Amplify preview/dev branches (amplifyapp.com domains)
-		// as they're not subdomains of .himanshurawat.in
-		if (process.env.AMPLIFY_BRANCH && process.env.AMPLIFY_BRANCH !== "master") {
 			return undefined;
 		}
 		return process.env.AUTH_COOKIE_DOMAIN || ".himanshurawat.in";

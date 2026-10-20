@@ -17,3 +17,5 @@ _backup/
 
 # Claude Code settings
 .claude/
+.env*.bak*
+backups/

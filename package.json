@@ -9,7 +9,12 @@
     "start": "next start",
     "lint": "next lint",
     "generate-thumbnails": "npx ts-node --project tsconfig.scripts.json scripts/generate-thumbnails.ts",
-    "generate-thumbnails:force": "npx ts-node --project tsconfig.scripts.json scripts/generate-thumbnails.ts --force"
+    "generate-thumbnails:force": "npx ts-node --project tsconfig.scripts.json scripts/generate-thumbnails.ts --force",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:status": "supabase status",
+    "db:reset": "supabase db reset",
+    "db:migrate": "supabase migration up --local"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
