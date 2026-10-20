@@ -27,6 +27,7 @@ import {
 	Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { FailedPdfsPanel } from "@/components/documents/FailedPdfsPanel";
 
 // Data types
 type Company = {
@@ -183,6 +184,8 @@ export default function CompaniesPage() {
 						</Link>
 					</Button>
 				</motion.div>
+
+				<FailedPdfsPanel className="mb-6" />
 
 				{/* Error display */}
 				{error && (

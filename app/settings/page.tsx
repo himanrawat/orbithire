@@ -54,10 +54,12 @@ import { DeprecationWarning } from "@/components/settings/DeprecationWarning";
 import { JobSearchSettings } from "@/components/jobs/JobSearchSettings";
 import { RankingSettings } from "@/components/settings/RankingSettings";
 import { AiConnections } from "@/components/settings/AiConnections";
+import { ImportData } from "@/components/settings/ImportData";
+import { Upload as ImportIcon } from "lucide-react";
 import { getProviderModels, type ModelInfo } from "@/lib/ai/providers/registry";
 
 type Provider = "openai" | "groq" | "anthropic" | "gemini" | "custom";
-type Tab = "ai-provider" | "ai-connections" | "job-search" | "account" | "billing" | "integrations";
+type Tab = "ai-provider" | "ai-connections" | "job-search" | "account" | "billing" | "integrations" | "import";
 
 const tabs: {
 	id: Tab;
@@ -87,6 +89,7 @@ const tabs: {
 		label: "Integrations",
 		icon: <Link2 className="h-4 w-4" />,
 	},
+	{ id: "import", label: "Import", icon: <ImportIcon className="h-4 w-4" /> },
 ];
 
 export default function SettingsPage() {
@@ -381,6 +384,7 @@ export default function SettingsPage() {
 							transition={{ duration: 0.2 }}
 						>
 							{activeTab === "ai-connections" && <AiConnections />}
+							{activeTab === "import" && <ImportData />}
 
 							{activeTab === "job-search" && (
 								<div className="grid gap-6">
