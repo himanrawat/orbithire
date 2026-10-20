@@ -69,8 +69,8 @@ async def test_digest_top5_and_resend_payload(conn, user_id):
     assert body["subject"] == "5 new job matches for you today"
     assert f"https://app.orbithire.test/jobs/{ids['a']}" in body["html"]
     assert "A &lt;script&gt;" in body["html"] and "<script>" not in body["html"]
-    assert "https://app.orbithire.test/settings#ranking" in body["html"]
-    assert body["headers"]["List-Unsubscribe"] == "<https://app.orbithire.test/settings#ranking>"
+    assert "https://app.orbithire.test/settings?tab=job-search#ranking" in body["html"]
+    assert body["headers"]["List-Unsubscribe"] == "<https://app.orbithire.test/settings?tab=job-search#ranking>"
     assert "A <script> [91]" in body["text"] and body["text"].startswith("Hi Test,")
 
     cur = await conn.execute(

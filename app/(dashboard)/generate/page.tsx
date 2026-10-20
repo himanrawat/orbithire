@@ -286,6 +286,7 @@ export default function GeneratePage() {
 	// Job Inbox -> "Generate documents" (/generate?job=<job_matches.id>): prefill
 	// the job details; after saving, the new application is linked to the match.
 	const [jobMatchId, setJobMatchId] = useState<string | null>(null);
+	const [jobCompanyId, setJobCompanyId] = useState<string | null>(null);
 	useEffect(() => {
 		const id = new URLSearchParams(window.location.search).get("job");
 		if (!id) return;
@@ -295,6 +296,7 @@ export default function GeneratePage() {
 				const job = data?.job;
 				if (!job) return;
 				setJobMatchId(job.id);
+				setJobCompanyId(job.company_id ?? null);
 				setForm((f) => ({
 					...f,
 					companyName: job.company || f.companyName,
@@ -764,6 +766,7 @@ export default function GeneratePage() {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
+					existingCompanyId: jobCompanyId,
 					name: form.companyName.trim(),
 					status: trackForm.status,
 					jobTitle: form.jobTitle.trim(),

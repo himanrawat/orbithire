@@ -51,6 +51,7 @@ import { ProviderSelector } from "@/components/settings/ProviderSelector";
 import { ModelDropdown } from "@/components/settings/ModelDropdown";
 import { DeprecationWarning } from "@/components/settings/DeprecationWarning";
 import { JobSearchSettings } from "@/components/jobs/JobSearchSettings";
+import { RankingSettings } from "@/components/settings/RankingSettings";
 import { getProviderModels, type ModelInfo } from "@/lib/ai/providers/registry";
 
 type Provider = "openai" | "groq" | "anthropic" | "gemini" | "custom";
@@ -372,7 +373,12 @@ export default function SettingsPage() {
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ duration: 0.2 }}
 						>
-							{activeTab === "job-search" && <JobSearchSettings />}
+							{activeTab === "job-search" && (
+								<div className="grid gap-6">
+									<JobSearchSettings />
+									<RankingSettings />
+								</div>
+							)}
 
 							{/* AI Provider Tab */}
 							{activeTab === "ai-provider" && (

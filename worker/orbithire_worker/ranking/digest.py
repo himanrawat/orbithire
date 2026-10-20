@@ -18,7 +18,7 @@ from .prefilter import format_amount, normalize_currency, yearly_amount
 log = logging.getLogger(__name__)
 
 DIGEST_SIZE = 5
-SETTINGS_PATH = "/settings#ranking"
+SETTINGS_PATH = "/settings?tab=job-search#ranking"
 
 
 async def _one(conn: AsyncConnection, sql: str, params: Any = None) -> dict[str, Any] | None:
