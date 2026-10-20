@@ -14,6 +14,8 @@ log = logging.getLogger(__name__)
 
 _MODULES = [
     "noop",
+    "rank_jobs",
+    "digest",
 ]
 
 

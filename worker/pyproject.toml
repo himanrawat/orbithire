@@ -16,6 +16,7 @@ dependencies = [
     "openai>=1.40",
     "anthropic>=0.40",
     "certifi>=2026.10.19",
+    "cryptography>=50.0.2",
 ]
 
 [project.scripts]

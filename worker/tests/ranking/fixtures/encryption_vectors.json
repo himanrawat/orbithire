@@ -1,0 +1,23 @@
+[
+  {
+    "env": {
+      "ENCRYPTION_KEY": "test-encryption-key-0123456789abcdef-extra"
+    },
+    "plaintext": "sk-ant-test-1234567890",
+    "ciphertext": "ebc91d2ee73b6059ee10cdd6291cd894b6fd0e4324c2da17e4e30459a98fee61:0b8ee95a692400fb3252769239cb1e5a:ac81ff9d21f53545f8bac2a429c0cdd6:291725034362acd308253d0fc74383f7274d85d769f3"
+  },
+  {
+    "env": {
+      "ENCRYPTION_KEY": "test-encryption-key-0123456789abcdef-extra"
+    },
+    "plaintext": "sk-proj-ünïcødé-key ✓",
+    "ciphertext": "09f57b47e5a4fb1eab68842e02b56aa5cd5d85ce9fea120b48a2aa1fa6798816:15ccc4dcfe4cf5d12a61996e26c4d78f:cc0f7ca7396e918d386874403ec903a3:305761469bf2b6a08596b406a23c0d0a21f0240a0dc965eeafff18"
+  },
+  {
+    "env": {
+      "SUPABASE_JWT_SECRET": "super-secret-jwt-token-with-at-least-32-characters-long"
+    },
+    "plaintext": "gsk_groq_test_key",
+    "ciphertext": "f5c05181013e562125c272e57400f60d4863dd3f53b5b67925372ec853c0fbf3:ba7f00b79f26c3f5467c899f9547d6b1:26640496e25e03db297f3a6c065be2f7:5121ee159e9b4cd425f024d9b629d5edbb"
+  }
+]
