@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { badRequest, requireUser, serverError } from "@/lib/jobs/server";
+import { badRequest, isSearchLimitError, requireUser, serverError } from "@/lib/jobs/server";
 import { IMPORTED_SEARCH_NAME, parsePortalsYaml } from "@/lib/jobs/portals";
 
 export const runtime = "nodejs";
@@ -70,6 +70,9 @@ export async function POST(req: NextRequest) {
 		const added = importable.filter((c) => !existingKeys.has(`${c.ats}:${c.board_token}`)).length;
 
 		let search: { id: string; created: boolean } | null = null;
+		// Set when the user is already at the job-search limit: the companies are
+		// still imported, only the default search is not created.
+		let searchSkipped: string | null = null;
 		if (cfg.positive.length) {
 			const fields = {
 				keywords: cfg.positive.slice(0, 3),
@@ -99,8 +102,13 @@ export async function POST(req: NextRequest) {
 					})
 					.select("id")
 					.single();
-				if (error || !data) return serverError("Failed to create search", error);
-				search = { id: data.id, created: true };
+				if (isSearchLimitError(error)) {
+					searchSkipped = "You already have the maximum number of job searches, so the default search was not created.";
+				} else if (error || !data) {
+					return serverError("Failed to create search", error);
+				} else {
+					search = { id: data.id, created: true };
+				}
 			}
 		}
 
@@ -109,6 +117,7 @@ export async function POST(req: NextRequest) {
 			companiesUpdated: importable.length - added,
 			companiesSkipped: skipped,
 			search,
+			searchSkipped,
 			positive: cfg.positive.length,
 			negative: cfg.negative.length,
 		});

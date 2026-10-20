@@ -210,6 +210,19 @@ where m.user_id = '<user id>' order by m.llm_score desc nulls last limit 20;
 Insert without `version` and it is assigned automatically (previous max + 1 per document).
 Versions are deleted automatically when their resume / cover letter is deleted.
 
+### Later migrations (020–025)
+
+| Migration | Adds |
+|---|---|
+| `020_job_fetch_cron` | pg_cron job `orbithire-daily-job-fetch` (01:30 UTC = 07:00 IST), `request_job_fetch()` for "Fetch now", `job_searches.include_keywords`, the `job_inbox` view, trigger that marks a match `applied` when its application moves on |
+| `021_ranking` | `ranking_settings`, `ranking_usage` (daily LLM/embedding counters), `user_profile_embeddings`, pg_cron job `orbithire-digest-hourly` |
+| `022_ai_provider_values` | `user_settings.ai_provider` also allows `anthropic` and `gemini` |
+| `023_mcp` | `mcp_tokens.last_client`, index on `user_activities` for MCP write limits |
+| `024_imports` | no "Resume Created" notification for imported resumes, indexes for import dedupe |
+| `025_job_sources` | `job_searches.country` and `sources`, more `watched_companies.ats` values, max 3 job searches per user (`enforce_job_search_limit()`) |
+
+Scheduled jobs: `select jobname, schedule, active from cron.job;`
+
 ## Backups and restore
 
 **Back up data** (users + app tables):

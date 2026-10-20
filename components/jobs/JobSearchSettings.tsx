@@ -207,11 +207,16 @@ export function JobSearchSettings() {
 				companiesUpdated: number;
 				companiesSkipped: string[];
 				search: { created: boolean } | null;
+				searchSkipped?: string | null;
 			}>("/api/jobs/import-portals", { method: "POST", body: fd });
 			setNotice(
 				`Imported: ${r.companiesAdded} companies added, ${r.companiesUpdated} updated, ` +
 					`${r.companiesSkipped.length} skipped (no supported ATS board)` +
-					(r.search ? `; default search ${r.search.created ? "created" : "updated"}.` : ".")
+					(r.search
+						? `; default search ${r.search.created ? "created" : "updated"}.`
+						: r.searchSkipped
+							? `. ${r.searchSkipped}`
+							: ".")
 			);
 		});
 		setImporting(false);

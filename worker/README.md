@@ -147,6 +147,32 @@ Scheduling (migration `20250101000020_job_fetch_cron.sql`): pg_cron runs
 `request_job_fetch()` (own user only; refused while a fetch is queued/running or
 within 10 minutes of the last one).
 
+Sources (migration `20250101000025_job_sources.sql`): each `job_searches` row has a
+`country` (ISO-2, default `IN`) and `sources` (API boards) next to the JobSpy `sites`.
+JobSpy uses the country for Indeed/Glassdoor; Naukri runs only for `IN`.
+
+| Source | Regions | Key |
+|---|---|---|
+| Adzuna | GB, US, CA, AU, NZ, SG, IN, DE, FR, NL, BE, AT, CH, ES, IT, PL | `ADZUNA_APP_ID` + `ADZUNA_APP_KEY` |
+| Jooble | most countries | `JOOBLE_API_KEY` |
+| Reed | GB | `REED_API_KEY` |
+| USAJOBS | US | `USAJOBS_API_KEY` + `USAJOBS_USER_AGENT` (your registered email) |
+| Bundesagentur für Arbeit | DE | none |
+| Arbeitnow | DE, GB | none |
+| MyCareersFuture | SG | none |
+| Remotive, Remote OK, Himalayas, Jobicy | remote | none |
+
+A keyed source without its key is recorded as `errors[source] = "missing API key"` and
+makes no request; a source that doesn't serve the search's country is listed under
+`skipped`. Neither fails the task. Per run each API source makes at most 4 queries of up
+to 50 results, with a 90 s budget, 4 sources in parallel.
+
+Watchlist ATS boards: Greenhouse, Lever, Ashby, Workable, SmartRecruiters, Recruitee,
+Personio and Teamtailor (`<slug>.teamtailor.com` only).
+
+Each user can have at most 3 job searches (trigger `enforce_job_search_limit()`; the API
+returns 409 `search_limit`).
+
 Seed from career-ops:
 
 ```bash
