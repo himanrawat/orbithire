@@ -5,10 +5,24 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { CheckCircle2, Eye, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { ResumeTemplate } from "@/components/ResumePreview";
+
+/** Anything with these fields can be shown (ResumeTemplate, TemplateInfo mapped by key, ...). */
+export interface GalleryTemplate {
+	/** Selection id passed to onSelect / onPreview */
+	id: string;
+	name: string;
+	style: string;
+	description: string;
+	tags: string[];
+	/** Defaults to the legacy HTML thumbnail route */
+	thumbnailUrl?: string;
+	/** e.g. "Typst" or "Classic (HTML)" */
+	engineLabel?: string;
+}
 
 export interface TemplateGalleryProps {
-	readonly templates: ResumeTemplate[];
+	readonly templates: GalleryTemplate[];
+	readonly title?: string;
 	readonly selectedId: string;
 	readonly onSelect: (templateId: string) => void;
 	readonly onPreview?: (templateId: string) => void;
@@ -16,6 +30,7 @@ export interface TemplateGalleryProps {
 
 export function TemplateGallery({
 	templates,
+	title = "Choose a Template",
 	selectedId,
 	onSelect,
 	onPreview,
@@ -37,7 +52,7 @@ export function TemplateGallery({
 	return (
 		<div className="space-y-4">
 			<div className="flex items-center justify-between flex-wrap gap-2">
-				<h3 className="text-lg font-semibold">Choose a Template</h3>
+				<h3 className="text-lg font-semibold">{title}</h3>
 				<p className="text-sm text-muted-foreground">
 					Click to select • Hover for full preview
 				</p>
@@ -93,7 +108,7 @@ export function TemplateGallery({
 								{/* Static thumbnail image */}
 								{!hasFailed && (
 									<Image
-										src={`/api/template/thumbnail/${template.id}`}
+										src={template.thumbnailUrl ?? `/api/template/thumbnail/${template.id}`}
 										alt={`${template.name} template preview`}
 										fill
 										className={cn(
@@ -140,6 +155,18 @@ export function TemplateGallery({
 									{template.description}
 								</p>
 								<div className="flex flex-wrap gap-1">
+									{template.engineLabel && (
+										<span
+											className={cn(
+												"rounded px-1.5 py-0.5 text-xs font-medium",
+												template.engineLabel === "Typst"
+													? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+													: "bg-muted text-muted-foreground"
+											)}
+										>
+											{template.engineLabel}
+										</span>
+									)}
 									{template.tags.slice(0, 3).map((tag: string) => (
 										<span
 											key={tag}

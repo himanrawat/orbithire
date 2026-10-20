@@ -6,7 +6,10 @@
 # The container reaches the Supabase Postgres through host.docker.internal.
 services:
   worker:
-    build: .
+    build:
+      context: .
+      additional_contexts:
+        templates: ../templates/typst   # Typst templates + fonts (render_pdf, /preview)
     image: orbithire-worker:dev
     restart: unless-stopped
     env_file:

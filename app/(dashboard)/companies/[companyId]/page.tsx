@@ -33,6 +33,8 @@ import {
 } from "@/components/ui/select";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import { PdfStatusBadge, type PdfStatusInfo } from "@/components/PdfStatusBadge";
+import type { PdfStatus } from "@/lib/types/database";
 import {
 	Building2,
 	ChevronLeft,
@@ -76,6 +78,9 @@ type Resume = {
 	template: string;
 	pdf_url: string | null;
 	docx_url: string | null;
+	engine?: "html" | "typst";
+	pdf_status?: PdfStatus;
+	pdf_error?: string | null;
 	created_at: string;
 	updated_at: string;
 };
@@ -84,6 +89,9 @@ type CoverLetter = {
 	id: string;
 	title: string;
 	content: string;
+	engine?: "html" | "typst";
+	pdf_status?: PdfStatus;
+	pdf_error?: string | null;
 	job_description: string | null;
 	template: string;
 	pdf_url: string | null;
@@ -468,6 +476,14 @@ export default function CompanyDetailPage({
 			setPdfViewerTitle(resume.title);
 			return;
 		}
+		if (resume.engine === "typst") {
+			setError(
+				resume.pdf_status === "failed"
+					? `PDF render failed: ${resume.pdf_error ?? "unknown error"}. Use Retry.`
+					: "The PDF is still being rendered – it will appear here in a few seconds."
+			);
+			return;
+		}
 
 		try {
 			setResumeActionLoading({ id: resume.id, action: "view" });
@@ -489,6 +505,14 @@ export default function CompanyDetailPage({
 			window.open(resume.pdf_url, "_blank");
 			return;
 		}
+		if (resume.engine === "typst") {
+			setError(
+				resume.pdf_status === "failed"
+					? `PDF render failed: ${resume.pdf_error ?? "unknown error"}. Use Retry.`
+					: "The PDF is still being rendered – it will appear here in a few seconds."
+			);
+			return;
+		}
 
 		try {
 			setResumeActionLoading({ id: resume.id, action: "download" });
@@ -504,6 +528,30 @@ export default function CompanyDetailPage({
 		} finally {
 			setResumeActionLoading(null);
 		}
+	};
+
+	const applyPdfStatus = (
+		kind: "resumes" | "cover_letters",
+		id: string,
+		st: PdfStatusInfo
+	) => {
+		setCompany((prev) => {
+			if (!prev) return prev;
+			if (kind === "resumes") {
+				return {
+					...prev,
+					resumes: prev.resumes.map((d) =>
+						d.id === id ? { ...d, pdf_status: st.pdf_status, pdf_error: st.pdf_error, pdf_url: st.pdf_url } : d
+					),
+				};
+			}
+			return {
+				...prev,
+				cover_letters: prev.cover_letters.map((d) =>
+					d.id === id ? { ...d, pdf_status: st.pdf_status, pdf_error: st.pdf_error, pdf_url: st.pdf_url } : d
+				),
+			};
+		});
 	};
 
 	const getStatusColor = (status: string) => {
@@ -1080,9 +1128,28 @@ export default function CompanyDetailPage({
 											<div>
 												<p className="font-medium">{resume.title}</p>
 												<p className="text-sm text-muted-foreground">
-												Template: {resume.template} • Created
+													Template: {resume.template}
+													{resume.engine === "typst" ? " (Typst)" : " (Classic HTML)"} • Created{" "}
 													{formatDate(resume.created_at)}
 												</p>
+												<div className="mt-1 flex flex-wrap items-center gap-2">
+													<PdfStatusBadge
+														documentId={resume.id}
+														documentType="resume"
+														initial={{
+															pdf_status: resume.pdf_status ?? (resume.pdf_url ? "ready" : "none"),
+															pdf_error: resume.pdf_error ?? null,
+															pdf_url: resume.pdf_url,
+														}}
+														onChange={(st) => applyPdfStatus("resumes", resume.id, st)}
+													/>
+													<Link
+														href={`/documents/${resume.id}?type=resume`}
+														className="text-xs text-primary hover:underline"
+													>
+														Edit
+													</Link>
+												</div>
 											</div>
 											<div className="flex gap-2">
 												<Button
@@ -1158,6 +1225,24 @@ export default function CompanyDetailPage({
 													<p className="text-sm text-muted-foreground">
 														Created {formatDate(letter.created_at)}
 													</p>
+													<div className="mt-1 flex flex-wrap items-center gap-2">
+														<PdfStatusBadge
+															documentId={letter.id}
+															documentType="cover_letter"
+															initial={{
+																pdf_status: letter.pdf_status ?? (letter.pdf_url ? "ready" : "none"),
+																pdf_error: letter.pdf_error ?? null,
+																pdf_url: letter.pdf_url,
+															}}
+															onChange={(st) => applyPdfStatus("cover_letters", letter.id, st)}
+														/>
+														<Link
+															href={`/documents/${letter.id}?type=cover_letter`}
+															className="text-xs text-primary hover:underline"
+														>
+															Edit
+														</Link>
+													</div>
 												</div>
 												<div className="flex gap-2">
 													{letter.pdf_url && (

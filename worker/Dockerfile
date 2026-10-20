@@ -1,4 +1,8 @@
 # OrbitHire worker image
+#
+# Needs the Typst templates as an extra build context named "templates":
+#   docker build --build-context templates=../templates/typst -t orbithire-worker worker/
+# (docker-compose.yml sets this up via additional_contexts.)
 FROM python:3.12-slim-bookworm
 
 COPY --from=ghcr.io/astral-sh/uv:0.11.13 /uv /uvx /bin/
@@ -19,6 +23,10 @@ RUN uv sync --frozen --no-dev --no-install-project
 COPY README.md ./
 COPY orbithire_worker ./orbithire_worker
 RUN uv sync --frozen --no-dev
+
+# Typst templates + bundled fonts (no network or system fonts at compile time)
+COPY --from=templates . /app/templates/typst
+ENV TYPST_TEMPLATES_DIR=/app/templates/typst
 
 RUN useradd --system --uid 10001 worker
 USER worker

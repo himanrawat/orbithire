@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabaseServer";
 import {
-	generatePDFFromHTML,
-	generateCoverLetterPDF,
-} from "@/lib/pdfGenerator";
-import { uploadToR2, generateFileKey } from "@/lib/r2";
-import { serverEnv } from "@/lib/config";
+	coverLetterJsonFromText,
+	insertDocumentVersion,
+	letterBasicsFromResume,
+	queueTypstRender,
+	renderLegacyHtmlPdf,
+} from "@/lib/documents";
+import { getTypstTemplate } from "@/lib/typstTemplates";
+import { DEFAULT_TYPST_COVER } from "@/lib/templateCatalog";
 
 export const runtime = "nodejs";
 
@@ -106,7 +109,27 @@ export async function POST(request: NextRequest) {
 			resume,
 			coverLetter,
 			templateId,
+			engine: requestedEngine,
+			coverLetterTemplateId,
 		} = body;
+
+		// Typst documents are rendered by the worker (render_pdf task); the
+		// legacy HTML engine still renders inline with Puppeteer.
+		const engine: "typst" | "html" = requestedEngine === "typst" ? "typst" : "html";
+		if (engine === "typst") {
+			const t = templateId ? await getTypstTemplate(templateId) : null;
+			if (!t || t.kind !== "resume") {
+				return NextResponse.json(
+					{ error: `Unknown Typst resume template: ${templateId}` },
+					{ status: 400 }
+				);
+			}
+		}
+		let coverTemplate: string = DEFAULT_TYPST_COVER;
+		if (engine === "typst" && coverLetterTemplateId) {
+			const ct = await getTypstTemplate(coverLetterTemplateId);
+			if (ct && ct.kind === "cover_letter") coverTemplate = ct.id;
+		}
 
 		if (!name) {
 			return NextResponse.json(
@@ -200,56 +223,12 @@ export async function POST(request: NextRequest) {
 				.eq("id", company.id);
 		}
 
-		let resumeRecord = null;
-		let coverLetterRecord = null;
-		let resumePdfUrl: string | null = null;
-		let coverLetterPdfUrl: string | null = null;
+		let resumeRecord: Record<string, unknown> | null = null;
+		let coverLetterRecord: Record<string, unknown> | null = null;
+		const pdfErrors: { document: "resume" | "cover_letter"; error: string }[] = [];
+		const legacyRenders: Promise<void>[] = [];
 
-		// Generate Resume PDF and upload to R2 if resume is provided
 		if (resume) {
-			try {
-				// Call the render API to get HTML
-				const renderResponse = await fetch(
-					`${serverEnv.siteUrl}/api/resume/render`,
-					{
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({
-							resume,
-							templateId: templateId || "compact",
-						}),
-					}
-				);
-
-				if (renderResponse.ok) {
-					const { html } = await renderResponse.json();
-
-					// Generate PDF from HTML
-					const pdfResult = await generatePDFFromHTML(html);
-
-					if (pdfResult.success && pdfResult.buffer) {
-						// Upload to R2
-						const fileKey = generateFileKey(user.id, "resume", name, "pdf");
-						const uploadResult = await uploadToR2(
-							pdfResult.buffer,
-							fileKey,
-							"application/pdf"
-						);
-
-						if (uploadResult.success && uploadResult.url) {
-							resumePdfUrl = uploadResult.url;
-						} else {
-							console.error("Resume PDF upload failed:", uploadResult.error);
-						}
-					} else {
-						console.error("Resume PDF generation failed:", pdfResult.error);
-					}
-				}
-			} catch (err) {
-				console.error("Resume PDF generation/upload error:", err);
-			}
-
-			// Create the resume record
 			const { data: resumeData, error: resumeError } = await supabase
 				.from("resumes")
 				.insert({
@@ -258,58 +237,62 @@ export async function POST(request: NextRequest) {
 					title: `${jobTitle} at ${name}`,
 					content_json: resume,
 					job_description: jobDescription,
-					template: templateId || "standard",
-					pdf_url: resumePdfUrl,
+					template: templateId || (engine === "typst" ? "modern" : "standard"),
+					engine,
+					source: "portal",
+					pdf_status: engine === "typst" ? "queued" : "rendering",
 				})
 				.select()
 				.single();
 
 			if (resumeError) {
 				console.error("Error creating resume:", resumeError);
+				pdfErrors.push({ document: "resume", error: "Failed to save resume" });
 			} else {
 				resumeRecord = resumeData;
+				await insertDocumentVersion(supabase, {
+					userId: user.id,
+					type: "resume",
+					documentId: resumeData.id,
+					contentJson: resume,
+				});
+				if (engine === "typst") {
+					const q = await queueTypstRender({
+						type: "resume",
+						documentId: resumeData.id,
+						userId: user.id,
+						templateId: resumeData.template,
+					});
+					if (!q.ok) pdfErrors.push({ document: "resume", error: q.error || "Could not queue PDF" });
+				} else {
+					legacyRenders.push(
+						renderLegacyHtmlPdf({
+							type: "resume",
+							documentId: resumeData.id,
+							userId: user.id,
+							companyName: name,
+							jobTitle,
+							templateId: templateId || "compact",
+							resumeJson: resume,
+						}).then((r) => {
+							if (!r.ok) pdfErrors.push({ document: "resume", error: r.error || "PDF failed" });
+						})
+					);
+				}
 			}
 		}
 
-		// Generate Cover Letter PDF and upload to R2 if provided
 		if (coverLetter) {
-			try {
-				// Get candidate name from resume basics
-				const candidateName = resume?.basics?.name || "Candidate";
-
-				// Generate PDF from cover letter content
-				const pdfResult = await generateCoverLetterPDF(
-					coverLetter,
-					candidateName,
-					name,
-					jobTitle || "Position"
-				);
-
-				if (pdfResult.success && pdfResult.buffer) {
-					// Upload to R2
-					const fileKey = generateFileKey(user.id, "cover-letter", name, "pdf");
-					const uploadResult = await uploadToR2(
-						pdfResult.buffer,
-						fileKey,
-						"application/pdf"
-					);
-
-					if (uploadResult.success && uploadResult.url) {
-						coverLetterPdfUrl = uploadResult.url;
-					} else {
-						console.error(
-							"Cover letter PDF upload failed:",
-							uploadResult.error
-						);
-					}
-				} else {
-					console.error("Cover letter PDF generation failed:", pdfResult.error);
-				}
-			} catch (err) {
-				console.error("Cover letter PDF generation/upload error:", err);
-			}
-
-			// Create the cover letter record
+			const contentJson =
+				engine === "typst"
+					? coverLetterJsonFromText({
+							text: coverLetter,
+							basics: letterBasicsFromResume(resume),
+							companyName: name,
+							recruiterName,
+							jobTitle,
+						})
+					: null;
 			const { data: coverLetterData, error: coverLetterError } = await supabase
 				.from("cover_letters")
 				.insert({
@@ -318,24 +301,64 @@ export async function POST(request: NextRequest) {
 					resume_id: resumeRecord?.id,
 					title: `Cover Letter - ${jobTitle} at ${name}`,
 					content: coverLetter,
+					content_json: contentJson,
 					job_description: jobDescription,
-					pdf_url: coverLetterPdfUrl,
+					engine,
+					template: engine === "typst" ? coverTemplate : "professional",
+					source: "portal",
+					pdf_status: engine === "typst" ? "queued" : "rendering",
 				})
 				.select()
 				.single();
 
 			if (coverLetterError) {
 				console.error("Error creating cover letter:", coverLetterError);
+				pdfErrors.push({ document: "cover_letter", error: "Failed to save cover letter" });
 			} else {
 				coverLetterRecord = coverLetterData;
+				await insertDocumentVersion(supabase, {
+					userId: user.id,
+					type: "cover_letter",
+					documentId: coverLetterData.id,
+					contentJson: contentJson ?? { content: coverLetter },
+				});
+				if (engine === "typst") {
+					const q = await queueTypstRender({
+						type: "cover_letter",
+						documentId: coverLetterData.id,
+						userId: user.id,
+						templateId: coverTemplate,
+					});
+					if (!q.ok) pdfErrors.push({ document: "cover_letter", error: q.error || "Could not queue PDF" });
+				} else {
+					legacyRenders.push(
+						renderLegacyHtmlPdf({
+							type: "cover_letter",
+							documentId: coverLetterData.id,
+							userId: user.id,
+							companyName: name,
+							jobTitle,
+							coverLetterText: coverLetter,
+							candidateName: resume?.basics?.name || "Candidate",
+						}).then((r) => {
+							if (!r.ok) pdfErrors.push({ document: "cover_letter", error: r.error || "PDF failed" });
+						})
+					);
+				}
 			}
 		}
+
+		// Legacy HTML engine renders inline (Puppeteer); failures are stored on
+		// the rows (pdf_status = failed, pdf_error) and returned below.
+		await Promise.all(legacyRenders);
 
 		return NextResponse.json({
 			success: true,
 			company,
 			resume: resumeRecord,
 			coverLetter: coverLetterRecord,
+			engine,
+			pdfErrors,
 		});
 	} catch (error) {
 		console.error("Companies POST error:", error);

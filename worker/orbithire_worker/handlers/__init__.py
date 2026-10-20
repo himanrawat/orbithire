@@ -17,6 +17,7 @@ _MODULES = [
     "fetch_jobs",
     "rank_jobs",
     "digest",
+    "render_pdf",
 ]
 
 

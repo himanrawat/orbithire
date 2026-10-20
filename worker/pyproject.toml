@@ -17,6 +17,7 @@ dependencies = [
     "anthropic>=0.40",
     "certifi>=2026.10.19",
     "cryptography>=50.0.2",
+    "pypdf>=6.21.1",
 ]
 
 [project.scripts]

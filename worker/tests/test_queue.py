@@ -300,7 +300,7 @@ async def test_http_health_and_preview(db, settings):
             assert body["db"] is True and body["ok"] is True
             assert body["slots"]["noop"] == {"in_use": 0, "max": 2}
             r = await client.post("/preview", json={"template": "x"})
-            assert r.status_code == 501
+            assert r.status_code == 400  # implemented in Phase 1; bad request here
             assert (await client.get("/nope")).status_code == 404
             assert (await client.get("/preview")).status_code == 405
     finally:

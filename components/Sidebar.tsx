@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
 	LayoutDashboard,
+	LayoutTemplate,
 	Sparkles,
 	Building2,
 	FileText,
@@ -61,6 +62,7 @@ const mainNavItems: NavItem[] = [
 	{ label: "Job Inbox", href: "/jobs", icon: Briefcase },
 	{ label: "Companies", href: "/companies", icon: Building2 },
 	{ label: "My Resumes", href: "/resumes", icon: FileText },
+	{ label: "Templates", href: "/templates", icon: LayoutTemplate },
 ];
 
 function NavLink({

@@ -68,6 +68,9 @@ work through a transaction-mode pooler (Supavisor port 6543).
 | `WORKER_RECLAIM_INTERVAL` | `60` | seconds |
 | `WORKER_HTTP_ENABLED` / `WORKER_HTTP_HOST` / `WORKER_HTTP_PORT` | `true` / `127.0.0.1` / `8787` | internal only |
 | `LOG_LEVEL` | `INFO` | |
+| `TYPST_TEMPLATES_DIR` | repo `templates/typst` | Docker: `/app/templates/typst` |
+| `RENDER_MAX_PDF_BYTES` / `RENDER_MAX_PAGES` / `RENDER_PHOTO_MAX_BYTES` | `2000000` / `6` / `5000000` | output checks |
+| `PREVIEW_CONCURRENCY` / `PREVIEW_WIDTH` | `2` / `900` | `/preview` |
 
 ## Internal HTTP
 
@@ -75,7 +78,39 @@ Not exposed publicly (binds 127.0.0.1; in compose only published on the host's
 loopback).
 
 - `GET /health` → `{"ok", "db", "worker_id", "slots": {"render_pdf": {"in_use", "max"}, …}, "processed", "failed"}`; 503 if the database is unreachable.
-- `POST /preview` → 501 until Phase 1 (fast Typst preview).
+- `POST /preview` → page 1 of a Typst template as PNG (or SVG) for the live
+  editor preview. Body `{template_id, data, accent?, paper?, format?: "png"|"svg", width?, photo?}`;
+  response headers `X-Page-Count`, `X-Render-Ms`. 400 on bad input / unknown
+  template, 422 on a Typst compile error. Compilers are pooled and warmed at
+  startup (warm render ≈ 20–40 ms). The Next app proxies it via
+  `POST /api/documents/:id/preview` (`WORKER_URL`).
+
+## Rendering (`render_pdf`, Phase 1)
+
+`handlers/render_pdf.py` + `rendering/` + `r2.py`:
+
+- payload `{document_type: "resume"|"cover_letter", document_id, template_id?, accent?, paper?}`
+  (defaults: the row's `template`, `content_json.meta.accent/paper`).
+- Row lifecycle: `pdf_status` queued (set by the app) → `rendering` → `ready`
+  (`pdf_key`, `pdf_url = /api/files/<key>`, `pdf_error` cleared). A failure
+  with attempts left puts the row back to `queued` with `pdf_error`; the last
+  attempt sets `failed`. Deterministic errors (unknown template, Typst error,
+  failed output checks) fail at once without retries.
+- Templates from `TYPST_TEMPLATES_DIR` (default repo `templates/typst`, image
+  `/app/templates/typst`), bundled fonts only. Photo templates get the photo
+  from `basics.image` (data:/http(s)/R2 key) or `profiles.avatar_url`.
+- Output checks: page count (≤ `RENDER_MAX_PAGES`, 6), size
+  (≤ `RENDER_MAX_PDF_BYTES`, 2 MB), pypdf text contains the name and the
+  headings of every non-empty, non-hidden core section (cover letters: name +
+  first words).
+- R2 key scheme matches `lib/r2.ts`: `{userId}/{resumes|cover-letters}/{company}-{ms}.pdf`;
+  the previous object is deleted after a successful re-render.
+- The handler has its own deadline (render timeout − 3 s) so it can mark the
+  row before the worker's hard timeout.
+
+Docker: the image needs the templates as an extra build context
+(`docker compose` sets `additional_contexts: templates: ../templates/typst`;
+by hand: `docker build --build-context templates=../templates/typst .`).
 
 ## Adding a handler
 
@@ -132,7 +167,13 @@ Or from the admin panel: **Admin → Tasks → Enqueue test task**.
 uv run pytest -q
 ```
 
-DB tests start a throwaway Postgres container (`docker run postgres:16-alpine`
+Rendering tests (`tests/render/`) start a `supabase/postgres` container with
+**all real migrations** applied (override image with `TEST_SUPABASE_PG_IMAGE`,
+or point `TEST_SUPABASE_DB_URL` at a scratch DB) and a MinIO container as R2
+(`TEST_MINIO_IMAGE`, default `minio/minio:latest`); the real R2 bucket is
+never used.
+
+Queue DB tests start a throwaway Postgres container (`docker run postgres:16-alpine`
 on a random port; override with `TEST_PG_IMAGE`) and load
 `tests/fixtures/tasks.sql`, a copy of the queue contract. `tests/test_fetch_jobs.py`
 starts `public.ecr.aws/supabase/postgres:17.11.0.004` and applies the real
