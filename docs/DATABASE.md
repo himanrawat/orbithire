@@ -7,6 +7,7 @@ you only pay for the machine it runs on. File storage stays on Cloudflare R2.
 - [Daily commands](#daily-commands)
 - [Looking at data and running queries](#looking-at-data-and-running-queries)
 - [Changing the schema (migrations)](#changing-the-schema-migrations)
+- [v2 tables: task queue, jobs, documents, MCP](#v2-tables-task-queue-jobs-documents-mcp)
 - [Backups and restore](#backups-and-restore)
 - [Troubleshooting](#troubleshooting)
 - [Moving to your own server](#moving-to-your-own-server)
@@ -140,6 +141,74 @@ is `supabase/migrations/` (its first file is a copy of `schema.sql`).
 Functions marked `SECURITY DEFINER` must pin `search_path` (see migration
 `20250101000015_pin_function_search_path.sql`), otherwise triggers on `auth.users` fail with
 "Database error saving new user".
+
+## v2 tables: task queue, jobs, documents, MCP
+
+Added by migrations `20250101000016` – `20250101000019` (see [PLAN.md](PLAN.md) §3).
+User-owned tables use RLS on `user_id = auth.uid()`. The worker and admin pages use the
+**service role**, which bypasses RLS (admins log in through `admin_users`, not Supabase Auth).
+
+| Table | Owner / access | Purpose |
+|---|---|---|
+| `tasks` | Users: read own. Writes: `enqueue_task()` or service role | Background queue for the worker |
+| `job_searches` | Users: full access to own | Search terms, locations, JobSpy sites, `hours_old`, `results_wanted` |
+| `watched_companies` | Users: full access to own | Greenhouse / Lever / Ashby boards to poll (`ats`, `board_token`) |
+| `job_postings` | Logged-in users: read all. Writes: service role only | Global, deduplicated postings (`dedupe_key` unique) with `embedding vector(1536)` |
+| `job_matches` | Users: read + update own. Inserts: service role | One posting as seen by one user: scores, reasons, status (`new/shortlisted/skipped/applied/expired`), linked application (`company_id`) |
+| `document_versions` | Users: read, insert, delete own (no update) | Snapshot of `content_json` on every save of a resume / cover letter |
+| `mcp_tokens` | Users: full access to own | Personal access tokens for `/api/mcp` (only `token_hash` is stored) |
+
+New columns on `resumes` and `cover_letters`: `engine` (`html`/`typst`), `pdf_status`
+(`none/queued/rendering/ready/failed`), `pdf_error`, `source` (`portal/mcp/import`),
+`source_client` (e.g. `claude`), `job_posting_id`. `cover_letters.content_json` holds
+`{recipient, salutation, paragraphs[], closing}`; `content` is now nullable (old rows keep it),
+but every row needs `content` or `content_json`. Existing rows with a stored PDF were set to
+`pdf_status = 'ready'`.
+
+### Task queue
+
+- Enqueue from the app (as the logged-in user):
+  `supabase.rpc('enqueue_task', { p_type: 'render_pdf', p_payload: {...}, p_priority: 0 })`.
+  For logged-in users `user_id` is forced to `auth.uid()` and priority is clamped to −10…10.
+  The service role (worker, cron) may pass any `p_user_id`, or `NULL` for system tasks.
+- Types: `fetch_jobs`, `rank_jobs`, `render_pdf`, `thumbnail`, `digest`, `noop` (test).
+- Every insert sends `NOTIFY tasks_new` with the task type as payload.
+- Worker claim pattern (index `idx_tasks_claim` on `(status, priority desc, run_after)`):
+
+  ```sql
+  UPDATE tasks SET status = 'running', locked_at = now(), locked_by = $1, attempts = attempts + 1
+  WHERE id = (
+    SELECT id FROM tasks
+    WHERE status = 'queued' AND run_after <= now()
+    ORDER BY priority DESC, run_after
+    FOR UPDATE SKIP LOCKED
+    LIMIT 1
+  )
+  RETURNING *;
+  ```
+
+Handy queries:
+
+```sql
+-- Queue overview
+select type, status, count(*) from tasks group by 1, 2 order by 1, 2;
+
+-- Failed tasks
+select id, type, attempts, last_error, updated_at from tasks where status = 'failed' order by updated_at desc;
+
+-- Retry a failed task
+update tasks set status = 'queued', attempts = 0, run_after = now(), last_error = null where id = '<id>';
+
+-- Today's inbox for a user
+select m.llm_score, p.title, p.company, m.status
+from job_matches m join job_postings p on p.id = m.job_posting_id
+where m.user_id = '<user id>' order by m.llm_score desc nulls last limit 20;
+```
+
+### Document versions
+
+Insert without `version` and it is assigned automatically (previous max + 1 per document).
+Versions are deleted automatically when their resume / cover letter is deleted.
 
 ## Backups and restore
 
