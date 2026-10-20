@@ -262,3 +262,69 @@ export function letterBasicsFromResume(resume: unknown): Record<string, string> 
 	}
 	return out;
 }
+
+/**
+ * Create a NEW Typst resume / cover letter row, write its first
+ * document_versions row and enqueue `render_pdf` (returns immediately with
+ * pdf_status = queued). Never touches existing documents.
+ *
+ * Used by the MCP save_resume / save_cover_letter tools. `supabase` may be the
+ * service-role client: every write is scoped to `userId` explicitly.
+ */
+export async function createTypstDocument(
+	supabase: SupabaseClient,
+	args: {
+		type: DocumentType;
+		userId: string;
+		title: string;
+		templateId: string;
+		contentJson: Record<string, unknown>;
+		source: "portal" | "mcp" | "import";
+		sourceClient?: string | null;
+		companyId?: string | null;
+		jobPostingId?: string | null;
+		jobDescription?: string | null;
+		resumeId?: string | null;
+		/** Cover letters: plain-text copy for legacy views (cover_letters.content). */
+		plainText?: string | null;
+	}
+): Promise<{ id: string; version: number | null; pdfStatus: PdfStatus; renderError?: string }> {
+	const table = DOCUMENT_TABLES[args.type];
+	const row: Record<string, unknown> = {
+		user_id: args.userId,
+		title: args.title.slice(0, 300),
+		content_json: args.contentJson,
+		template: args.templateId,
+		engine: "typst",
+		source: args.source,
+		source_client: args.sourceClient ?? null,
+		company_id: args.companyId ?? null,
+		job_posting_id: args.jobPostingId ?? null,
+		job_description: args.jobDescription ?? null,
+		pdf_status: "queued",
+	};
+	if (args.type === "cover_letter" && args.resumeId) row.resume_id = args.resumeId;
+	if (args.type === "cover_letter" && args.plainText) row.content = args.plainText;
+
+	const { data, error } = await supabase.from(table).insert(row).select("id").single();
+	if (error || !data) {
+		throw new Error(`Failed to save ${args.type.replace("_", " ")}: ${error?.message ?? "no row"}`);
+	}
+	const id = (data as { id: string }).id;
+	const version = await insertDocumentVersion(supabase, {
+		userId: args.userId,
+		type: args.type,
+		documentId: id,
+		contentJson: args.contentJson,
+		source: args.source,
+	});
+	const render = await queueTypstRender({
+		type: args.type,
+		documentId: id,
+		userId: args.userId,
+		templateId: args.templateId,
+	});
+	return render.ok
+		? { id, version, pdfStatus: "queued" }
+		: { id, version, pdfStatus: "failed", renderError: render.error };
+}
