@@ -1,0 +1,47 @@
+{
+  "id": "ats-classic",
+  "name": "ATS Classic",
+  "kind": "resume",
+  "description": "Single-column serif layout in the style of Jake's resume. Plain structure and real text headings with no graphics, so it parses cleanly in every applicant tracking system.",
+  "regions": [
+    "US",
+    "CA",
+    "UK",
+    "IE",
+    "IN",
+    "AU",
+    "global"
+  ],
+  "sections": [
+    "summary",
+    "experience",
+    "education",
+    "skills",
+    "projects",
+    "certificates",
+    "awards",
+    "publications",
+    "volunteer",
+    "languages",
+    "interests",
+    "references",
+    "custom"
+  ],
+  "photo": false,
+  "fonts": [
+    "Source Serif 4"
+  ],
+  "page": {
+    "default": "a4",
+    "options": [
+      "a4",
+      "letter"
+    ]
+  },
+  "accent": {
+    "default": "#111111",
+    "customizable": true
+  },
+  "onePage": false,
+  "pairsWith": "cover-classic"
+}

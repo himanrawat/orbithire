@@ -1,0 +1,36 @@
+{
+  "id": "cover-classic",
+  "name": "Cover Letter \u2013 Classic",
+  "kind": "cover_letter",
+  "description": "Traditional serif business letter with a centred letterhead; matches ATS Classic.",
+  "regions": [
+    "global"
+  ],
+  "sections": [
+    "sender",
+    "date",
+    "recipient",
+    "subject",
+    "salutation",
+    "paragraphs",
+    "closing",
+    "signature"
+  ],
+  "photo": false,
+  "fonts": [
+    "Source Serif 4"
+  ],
+  "page": {
+    "default": "a4",
+    "options": [
+      "a4",
+      "letter"
+    ]
+  },
+  "accent": {
+    "default": "#111111",
+    "customizable": true
+  },
+  "onePage": true,
+  "pairsWith": "ats-classic"
+}

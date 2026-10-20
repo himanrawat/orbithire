@@ -1,0 +1,36 @@
+{
+  "id": "cover-modern",
+  "name": "Cover Letter \u2013 Modern",
+  "kind": "cover_letter",
+  "description": "Sans-serif letter with an accent-colour header band; matches Modern.",
+  "regions": [
+    "global"
+  ],
+  "sections": [
+    "sender",
+    "date",
+    "recipient",
+    "subject",
+    "salutation",
+    "paragraphs",
+    "closing",
+    "signature"
+  ],
+  "photo": false,
+  "fonts": [
+    "Inter"
+  ],
+  "page": {
+    "default": "a4",
+    "options": [
+      "a4",
+      "letter"
+    ]
+  },
+  "accent": {
+    "default": "#1f4e79",
+    "customizable": true
+  },
+  "onePage": true,
+  "pairsWith": "modern"
+}

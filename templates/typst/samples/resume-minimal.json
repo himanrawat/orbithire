@@ -1,0 +1,18 @@
+{
+  "basics": {
+    "name": "Sam Lee",
+    "email": "sam.lee@example.com",
+    "location": { "city": "Toronto", "countryCode": "CA" },
+    "profiles": []
+  },
+  "work": [
+    {
+      "name": "Maple Logistics",
+      "position": "Operations Analyst",
+      "startDate": "2023-01",
+      "highlights": ["Automated weekly reporting in Python, saving 6 hours per week"]
+    }
+  ],
+  "education": [],
+  "skills": []
+}

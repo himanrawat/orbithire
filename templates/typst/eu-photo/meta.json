@@ -1,0 +1,46 @@
+{
+  "id": "eu-photo",
+  "name": "EU with Photo",
+  "kind": "resume",
+  "description": "German/European style CV (Lebenslauf): optional photo, personal-details table (date of birth, nationality, work permit) and a date column next to every entry.",
+  "regions": [
+    "DE",
+    "AT",
+    "CH",
+    "EU"
+  ],
+  "sections": [
+    "summary",
+    "experience",
+    "education",
+    "skills",
+    "projects",
+    "certificates",
+    "awards",
+    "publications",
+    "volunteer",
+    "languages",
+    "interests",
+    "references",
+    "custom",
+    "personalDetails"
+  ],
+  "photo": true,
+  "fonts": [
+    "Source Serif 4",
+    "Lato"
+  ],
+  "page": {
+    "default": "a4",
+    "options": [
+      "a4",
+      "letter"
+    ]
+  },
+  "accent": {
+    "default": "#8c2f39",
+    "customizable": true
+  },
+  "onePage": false,
+  "pairsWith": "cover-classic"
+}

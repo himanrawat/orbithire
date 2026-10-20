@@ -1,0 +1,48 @@
+{
+  "id": "modern",
+  "name": "Modern",
+  "kind": "resume",
+  "description": "Clean sans-serif resume with an accent-colour header band, accent section titles and a skills table. Single column, ATS friendly.",
+  "regions": [
+    "US",
+    "CA",
+    "UK",
+    "IE",
+    "EU",
+    "IN",
+    "AU",
+    "global"
+  ],
+  "sections": [
+    "summary",
+    "experience",
+    "education",
+    "skills",
+    "projects",
+    "certificates",
+    "awards",
+    "publications",
+    "volunteer",
+    "languages",
+    "interests",
+    "references",
+    "custom"
+  ],
+  "photo": false,
+  "fonts": [
+    "Inter"
+  ],
+  "page": {
+    "default": "a4",
+    "options": [
+      "a4",
+      "letter"
+    ]
+  },
+  "accent": {
+    "default": "#1f4e79",
+    "customizable": true
+  },
+  "onePage": false,
+  "pairsWith": "cover-modern"
+}
