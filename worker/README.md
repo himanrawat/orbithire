@@ -91,6 +91,32 @@ async def render_pdf(task: Task, ctx: TaskContext) -> dict | None:
 Then add the module name to `_MODULES` in `orbithire_worker/handlers/__init__.py`.
 Sync functions are fine too; they run in a thread.
 
+## Job ingestion (`fetch_jobs`)
+
+`handlers/fetch_jobs.py` + `jobs_db.py`. Payload `{"user_id", "search_id"}` (JobSpy
+boards of one `job_searches` row) or `{"user_id", "watchlist": true}` (all enabled
+`watched_companies`, fetched 4 at a time). Postings are upserted into `job_postings`
+by `dedupe_key` (existing rows: `last_seen_at`, `is_active`, and description / salary
+only if they were empty), `job_matches` are created as `new` (an `expired` match seen
+again is revived), postings unseen for 14 days become inactive and their
+new/shortlisted matches `expired`. Finally one `rank_jobs` task with payload
+`{"user_id"}` is enqueued (skipped if one is already queued for the user). Per-source
+counts and errors are in `tasks.result`; the task fails (and retries) only when every
+source failed.
+
+Scheduling (migration `20250101000020_job_fetch_cron.sql`): pg_cron runs
+`enqueue_daily_job_fetches()` at 01:30 UTC (07:00 IST); the app's "Fetch now" calls
+`request_job_fetch()` (own user only; refused while a fetch is queued/running or
+within 10 minutes of the last one).
+
+Seed from career-ops:
+
+```bash
+uv run python -m orbithire_worker.import_portals --user-email you@example.com \
+    --path ~/Desktop/Projects/career-ops/portals.yml [--keyword "Frontend Developer"] \
+    [--location Bangalore] [--site linkedin --site naukri] [--results-wanted 20] [--dry-run]
+```
+
 ## Enqueue a test task
 
 ```sql
@@ -108,6 +134,8 @@ uv run pytest -q
 
 DB tests start a throwaway Postgres container (`docker run postgres:16-alpine`
 on a random port; override with `TEST_PG_IMAGE`) and load
-`tests/fixtures/tasks.sql`, a copy of the queue contract. Set
+`tests/fixtures/tasks.sql`, a copy of the queue contract. `tests/test_fetch_jobs.py`
+starts `public.ecr.aws/supabase/postgres:17.11.0.004` and applies the real
+`supabase/migrations` (override: `TEST_SUPABASE_PG_IMAGE` / `TEST_SUPABASE_DATABASE_URL`). Set
 `TEST_DATABASE_URL` to use an existing scratch database instead (its `tasks`
 table is dropped and recreated).
