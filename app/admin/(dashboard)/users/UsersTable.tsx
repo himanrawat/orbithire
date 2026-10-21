@@ -1,5 +1,6 @@
 "use client";
 
+import { LocalDate } from "@/components/LocalDate";
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -324,7 +325,7 @@ export function UsersTable({ users, total, page, totalPages }: UsersTableProps) 
 												Unlimited
 												{user.unlimited_access_expires_at && (
 													<span className="text-xs">
-														(until {new Date(user.unlimited_access_expires_at).toLocaleDateString()})
+														(until <LocalDate value={user.unlimited_access_expires_at} />)
 													</span>
 												)}
 											</Badge>
@@ -340,7 +341,7 @@ export function UsersTable({ users, total, page, totalPages }: UsersTableProps) 
 										)}
 									</TableCell>
 									<TableCell className="text-muted-foreground">
-										{new Date(user.created_at).toLocaleDateString()}
+										<LocalDate value={user.created_at} />
 									</TableCell>
 									<TableCell>
 										<DropdownMenu>

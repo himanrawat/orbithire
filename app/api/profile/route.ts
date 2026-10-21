@@ -7,6 +7,9 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { serverEnv } from "@/lib/config";
 
 export const runtime = "nodejs";
+// Reads the session from req.cookies, which does not opt out of Next's fetch cache:
+// without this, Supabase reads and upserts were served from .next/cache (stale data, lost saves).
+export const fetchCache = "force-no-store";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);

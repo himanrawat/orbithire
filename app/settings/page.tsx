@@ -305,7 +305,7 @@ export default function SettingsPage() {
 				<div className="relative min-h-screen bg-background">
 					<GridBackground />
 
-					<main className="container relative z-10 mx-auto max-w-4xl px-4 py-8">
+					<div className="container relative z-10 mx-auto max-w-4xl px-4 py-8">
 						{/* Header */}
 						<motion.div
 							initial={{ opacity: 0, y: 20 }}
@@ -1148,7 +1148,7 @@ export default function SettingsPage() {
 								</div>
 							)}
 						</motion.div>
-					</main>
+					</div>
 				</div>
 			</SidebarLayout>
 		</SidebarProvider>

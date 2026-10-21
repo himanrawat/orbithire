@@ -26,7 +26,6 @@ import {
 	Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { companyDirectory, slugFromName } from "../data";
 
 const statusOptions = [
 	{ value: "saved", label: "Saved", description: "Saved for later" },
@@ -78,24 +77,27 @@ export default function NewCompanyPage() {
 		setIsSaving(true);
 		setError("");
 
-		const normalizedName = formData.name.trim();
-		const slug = slugFromName(normalizedName);
-		const duplicate = companyDirectory.find(
-			(company) =>
-				company.slug.toLowerCase() === slug ||
-				company.name.toLowerCase() === normalizedName.toLowerCase()
-		);
-		if (duplicate) {
-			setError(`A company named "${duplicate.name}" already exists.`);
+		try {
+			const res = await fetch("/api/companies", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					name: formData.name.trim(),
+					website: formData.website.trim() || null,
+					industry: formData.industry || null,
+					status: formData.status,
+					notes: formData.notes.trim() || null,
+				}),
+			});
+			const data = await res.json();
+			if (!res.ok || !data.company?.id) {
+				throw new Error(data.error || "Failed to create company");
+			}
+			router.push(`/companies/${data.company.id}`);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to create company");
 			setIsSaving(false);
-			return;
 		}
-
-		// TODO: Save to Supabase
-		await new Promise((resolve) => setTimeout(resolve, 1000));
-
-		setIsSaving(false);
-		router.push(`/companies/${slug}`);
 	};
 
 	const isValid = formData.name.trim().length > 0;
@@ -244,8 +246,7 @@ export default function NewCompanyPage() {
 									/>
 									{error && (
 										<p className="text-sm text-destructive">
-											{error} Case-insensitive duplicates are blocked to keep one
-											folder per company.
+											{error}
 										</p>
 									)}
 								</div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, createContext, useContext, ReactNode } from "react";
+import { useState, createContext, useContext, ReactNode, type CSSProperties } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -280,15 +280,14 @@ export function SidebarLayout({ children }: { children: ReactNode }) {
 	return (
 		<div className="min-h-screen">
 			<Sidebar />
-			<motion.main
-				initial={false}
-				animate={{ marginLeft: isExpanded ? 240 : 64 }}
-				transition={{ duration: 0.2, ease: "easeInOut" }}
-				className="hidden md:block"
+			{/* Rendered once: mounting the page twice (desktop + mobile copy) doubled
+			    every fetch/effect and duplicated element ids. */}
+			<main
+				className="transition-[margin] duration-200 ease-in-out md:ml-[var(--sidebar-width)]"
+				style={{ "--sidebar-width": isExpanded ? "240px" : "64px" } as CSSProperties}
 			>
 				{children}
-			</motion.main>
-			<main className="md:hidden">{children}</main>
+			</main>
 		</div>
 	);
 }

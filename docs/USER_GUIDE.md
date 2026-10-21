@@ -74,7 +74,7 @@ has not run for that job (it runs right after each fetch).
 **Companies** (`/companies`) is your application tracker. Status flow: Saved → Applied →
 Interviewing → Offered, or Rejected / Withdrawn. Each application keeps the job description,
 link, recruiter contact, interview rounds, notes, status history and all its resumes and
-cover letters. Seven days after you mark one Applied without a change, you get a follow-up
+cover letters. Three days after you mark one Applied, you get a follow-up
 reminder with a ready-to-send message for the recruiter.
 
 ## 6. Resumes and cover letters

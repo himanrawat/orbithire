@@ -240,14 +240,14 @@ export default function ResumesPage() {
 									key={resume.id}
 									className="border-border/50 bg-card/80 backdrop-blur"
 								>
-									<CardContent className="flex items-center justify-between p-6">
-										<div className="flex items-center gap-4">
-											<div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+									<CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+										<div className="flex min-w-0 items-center gap-4">
+											<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10">
 												<FileText className="h-6 w-6 text-primary" />
 											</div>
-											<div>
+											<div className="min-w-0">
 												<h3 className="font-semibold">{resume.title}</h3>
-												<div className="flex items-center gap-2 text-sm text-muted-foreground">
+												<div className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
 													{resume.companyName && (
 														<>
 															<span>{resume.companyName}</span>
@@ -284,7 +284,7 @@ export default function ResumesPage() {
 												</div>
 											</div>
 										</div>
-										<div className="flex items-center gap-2">
+										<div className="flex items-center gap-2 self-end sm:self-auto">
 											<Button
 												variant="ghost"
 												size="icon"

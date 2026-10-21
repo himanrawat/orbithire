@@ -6,6 +6,9 @@ import { autoUpgradeDeprecatedModel } from "@/lib/ai/modelUpgrade";
 import { encryptApiKey } from "@/lib/encryption";
 
 export const runtime = "nodejs";
+// Reads the session from req.cookies, which does not opt out of Next's fetch cache:
+// without this, Supabase reads and upserts were served from .next/cache (stale data, lost saves).
+export const fetchCache = "force-no-store";
 
 interface SettingsPayload {
 	provider: "openai" | "groq" | "anthropic" | "gemini" | "custom";

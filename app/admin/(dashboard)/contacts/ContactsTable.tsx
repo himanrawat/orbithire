@@ -1,5 +1,6 @@
 "use client";
 
+import { LocalDate } from "@/components/LocalDate";
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -176,7 +177,7 @@ export function ContactsTable({ contacts, total, page, totalPages }: ContactsTab
 										</Badge>
 									</TableCell>
 									<TableCell className="text-muted-foreground">
-										{new Date(contact.created_at).toLocaleDateString()}
+										<LocalDate value={contact.created_at} />
 									</TableCell>
 									<TableCell>
 										<div className="flex gap-1">

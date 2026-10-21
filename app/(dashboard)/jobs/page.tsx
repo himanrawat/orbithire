@@ -248,7 +248,7 @@ export default function JobInboxPage() {
 						</CardContent>
 					</Card>
 				) : (
-					<div className={cn("grid gap-3", loading && "opacity-60")}>
+					<div className={cn("grid grid-cols-1 gap-3", loading && "opacity-60")}>
 						{jobs.map((job) => {
 							const salary = formatSalary(job);
 							const reasons = job.llm_reasons;
@@ -285,7 +285,7 @@ export default function JobInboxPage() {
 												)}
 												<Link
 													href={`/jobs/${job.id}`}
-													className="truncate text-lg font-semibold hover:underline"
+													className="max-w-full truncate text-lg font-semibold hover:underline"
 												>
 													{job.title}
 												</Link>

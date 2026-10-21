@@ -9,10 +9,13 @@ import {
 	COVER_LETTER_SYSTEM_PROMPT,
 } from "@/lib/prompts/resume";
 import { createProvider } from "@/lib/ai/providerFactory";
-import type { ProviderInitConfig } from "@/lib/ai/providers/baseProvider";
+import { ProviderError, type ProviderInitConfig } from "@/lib/ai/providers/baseProvider";
 import { decryptApiKey } from "@/lib/encryption";
 
 export const runtime = "nodejs";
+// Reads the session from req.cookies, which does not opt out of Next's fetch cache:
+// without this, Supabase reads and upserts were served from .next/cache (stale data, lost saves).
+export const fetchCache = "force-no-store";
 
 // Initialize R2 client for fetching profile photos
 const r2Client =
@@ -624,6 +627,16 @@ export async function POST(req: NextRequest) {
 		});
 	} catch (error) {
 		console.error("AI generation error:", error);
+		if (error instanceof ProviderError) {
+			// Tell the user why (bad key, rate limit, ...) instead of a generic failure.
+			const platformKey =
+				aiConfig.apiKey === process.env.GROQ_API_KEY ||
+				aiConfig.apiKey === process.env.OPENAI_API_KEY;
+			const message = platformKey
+				? "The built-in AI service is unavailable right now. Add your own API key in Settings → AI Provider, or try again later."
+				: [error.message, error.suggestion].filter(Boolean).join(" ");
+			return NextResponse.json({ error: message, type: error.type }, { status: 502 });
+		}
 		return NextResponse.json(
 			{ error: "Failed to generate content. Please try again." },
 			{ status: 500 }

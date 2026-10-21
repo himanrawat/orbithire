@@ -130,3 +130,17 @@ def test_user_key_wins_and_has_no_platform_cap():
     us["ai_provider"] = "groq"
     out = resolve_clients(us, None, c)
     assert isinstance(out.scorer, OpenAIChatScorer) and "groq" in (out.scorer.base_url or "")
+
+
+def test_llm_error_message_is_user_facing():
+    from orbithire_worker.ranking.pipeline import describe_llm_error
+
+    class ProviderError(Exception):
+        def __init__(self, status_code: int) -> None:
+            super().__init__(f"Error code: {status_code} - {{'error': {{'message': 'Incorrect API key provided: sk-...'}}}}")
+            self.status_code = status_code
+
+    assert "rejected the API key (HTTP 401)" in describe_llm_error(ProviderError(401))
+    assert "sk-" not in describe_llm_error(ProviderError(401))
+    assert "HTTP 429" in describe_llm_error(ProviderError(429))
+    assert describe_llm_error(ValueError("bad json")) == "bad json"

@@ -195,6 +195,16 @@ def _preferences(settings: dict[str, Any], profile: dict[str, Any]) -> dict[str,
     }
 
 
+def describe_llm_error(exc: Exception) -> str:
+    """Short, user-facing reason for a failed scoring call (shown on the job page)."""
+    status = getattr(exc, "status_code", None)
+    if status in (401, 403):
+        return f"the AI provider rejected the API key (HTTP {status}). Check Settings → AI Provider."
+    if status == 429:
+        return "the AI provider's rate limit or quota was reached (HTTP 429). It is retried on the next run."
+    return str(exc)[:300]
+
+
 async def run_llm(conn: AsyncConnection, user_id: UUID | str, settings: dict[str, Any],
                   clients: Clients, cfg: RankingConfig, stats: RankStats) -> None:
     scorer = clients.scorer
@@ -254,7 +264,7 @@ async def run_llm(conn: AsyncConnection, user_id: UUID | str, settings: dict[str
             log.warning("LLM scoring failed for match %s: %s", c["match_id"], exc)
             await conn.execute(
                 "UPDATE job_matches SET llm_reasons = %s WHERE id = %s",
-                (Jsonb({"error": str(exc)[:300], "attempts": prev_attempts + 1,
+                (Jsonb({"error": describe_llm_error(exc), "attempts": prev_attempts + 1,
                         "provider": scorer.provider, "model": scorer.model}), c["match_id"]))
             continue
         reasons = {

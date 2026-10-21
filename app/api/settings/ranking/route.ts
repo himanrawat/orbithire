@@ -3,6 +3,9 @@ import { createServerClient } from "@supabase/ssr";
 import { serverEnv } from "@/lib/config";
 
 export const runtime = "nodejs";
+// Reads the session from req.cookies, which does not opt out of Next's fetch cache:
+// without this, Supabase reads and upserts were served from .next/cache (stale data, lost saves).
+export const fetchCache = "force-no-store";
 export const dynamic = "force-dynamic";
 
 /**

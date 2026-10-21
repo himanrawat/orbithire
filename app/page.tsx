@@ -158,7 +158,7 @@ export default function LandingPage({
 		: "";
 
 	return (
-		<div className="min-h-screen">
+		<div className="relative min-h-screen overflow-x-clip">
 			<NavBar user={null} />
 			<GridBackground />
 			<Spotlight

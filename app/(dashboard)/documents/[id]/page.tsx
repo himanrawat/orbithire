@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { ChevronLeft, Download, Loader2, Plus, Save, Trash2 } from "lucide-react";
@@ -42,13 +42,14 @@ function Field({
 	rows?: number;
 	placeholder?: string;
 }) {
+	const id = useId();
 	return (
 		<div className="space-y-1">
-			<Label className="text-xs">{label}</Label>
+			<Label htmlFor={id} className="text-xs">{label}</Label>
 			{multiline ? (
-				<Textarea value={value ?? ""} rows={rows ?? 4} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className="text-sm" />
+				<Textarea id={id} value={value ?? ""} rows={rows ?? 4} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className="text-sm" />
 			) : (
-				<Input value={value ?? ""} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className="h-9 text-sm" />
+				<Input id={id} value={value ?? ""} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className="h-9 text-sm" />
 			)}
 		</div>
 	);

@@ -71,7 +71,7 @@ export function FailedPdfsPanel({ className }: { className?: string }) {
 				<div className="flex flex-wrap items-center justify-between gap-2">
 					<div className="flex items-center gap-2 text-sm font-medium">
 						<AlertTriangle className="h-4 w-4 text-destructive" />
-						{docs.length ? `${docs.length} PDF${docs.length === 1 ? "" : "s"} need attention` : "PDF retries"}
+						{docs.length ? `${docs.length} PDF${docs.length === 1 ? " needs" : "s need"} attention` : "PDF retries"}
 					</div>
 					{docs.length > 0 && (
 						<Button size="sm" variant="outline" onClick={retryAll} disabled={busy}>

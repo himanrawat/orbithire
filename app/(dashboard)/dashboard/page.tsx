@@ -76,6 +76,7 @@ type FollowUp = {
 	message: string;
 	sentAt: string;
 	nextReminder: string;
+	nextReminderAt: string | null;
 	status: string;
 	reminderCount: number;
 	interviewAt: string | null;
@@ -327,6 +328,7 @@ export default function DashboardPage() {
 						nextReminder: f.next_reminder_at
 							? new Date(f.next_reminder_at).toLocaleDateString()
 							: "Not set",
+						nextReminderAt: f.next_reminder_at || null,
 						status: f.status,
 						reminderCount: f.reminder_count || 0,
 						interviewAt: f.companies?.interview_at || null,
@@ -340,10 +342,11 @@ export default function DashboardPage() {
 		void loadAllData();
 	}, []);
 
-	// Snooze follow-up (adds 3 days to next_reminder_at)
+	// Snooze follow-up (adds 3 days to next_reminder_at, or to today if it is already due)
 	const handleSnooze = async (followUpId: string) => {
 		const supabase = getSupabaseBrowserClient();
-		const newDate = new Date();
+		const current = followUps.find((f) => f.id === followUpId)?.nextReminderAt;
+		const newDate = new Date(Math.max(Date.now(), current ? new Date(current).getTime() : 0));
 		newDate.setDate(newDate.getDate() + 3);
 
 		const { error } = await supabase
@@ -358,7 +361,7 @@ export default function DashboardPage() {
 			setFollowUps((prev) =>
 				prev.map((f) =>
 					f.id === followUpId
-						? { ...f, nextReminder: newDate.toLocaleDateString() }
+						? { ...f, nextReminder: newDate.toLocaleDateString(), nextReminderAt: newDate.toISOString() }
 						: f
 				)
 			);
@@ -935,8 +938,8 @@ export default function DashboardPage() {
 												</div>
 											))}
 											<Button variant="outline" className="w-full" asChild>
-												<Link href="/follow-ups">
-													View All Follow-ups
+												<Link href="/companies">
+													View all applications
 													<ChevronRight className="ml-1 h-4 w-4" />
 												</Link>
 											</Button>

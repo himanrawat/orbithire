@@ -1,5 +1,6 @@
 "use client";
 
+import { LocalDate } from "@/components/LocalDate";
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -228,10 +229,10 @@ export function TasksTable({ tasks, total, page, pageSize, totalPages, counts }:
 										{firstLine(task.last_error) || "—"}
 									</TableCell>
 									<TableCell className="text-muted-foreground text-sm">
-										{task.status === "queued" ? formatDate(task.run_after) : "—"}
+										{task.status === "queued" ? <LocalDate value={task.run_after} withTime /> : "—"}
 									</TableCell>
 									<TableCell className="text-muted-foreground text-sm">
-										{formatDate(task.created_at)}
+										<LocalDate value={task.created_at} withTime />
 									</TableCell>
 									<TableCell>
 										<div className="flex gap-1">
