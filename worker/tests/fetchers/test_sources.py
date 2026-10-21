@@ -54,7 +54,7 @@ def fetch(country, sources, env=None, **kw):
 def test_registry_ids_match_migration():
     sql = open(
         __import__("pathlib").Path(__file__).resolve().parents[3]
-        / "supabase/migrations/20250101000025_job_sources.sql"
+        / "supabase/migrations/20250101000028_scraper_sources.sql"
     ).read()
     for sid in API_SOURCES:
         assert f"'{sid}'" in sql

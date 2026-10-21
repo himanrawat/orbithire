@@ -23,3 +23,7 @@ def _no_sleep(monkeypatch):
         return None
 
     monkeypatch.setattr(http, "_sleep", _instant)
+
+    from orbithire_worker.fetchers.sources import _scraper
+
+    monkeypatch.setattr(_scraper, "_sleep", _instant)

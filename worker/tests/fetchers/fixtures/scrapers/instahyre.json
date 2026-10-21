@@ -1,0 +1,213 @@
+{
+ "meta": {
+  "offset": 0,
+  "limit": 35,
+  "total_count": 9262,
+  "next": "/api/v1/job_search?skills=Frontend+Developer&limit=35&offset=35",
+  "previous": null
+ },
+ "objects": [
+  {
+   "resource_uri": "/api/v1/job_search/442064",
+   "employer": {
+    "resource_uri": "/api/v1/candidate_opportunity_employer/53913",
+    "profile_image_src": "https://media.instahyre.com/images/profile/base/employer/53913/611582a1a2/bigassets_infra_logo.webp",
+    "id": 53913,
+    "company_name": "Big Assets Infra",
+    "company_tagline": "Legacy of trust",
+    "company_founded": 2021,
+    "employee_count": 50,
+    "instahyre_note": "Big Assets Infra is a real estate advisory firm that helps clients buy, sell, lease, and invest in residential and commercial properties, offering property listings, investment guidance, and transaction support. ",
+    "show_diversity_employer_icon": false,
+    "show_featured_employer_icon": false
+   },
+   "interview_status": null,
+   "reviewed_at": null,
+   "public_url": "https://www.instahyre.com/job-442064-frontend-developer-at-big-assets-infra-bangalore/",
+   "is_strong_match": null,
+   "score": null,
+   "candidate_title": "Frontend Developer",
+   "id": 442064,
+   "title": "Frontend Developer",
+   "locations": "Bangalore",
+   "keywords": [
+    "React",
+    "CSS",
+    "HTML",
+    "JavaScript",
+    "JS",
+    "React.js",
+    "TypeScript",
+    "Vue.js"
+   ],
+   "accept_outstation": false,
+   "gender": 0
+  },
+  {
+   "resource_uri": "/api/v1/job_search/438321",
+   "employer": {
+    "resource_uri": "/api/v1/candidate_opportunity_employer/51660",
+    "profile_image_src": "https://media.instahyre.com/images/profile/base/employer/51660/a032ac6908/1719256937924.webp",
+    "id": 51660,
+    "company_name": "Slikk",
+    "company_tagline": "India's Fastest Fashion & Beauty App",
+    "company_founded": 2024,
+    "employee_count": 50,
+    "instahyre_note": "Slikk is a fashion brand showcasing the latest in apparel, accessories, and footwear from top homegrown labels, all curated in one place with 60-minute doorstep delivery. ",
+    "show_diversity_employer_icon": false,
+    "show_featured_employer_icon": false
+   },
+   "interview_status": null,
+   "reviewed_at": null,
+   "public_url": "https://www.instahyre.com/job-438321-frontend-developer-at-slikk-bangalore/",
+   "is_strong_match": null,
+   "score": null,
+   "candidate_title": "Frontend Developer",
+   "id": 438321,
+   "title": "Frontend Developer",
+   "locations": "Bangalore",
+   "keywords": [
+    "JavaScript",
+    "Next.js",
+    "React",
+    "React.js",
+    "TypeScript"
+   ],
+   "accept_outstation": true,
+   "gender": 0
+  },
+  {
+   "resource_uri": "/api/v1/job_search/447126",
+   "employer": {
+    "resource_uri": "/api/v1/candidate_opportunity_employer/41470",
+    "profile_image_src": "https://media.instahyre.com/images/profile/base/employer/41470/2b15266205/20p95humbee_logo.webp",
+    "id": 41470,
+    "company_name": "HUMBEE",
+    "company_tagline": "Global pioneer in business community welfare",
+    "company_founded": 2022,
+    "employee_count": 10,
+    "instahyre_note": "HUMBEE is a B2B digital platform focused on business community welfare, connecting manufacturers with value chain partners to offer social security benefits and enhance efficiency across the distribution ecosystem. ",
+    "show_diversity_employer_icon": false,
+    "show_featured_employer_icon": false
+   },
+   "interview_status": null,
+   "reviewed_at": null,
+   "public_url": "https://www.instahyre.com/job-447126-frontend-developer-at-humbee-noida/",
+   "is_strong_match": null,
+   "score": null,
+   "candidate_title": "Frontend Developer",
+   "id": 447126,
+   "title": "Frontend Developer",
+   "locations": "Noida",
+   "keywords": [
+    "JS",
+    "JavaScript",
+    "Next.js",
+    "React",
+    "React Native",
+    "React.js",
+    "Redux",
+    "Redux Toolkit",
+    "TypeScript"
+   ],
+   "accept_outstation": true,
+   "gender": 0
+  },
+  {
+   "resource_uri": "/api/v1/job_search/447273",
+   "employer": {
+    "resource_uri": "/api/v1/candidate_opportunity_employer/50913",
+    "profile_image_src": "https://media.instahyre.com/images/profile/base/employer/50913/a9e22082f4/zzazz_logo.webp",
+    "id": 50913,
+    "company_name": "Zzazz",
+    "company_tagline": "Instantly price, trade and monetize content with real-time",
+    "company_founded": 2020,
+    "employee_count": 10,
+    "instahyre_note": "Zzazz is an AI economics research and deployment company enabling real-time content valuation using billions of engagement signals and live market data to help creators and publishers unlock accurate monetization. ",
+    "show_diversity_employer_icon": false,
+    "show_featured_employer_icon": false
+   },
+   "interview_status": null,
+   "reviewed_at": null,
+   "public_url": "https://www.instahyre.com/job-447273-frontend-developer-at-zzazz-bangalore/",
+   "is_strong_match": null,
+   "score": null,
+   "candidate_title": "Frontend Developer",
+   "id": 447273,
+   "title": "Frontend Developer",
+   "locations": "Bangalore",
+   "keywords": [
+    "React",
+    "React Native",
+    "React.js",
+    "TypeScript"
+   ],
+   "accept_outstation": true,
+   "gender": 0
+  },
+  {
+   "resource_uri": "/api/v1/job_search/425186",
+   "employer": {
+    "resource_uri": "/api/v1/candidate_opportunity_employer/54677",
+    "profile_image_src": "https://media.instahyre.com/images/profile/base/employer/54677/84f8d0f1ad/runablehq_logo.webp",
+    "id": 54677,
+    "company_name": "Runable",
+    "company_tagline": "Best way to work with AI",
+    "company_founded": 2025,
+    "employee_count": 10,
+    "instahyre_note": "Runable is a software company creating websites, apps, reports, presentations, podcasts, videos, and more through simple text prompts as an all-in-one autonomous digital assistant for turning ideas into outcomes. ",
+    "show_diversity_employer_icon": false,
+    "show_featured_employer_icon": false
+   },
+   "interview_status": null,
+   "reviewed_at": null,
+   "public_url": "https://www.instahyre.com/job-425186-frontend-developer-at-runable-bangalore/",
+   "is_strong_match": null,
+   "score": null,
+   "candidate_title": "Frontend Developer",
+   "id": 425186,
+   "title": "Frontend Developer",
+   "locations": "Bangalore",
+   "keywords": [
+    "React",
+    "React Native",
+    "React.js",
+    "TypeScript"
+   ],
+   "accept_outstation": true,
+   "gender": 0
+  },
+  {
+   "resource_uri": "/api/v1/job_search/446313",
+   "employer": {
+    "resource_uri": "/api/v1/candidate_opportunity_employer/52566",
+    "profile_image_src": "https://media.instahyre.com/images/profile/base/employer/52566/565ceabf39/bluno_logo.webp",
+    "id": 52566,
+    "company_name": "Bluno",
+    "company_tagline": "Global gateway for export-import compliance",
+    "company_founded": 2023,
+    "employee_count": 1,
+    "instahyre_note": "Bluno is a fintech SaaS platform transforming international trade by streamlining B2B payments and compliance, enabling MSME exporters to navigate regulations and accelerate cross-border transactions confidently. ",
+    "show_diversity_employer_icon": false,
+    "show_featured_employer_icon": false
+   },
+   "interview_status": null,
+   "reviewed_at": null,
+   "public_url": "https://www.instahyre.com/job-446313-frontend-developer-at-bluno-bangalore/",
+   "is_strong_match": null,
+   "score": null,
+   "candidate_title": "Frontend Developer",
+   "id": 446313,
+   "title": "Frontend Developer",
+   "locations": "Bangalore",
+   "keywords": [
+    "JavaScript",
+    "React",
+    "React.js",
+    "TypeScript"
+   ],
+   "accept_outstation": true,
+   "gender": 0
+  }
+ ]
+}

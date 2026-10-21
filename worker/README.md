@@ -161,6 +161,24 @@ JobSpy uses the country for Indeed/Glassdoor; Naukri runs only for `IN`.
 | Arbeitnow | DE, GB | none |
 | MyCareersFuture | SG | none |
 | Remotive, Remote OK, Himalayas, Jobicy | remote | none |
+| Wellfound (scraper, may break) | any (startups; India/US/EU, remote) | none, opt-in |
+| Instahyre (scraper, may break) | IN | none, opt-in |
+| Cutshort (scraper, may break) | IN | none, opt-in |
+| SEEK (scraper, **blocked**) | AU (seek.com.au), NZ (seek.co.nz) | always skipped: needs a browser |
+
+Tier 3 scrapers (migration `20250101000028_scraper_sources.sql`, `fetchers/sources/_scraper.py`)
+read public, logged-out pages or the JSON the site's own frontend uses (Wellfound and
+Cutshort: `__NEXT_DATA__` on SEO listing pages, Instahyre: `/api/v1/job_search`). They
+are never selected by default. They check robots.txt for every exact path (a disallowed
+path is listed under `skipped`, nothing is requested), send an honest User-Agent, no
+cookies or login, make at most 2 queries per source per run (≤ 30 results each, no
+detail pages) with a random 2–5 s pause between requests and no retries. HTTP 403 / 429
+or a bot challenge stops that source for the run (`errors[source] = "stopped: ..."` /
+`"blocked: requires browser ..."`). `JOB_SCRAPERS_ENABLED=false` turns all of them off,
+`SCRAPER_DISABLE=seek,wellfound` single ones (both listed under `skipped`). Instahyre has no
+description, salary or date in its listing. SEEK answers plain HTTP with a Cloudflare
+challenge and disallows its search API in robots.txt, so it ships blocked. Re-check with
+`uv run python tests/fetchers/live_smoke_scrapers.py`.
 
 A keyed source without its key is recorded as `errors[source] = "missing API key"` and
 makes no request; a source that doesn't serve the search's country is listed under

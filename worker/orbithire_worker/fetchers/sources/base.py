@@ -60,6 +60,9 @@ class SourceOutput:
     postings: list[NormalizedPosting] = field(default_factory=list)
     raw_count: int = 0
     errors: list[str] = field(default_factory=list)  # partial (per-query) failures
+    # set (with no postings / errors) when the source chose not to query, e.g. every
+    # path disallowed by robots.txt -> FetchResult.skipped[id]
+    skipped: str | None = None
 
 
 FetchFn = Callable[[httpx.AsyncClient, SourceQuery], Awaitable[SourceOutput]]
@@ -77,6 +80,10 @@ class SourceDef:
     remote_only: bool = False
     # extra seconds of budget (feeds that page through big payloads)
     timeout: float = 90.0
+    # Tier 3 scraper (opt-in; JOB_SCRAPERS_ENABLED / SCRAPER_DISABLE apply)
+    scraper: bool = False
+    # set when the source can't work with plain HTTP: always skipped with this reason
+    blocked: str | None = None
 
 
 async def run_queries(

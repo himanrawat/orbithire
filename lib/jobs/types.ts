@@ -82,10 +82,15 @@ export const API_SOURCE_IDS = [
 	"remoteok",
 	"himalayas",
 	"jobicy",
+	// Tier 3 scrapers: opt-in, never in defaultSourcesFor
+	"wellfound",
+	"instahyre",
+	"cutshort",
+	"seek",
 ] as const;
 export type ApiSource = (typeof API_SOURCE_IDS)[number];
 
-export type SourceGroup = "Global" | "UK" | "Europe" | "Singapore" | "USA" | "Remote";
+export type SourceGroup = "Global" | "UK" | "Europe" | "Singapore" | "USA" | "Remote" | "Scrapers";
 
 export interface ApiSourceInfo {
 	id: ApiSource;
@@ -97,6 +102,10 @@ export interface ApiSourceInfo {
 	env: string[];
 	remoteOnly: boolean;
 	url: string;
+	/** Tier 3 scraper (no public API): opt-in, may break, worker kill switch JOB_SCRAPERS_ENABLED */
+	scraper?: boolean;
+	/** Shipped disabled: the worker always skips it with this reason */
+	blocked?: string;
 }
 
 export const API_SOURCES: readonly ApiSourceInfo[] = [
@@ -143,6 +152,47 @@ export const API_SOURCES: readonly ApiSourceInfo[] = [
 	{ id: "remoteok", label: "Remote OK", group: "Remote", countries: null, env: [], remoteOnly: true, url: "https://remoteok.com" },
 	{ id: "himalayas", label: "Himalayas", group: "Remote", countries: null, env: [], remoteOnly: true, url: "https://himalayas.app" },
 	{ id: "jobicy", label: "Jobicy", group: "Remote", countries: null, env: [], remoteOnly: true, url: "https://jobicy.com" },
+	{
+		id: "wellfound",
+		label: "Wellfound",
+		group: "Scrapers",
+		countries: null,
+		env: [],
+		remoteOnly: false,
+		url: "https://wellfound.com",
+		scraper: true,
+	},
+	{
+		id: "instahyre",
+		label: "Instahyre",
+		group: "Scrapers",
+		countries: ["IN"],
+		env: [],
+		remoteOnly: false,
+		url: "https://www.instahyre.com",
+		scraper: true,
+	},
+	{
+		id: "cutshort",
+		label: "Cutshort",
+		group: "Scrapers",
+		countries: ["IN"],
+		env: [],
+		remoteOnly: false,
+		url: "https://cutshort.io",
+		scraper: true,
+	},
+	{
+		id: "seek",
+		label: "SEEK",
+		group: "Scrapers",
+		countries: ["AU", "NZ"],
+		env: [],
+		remoteOnly: false,
+		url: "https://www.seek.com.au",
+		scraper: true,
+		blocked: "blocked: requires browser",
+	},
 ];
 
 export function sourceAvailable(id: string, country: string): boolean {

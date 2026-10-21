@@ -1,4 +1,5 @@
-"""Tier 1 job APIs (official / free), selected per job_search via `sources`.
+"""Job sources selected per job_search via `sources`: Tier 1 job APIs (official /
+free) and opt-in Tier 3 scrapers (wellfound, instahyre, cutshort, seek; see _scraper.py).
 
     await fetch_api_sources(spec, client=..., env=...) -> FetchResult
 
@@ -6,7 +7,7 @@ Every source is isolated: a missing key, an unsupported country or a failure
 only affects its own entry (`errors[source]` / `skipped[source]`). Sources run
 concurrently (API_CONCURRENCY), each bounded by MAX_QUERIES requests and its
 own timeout. Keep ids in sync with API_SOURCES in lib/jobs/types.ts and the
-job_searches.sources CHECK constraint (migration 025).
+job_searches.sources CHECK constraint (migrations 025, 028).
 """
 
 from __future__ import annotations
@@ -25,15 +26,20 @@ from . import (
     adzuna,
     arbeitnow,
     bundesagentur,
+    cutshort,
     himalayas,
+    instahyre,
     jobicy,
     jooble,
     mycareersfuture,
     reed,
     remoteok,
     remotive,
+    seek,
     usajobs,
+    wellfound,
 )
+from ._scraper import SCRAPER_ENV, ScraperHalt, scraper_disabled
 from .base import SourceDef, SourceOutput, SourceQuery, remote_eligible
 
 log = logging.getLogger(__name__)
@@ -55,11 +61,14 @@ API_SOURCES: dict[str, SourceDef] = {
     for m in (
         adzuna, jooble, reed, bundesagentur, arbeitnow, mycareersfuture, usajobs,
         remotive, remoteok, himalayas, jobicy,
+        wellfound, instahyre, cutshort, seek,  # Tier 3 scrapers (opt-in)
     )
 }
 
 # Every env var any source reads (for .env loading in the handler).
-API_SOURCE_ENV: tuple[str, ...] = tuple(sorted({e for s in API_SOURCES.values() for e in s.env}))
+API_SOURCE_ENV: tuple[str, ...] = tuple(
+    sorted({e for s in API_SOURCES.values() for e in s.env} | set(SCRAPER_ENV))
+)
 
 MISSING_KEY = "missing API key"
 
@@ -87,7 +96,8 @@ async def _run_one(
             return src.id, None, f"timed out after {src.timeout:.0f}s"
         except Exception as e:  # noqa: BLE001 - per-source isolation
             log.warning("source %s failed: %s", src.id, e)
-            return src.id, None, f"{type(e).__name__}: {e}"[:1000]
+            msg = str(e) if isinstance(e, ScraperHalt) else f"{type(e).__name__}: {e}"
+            return src.id, None, msg[:1000]
     for p in out.postings:
         p.raw.setdefault("orbithire_country", q.country.code)
     return src.id, out, ("; ".join(out.errors)[:1000] if out.errors else None)
@@ -111,6 +121,10 @@ async def fetch_api_sources(
             res.skipped[sid] = "unknown source"
         elif src.countries is not None and q.country.code not in src.countries:
             res.skipped[sid] = f"not available for {q.country.name}"
+        elif src.blocked:
+            res.skipped[sid] = src.blocked
+        elif src.scraper and (why := scraper_disabled(sid, env)):
+            res.skipped[sid] = why
         elif src.remote_only and not spec.remote_ok:
             res.skipped[sid] = "remote-only board (remote jobs excluded)"
         elif missing := [e for e in src.env if not (env.get(e) or "").strip()]:
@@ -130,6 +144,9 @@ async def fetch_api_sources(
         if own:
             await client.aclose()
     for sid, out, err in results:
+        if out and out.skipped and not out.postings and not err:
+            res.skipped[sid] = out.skipped
+            continue
         res.counts[sid] = out.raw_count if out else 0
         if out:
             res.postings.extend(out.postings)
