@@ -13,7 +13,7 @@ with payload {"user_id"} (skipped if one is already queued for the user).
 If every source failed and nothing was fetched the task raises (-> retry with
 backoff); partial source failures are reported in the result. Sources skipped
 for configuration reasons (missing API key, not available for the search's
-country) never cause a retry.
+country) and scrapers that were blocked or rate-limited never cause a retry.
 """
 
 from __future__ import annotations
@@ -175,10 +175,13 @@ async def fetch_jobs(task: Task, ctx: TaskContext) -> dict[str, Any]:
     raw_total = sum(fetched.counts.values())
     if fetched.errors and raw_total == 0 and not fetched.postings:
         if search_id:
-            # config problems (missing key / bad country) won't fix themselves on retry
+            # config problems (missing key / bad country) and scrapers that were
+            # blocked or rate-limited (403/429, bot challenge) won't fix themselves
+            # on a quick retry
             real = {
                 s: v for s, v in result["sources"].items()
-                if "skipped" not in v and not str(v.get("error", "")).startswith(MISSING_KEY)
+                if "skipped" not in v
+                and not str(v.get("error", "")).startswith((MISSING_KEY, "blocked:", "stopped:"))
                 and s != "country"
             }
             all_failed = bool(real) and all("error" in v for v in real.values())

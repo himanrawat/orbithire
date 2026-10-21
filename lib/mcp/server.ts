@@ -15,6 +15,7 @@ import { createApplicationFromMatch } from "@/lib/jobs/createApplication";
 import { formatSalary, MATCH_STATUSES, type InboxRow, type JobDetail } from "@/lib/jobs/types";
 import { createTypstDocument, findOwnedDocument, letterBasicsFromResume, UUID_RE } from "@/lib/documents";
 import { getTypstTemplate, listTypstTemplates } from "@/lib/typstTemplates";
+import { resolveTemplateId } from "@/lib/templateCatalog";
 import { DEFAULT_TYPST_COVER, DEFAULT_TYPST_RESUME } from "@/lib/templateCatalog";
 import type { McpAuth } from "./tokens";
 import { checkWriteRate, logActivity, WRITES_PER_HOUR } from "./rateLimit";
@@ -445,7 +446,8 @@ export function buildMcpServer(ctx: McpContext): McpServer {
 			}
 			if (JSON.stringify(parsed.data).length > 200_000) return fail("Resume is too large (max 200 KB).");
 
-			const templateId = args.template_id || DEFAULT_TYPST_RESUME;
+			// Old HTML template ids (e.g. "standard") map to their Typst replacement.
+			const templateId = resolveTemplateId("resume", args.template_id);
 			const template = await getTypstTemplate(templateId);
 			if (!template || template.kind !== "resume") {
 				return fail(`Unknown resume template "${templateId}". Call list_templates with kind "resume".`);
@@ -521,7 +523,7 @@ export function buildMcpServer(ctx: McpContext): McpServer {
 					["The cover letter is not valid – nothing was saved. Fix these and call save_cover_letter again:", ...formatIssues(parsed.error).map((l) => `- ${l}`)].join("\n")
 				);
 			}
-			const templateId = args.template_id || DEFAULT_TYPST_COVER;
+			const templateId = resolveTemplateId("cover_letter", args.template_id);
 			const template = await getTypstTemplate(templateId);
 			if (!template || template.kind !== "cover_letter") {
 				return fail(`Unknown cover letter template "${templateId}". Call list_templates with kind "cover_letter".`);
