@@ -1,12 +1,19 @@
 /**
- * Server-only: MCP personal access tokens (Phase 4).
+ * Server-only: bearer authentication for /api/mcp.
  *
- * Format: "orb_" + 43 chars of base64url (32 random bytes). Only the SHA-256
- * hex of the full token is stored (mcp_tokens.token_hash); the first
- * characters (token_prefix) are kept so the UI can tell tokens apart.
+ * Two kinds of bearer token are accepted:
+ *  - Personal access tokens (Phase 4): "orb_" + 43 chars of base64url (32
+ *    random bytes). Only the SHA-256 hex of the full token is stored
+ *    (mcp_tokens.token_hash); the first characters (token_prefix) are kept so
+ *    the UI can tell tokens apart.
+ *  - OAuth 2.1 access tokens (Phase 5): "orb_at_…", issued by the built-in
+ *    authorization server (lib/oauth) to claude.ai / ChatGPT connectors,
+ *    1 h lifetime, audience-bound to this server's /api/mcp URL (RFC 8707).
  */
 import { createHash, randomBytes } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { ACCESS_TOKEN_PREFIX } from "@/lib/oauth/config";
+import { touchGrant, verifyAccessToken } from "@/lib/oauth/grants";
 
 export const TOKEN_PREFIX = "orb_";
 export const MCP_SCOPES = ["read", "write"] as const;
@@ -38,21 +45,38 @@ export function normalizeScopes(input: unknown): McpScope[] {
 }
 
 export interface McpAuth {
+	/** "pat" = personal access token, "oauth" = OAuth access token. */
+	kind: "pat" | "oauth";
+	/** mcp_tokens.id for PATs, oauth_grants.id for OAuth (stable across refreshes). */
 	tokenId: string;
 	userId: string;
 	scopes: McpScope[];
 	lastClient: string | null;
 	lastUsedAt: string | null;
+	/** OAuth only: registered client name (e.g. "Claude", "ChatGPT"). */
+	clientName?: string | null;
 }
 
 export type BearerResult =
 	| { ok: true; auth: McpAuth }
 	| { ok: false; error: "missing_token" | "invalid_token"; description: string };
 
-/** Parse `Authorization: Bearer orb_…` and look the token up (service-role client). */
+export interface VerifyOptions {
+	/**
+	 * Normalised resource identifiers this server answers to (RFC 8707). OAuth
+	 * tokens issued for anything else are rejected. Required for OAuth tokens.
+	 */
+	audiences?: string[];
+}
+
+/**
+ * Parse `Authorization: Bearer …` and look the token up (service-role
+ * client): an OAuth access token (orb_at_…) or a personal access token (orb_…).
+ */
 export async function verifyBearer(
 	service: SupabaseClient,
-	authorization: string | null
+	authorization: string | null,
+	options: VerifyOptions = {}
 ): Promise<BearerResult> {
 	const match = authorization?.match(/^Bearer\s+(\S+)\s*$/i);
 	if (!match) {
@@ -63,6 +87,23 @@ export async function verifyBearer(
 		};
 	}
 	const token = match[1];
+	if (token.startsWith(ACCESS_TOKEN_PREFIX)) {
+		const result = await verifyAccessToken(service, token, options.audiences ?? []);
+		if (!result.ok) return { ok: false, error: "invalid_token", description: result.description };
+		const t = result.token;
+		return {
+			ok: true,
+			auth: {
+				kind: "oauth",
+				tokenId: t.grantId,
+				userId: t.userId,
+				scopes: t.scopes,
+				lastClient: t.lastClient,
+				lastUsedAt: t.lastUsedAt,
+				clientName: t.clientName,
+			},
+		};
+	}
 	if (!looksLikeToken(token)) {
 		return { ok: false, error: "invalid_token", description: "Malformed access token" };
 	}
@@ -82,6 +123,7 @@ export async function verifyBearer(
 	return {
 		ok: true,
 		auth: {
+			kind: "pat",
 			tokenId: data.id,
 			userId: data.user_id,
 			scopes: normalizeScopes(data.scopes),
@@ -105,6 +147,7 @@ export async function touchToken(
 	if (!stale && !newClient) return;
 	const update: Record<string, unknown> = { last_used_at: new Date().toISOString() };
 	if (newClient) update.last_client = clientName;
+	if (auth.kind === "oauth") return touchGrant(service, auth.tokenId, auth.userId, update);
 	const { error } = await service
 		.from("mcp_tokens")
 		.update(update)

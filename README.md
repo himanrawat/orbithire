@@ -96,6 +96,7 @@ R2_ACCESS_KEY_ID=minioadmin R2_SECRET_ACCESS_KEY=minioadmin npm run dev
 | Ranking | `RANKING_PLATFORM_LLM` (`quota`/`always`/`never`), `RANKING_PLATFORM_DAILY_LIMIT`, optional `RANKING_ANTHROPIC_MODEL`, `RANKING_OPENAI_MODEL`, `EMBEDDING_MODEL` | when the platform key may be used for LLM scoring |
 | Job sources | `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `JOOBLE_API_KEY`, `REED_API_KEY`, `USAJOBS_API_KEY`, `USAJOBS_USER_AGENT` | optional extra job APIs; a source without keys is skipped |
 | MCP | `MCP_RATE_LIMIT_PER_MIN` (60, in-memory per process), `MCP_WRITE_LIMIT_PER_HOUR` (20) | `/api/mcp` limits per token |
+| MCP OAuth | `OAUTH_ISSUER` (optional, e.g. `https://dashboard.example.com`), `OAUTH_SIGNING_SECRET` (optional) | pins the issuer/audience origin instead of deriving it from `X-Forwarded-Host`/`Host`; consent-form HMAC key (defaults to one derived from the service role key) |
 | Analytics | `POSTHOG_API_KEY`, `POSTHOG_HOST` | optional |
 
 Never commit `.env.local` / `worker/.env`. The service role key and `DATABASE_URL` bypass
@@ -111,22 +112,61 @@ RLS: server and worker only.
 | Templates (Typst + classic HTML) | `/templates` | `templates/typst/`, `lib/templateCatalog.ts` |
 | Failed PDFs + "Retry all" | dashboard, `/companies` | `GET/POST /api/documents/failed` |
 | Import from ai-job-search (tracker CSV, PDFs, profile) | Settings → Import (`/import`) | `app/api/import/**`, `worker/orbithire_worker/import_legacy.py` |
-| AI connections (MCP for Claude / ChatGPT) | Settings → AI connections | `/api/mcp`, `mcp_tokens` |
+| AI connections (MCP for Claude / ChatGPT) | Settings → AI connections, `/oauth/authorize` (consent) | `/api/mcp`, `mcp_tokens`, `app/api/oauth/**`, `lib/oauth/**`, `oauth_*` tables |
 | Admin: users, credits, background tasks | `/admin` | service role |
 
 ## MCP server
 
-`/api/mcp` is a stateless Streamable HTTP MCP endpoint. Auth: personal access token
-`Authorization: Bearer orb_…`, created in Settings → AI connections (scope read or
-read+write, shown once, revocable; only a hash is stored in `mcp_tokens`, which also
-records `last_client`). Tools: `get_profile`, `search_jobs`, `get_job`,
+`/api/mcp` is a stateless Streamable HTTP MCP endpoint. Auth (`Authorization: Bearer …`):
+
+- **Personal access token** `orb_…`, created in Settings → AI connections (scope read or
+  read+write, shown once, revocable; only a hash is stored in `mcp_tokens`, which also
+  records `last_client`). For Claude Desktop / Claude Code.
+- **OAuth 2.1 access token** `orb_at_…` for claude.ai custom connectors and ChatGPT
+  developer-mode connectors (see below). Tools: `get_profile`, `search_jobs`, `get_job`,
 `list_applications`, `get_application`, `list_templates`, `get_resume_schema`,
 `get_document` (read); `save_resume`, `save_cover_letter`, `create_application`,
 `update_application_status` (write). Prompts: `tailor_resume(job_id)`,
 `write_cover_letter(job_id)`. Every MCP save creates a new resume / cover letter + version
 and queues its PDF. Client setup (Claude Desktop via `mcp-remote`, Claude Code) is in
-[docs/USER_GUIDE.md](docs/USER_GUIDE.md#7-using-claude-or-chatgpt-mcp); claude.ai and
-ChatGPT connectors need OAuth (Phase 5, not built yet). Smoke test: `npm run mcp:smoke`.
+[docs/USER_GUIDE.md](docs/USER_GUIDE.md#7-using-claude-or-chatgpt-mcp). Smoke tests:
+`npm run mcp:smoke` (tokens, tools) and `npm run oauth:smoke` (OAuth, below).
+
+### MCP OAuth 2.1 (claude.ai, ChatGPT)
+
+The app is its own OAuth 2.1 authorization server (`lib/oauth/**`, migration 026), following
+the MCP authorization spec (2026-07-28). Supabase Auth's OAuth server was not used: it is beta,
+undocumented for self-hosting, has no custom scopes or RFC 8707 audience binding, and its
+access tokens are Supabase JWTs that would also open PostgREST as the user.
+
+| Endpoint | Spec | Notes |
+|---|---|---|
+| `/.well-known/oauth-protected-resource[/api/mcp]` | RFC 9728 | `resource = <origin>/api/mcp`, scopes `read write` |
+| `/.well-known/oauth-authorization-server` | RFC 8414 | issuer = app origin; `code_challenge_methods_supported: ["S256"]`, `client_id_metadata_document_supported: true` |
+| `/oauth/authorize` | OAuth 2.1 §4.1 | needs an OrbitHire login (→ `/signin?redirect=…`), consent screen (client, redirect host, scopes; *write* can be unticked); response carries `code`, `state`, `iss` (RFC 9207) |
+| `/api/oauth/authorize` | – | consent form POST (same-origin check + HMAC-signed, user-bound request, 10 min) |
+| `/api/oauth/token` | OAuth 2.1 §4.1.3, §4.3 | `authorization_code` (PKCE S256 required) and `refresh_token` (rotated; reuse of a rotated token after 30 s revokes the connection); `resource` must match (RFC 8707); access token 1 h, refresh 60 days |
+| `/api/oauth/register` | RFC 7591 | open DCR, public (`none`) or confidential clients; redirect URIs https or http on localhost/127.0.0.1; 30/h per IP |
+| `/api/oauth/revoke` | RFC 7009 | refresh token ⇒ whole connection, access token ⇒ that token |
+| `/api/oauth/grants[/:id]` | – | Settings → AI connections list / disconnect |
+
+Client registration: URL-shaped `client_id`s are Client ID Metadata Documents (claude.ai uses
+`https://claude.ai/oauth/mcp-oauth-client-metadata`), fetched with an SSRF guard (public https
+hosts only, 5 s, 10 kB, no redirects) and cached per `Cache-Control` (5 min–24 h); other
+clients (ChatGPT, MCP Inspector, Claude Code) use DCR. Codes, tokens and client secrets are
+stored as SHA-256 hashes; `/api/mcp` checks expiry, revocation and the token audience
+(`<origin>/api/mcp` or `<origin>`). A 401 from `/api/mcp` carries
+`WWW-Authenticate: Bearer resource_metadata="…/.well-known/oauth-protected-resource/api/mcp", scope="read write"`.
+
+The origin (issuer + audience) comes from `X-Forwarded-Host` / `Host` and `X-Forwarded-Proto`
+(https assumed in production when missing), so the reverse proxy must forward those, or set
+`OAUTH_ISSUER`. Connectors need the app on public HTTPS.
+
+`npm run oauth:smoke` (`OAUTH_BASE=http://localhost:3117`) plays claude.ai / ChatGPT against a
+running app + local Supabase: discovery from the 401, DCR and the real claude.ai metadata
+document, login + consent, PKCE exchange, MCP `tools/list` + `search_jobs`, refresh rotation,
+revocation, and negative cases (wrong verifier / redirect / resource, reused code, expired and
+wrong-audience tokens, CSRF, SSRF). It removes everything it creates.
 
 ## Security notes
 

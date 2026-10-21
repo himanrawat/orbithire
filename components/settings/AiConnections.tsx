@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, Check, Copy, KeyRound, Loader2, Plug, Plus, ShieldOff } from "lucide-react";
+import { AlertCircle, Check, Copy, KeyRound, Loader2, Plug, Plus, ShieldOff, Unplug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,9 +9,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { cn } from "@/lib/utils";
 
 /**
- * Settings → AI connections: personal access tokens for the OrbitHire MCP
- * server (/api/mcp) and copy-paste setup for Claude Desktop / Claude Code.
- * Talks to GET/POST /api/settings/mcp-tokens and DELETE /api/settings/mcp-tokens/:id.
+ * Settings → AI connections for the OrbitHire MCP server (/api/mcp):
+ *  - apps connected with OAuth (claude.ai, ChatGPT): GET /api/oauth/grants,
+ *    DELETE /api/oauth/grants/:id
+ *  - personal access tokens (Claude Desktop / Claude Code): GET/POST
+ *    /api/settings/mcp-tokens, DELETE /api/settings/mcp-tokens/:id
+ *  - setup steps for each client.
  */
 
 interface McpToken {
@@ -22,6 +25,17 @@ interface McpToken {
 	last_used_at: string | null;
 	last_client: string | null;
 	revoked_at: string | null;
+	created_at: string;
+}
+
+interface OAuthGrant {
+	id: string;
+	client_id: string;
+	client_name: string;
+	redirect_host: string | null;
+	scopes: string[];
+	last_used_at: string | null;
+	last_client: string | null;
 	created_at: string;
 }
 
@@ -71,6 +85,9 @@ export function AiConnections({ className }: { className?: string }) {
 	const [revoking, setRevoking] = useState<string | null>(null);
 	const [secret, setSecret] = useState<string | null>(null);
 	const [origin, setOrigin] = useState("");
+	const [grants, setGrants] = useState<OAuthGrant[]>([]);
+	const [grantsLoading, setGrantsLoading] = useState(true);
+	const [disconnecting, setDisconnecting] = useState<string | null>(null);
 
 	useEffect(() => setOrigin(window.location.origin), []);
 	const mcpUrl = `${origin || "https://your-orbithire-domain"}/api/mcp`;
@@ -89,9 +106,38 @@ export function AiConnections({ className }: { className?: string }) {
 		}
 	}, []);
 
+	const loadGrants = useCallback(async () => {
+		try {
+			const res = await fetch("/api/oauth/grants", { cache: "no-store" });
+			const json = await res.json();
+			if (!res.ok) throw new Error(json.error || "Failed to load connected apps");
+			setGrants(json.grants || []);
+		} catch (e) {
+			setError(e instanceof Error ? e.message : "Failed to load connected apps");
+		} finally {
+			setGrantsLoading(false);
+		}
+	}, []);
+
 	useEffect(() => {
 		load();
-	}, [load]);
+		loadGrants();
+	}, [load, loadGrants]);
+
+	const disconnect = async (g: OAuthGrant) => {
+		if (!window.confirm(`Disconnect ${g.client_name}? It loses access to OrbitHire immediately.`)) return;
+		setDisconnecting(g.id);
+		try {
+			const res = await fetch(`/api/oauth/grants/${g.id}`, { method: "DELETE" });
+			const json = await res.json().catch(() => ({}));
+			if (!res.ok) throw new Error(json.error || "Failed to disconnect");
+			await loadGrants();
+		} catch (e) {
+			setError(e instanceof Error ? e.message : "Failed to disconnect");
+		} finally {
+			setDisconnecting(null);
+		}
+	};
 
 	const create = async () => {
 		setCreating(true);
@@ -160,12 +206,63 @@ export function AiConnections({ className }: { className?: string }) {
 						AI connections (MCP)
 					</CardTitle>
 					<CardDescription>
-						Let Claude use your OrbitHire data: search your Job Inbox, tailor a resume or write a cover letter in your own
-						Claude subscription, and save the result here as a new document with a PDF. Each app gets its own access
-						token; revoke it any time.
+						Let Claude or ChatGPT use your OrbitHire data: search your Job Inbox, tailor a resume or write a cover letter
+						in your own AI subscription, and save the result here as a new document with a PDF. claude.ai and ChatGPT
+						connect by signing in to OrbitHire (OAuth); Claude Desktop and Claude Code use an access token. Disconnect or
+						revoke any time.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-5">
+					<div className="space-y-2">
+						<p className="text-sm font-medium">Connected apps</p>
+						{grantsLoading ? (
+							<p className="flex items-center gap-2 text-sm text-muted-foreground">
+								<Loader2 className="h-4 w-4 animate-spin" /> Loading…
+							</p>
+						) : grants.length === 0 ? (
+							<p className="text-sm text-muted-foreground">
+								No apps connected yet – see “Connect claude.ai” and “Connect ChatGPT” below.
+							</p>
+						) : (
+							<ul className="divide-y rounded-lg border">
+								{grants.map((g) => (
+									<li key={g.id} className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
+										<div className="min-w-0 space-y-0.5">
+											<p className="truncate text-sm font-medium">
+												{g.client_name}
+												{g.redirect_host && (
+													<span className="ml-1.5 text-xs font-normal text-muted-foreground">via {g.redirect_host}</span>
+												)}
+											</p>
+											<p className="text-xs text-muted-foreground">
+												{g.scopes.includes("write") ? "Read & write" : "Read only"} · Connected {fmt(g.created_at)} · Last
+												used {fmt(g.last_used_at)}
+												{g.last_client ? ` (${g.last_client})` : ""}
+											</p>
+										</div>
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											onClick={() => disconnect(g)}
+											disabled={disconnecting === g.id}
+										>
+											{disconnecting === g.id ? (
+												<Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+											) : (
+												<Unplug className="mr-1.5 h-3.5 w-3.5" />
+											)}
+											Disconnect
+										</Button>
+									</li>
+								))}
+							</ul>
+						)}
+					</div>
+
+					<div className="border-t pt-5">
+						<p className="text-sm font-medium">Access tokens (Claude Desktop, Claude Code)</p>
+					</div>
 					<div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
 						<div className="space-y-2">
 							<Label htmlFor="mcp-token-name">Token name</Label>
@@ -289,10 +386,46 @@ export function AiConnections({ className }: { className?: string }) {
 							Run in a terminal, then use <code>/mcp</code> in Claude Code to check the connection.
 						</p>
 					</div>
-					<div className="rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">
-						<strong className="text-foreground">claude.ai and ChatGPT</strong> custom connectors sign in with OAuth instead
-						of a pasted token. That login flow is coming in a later update; until then use Claude Desktop or Claude Code.
+					<div className="space-y-2">
+						<CopyBlock label="Connect claude.ai – connector URL" text={mcpUrl} />
+						<ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
+							<li>
+								In claude.ai open <strong>Settings → Connectors</strong> and click <strong>Add custom connector</strong>{" "}
+								(on Team/Enterprise plans an owner adds it under Organization settings → Connectors).
+							</li>
+							<li>
+								Name it <em>OrbitHire</em>, paste the URL above, leave the advanced OAuth fields empty and click{" "}
+								<strong>Add</strong>.
+							</li>
+							<li>
+								Click <strong>Connect</strong>: you are sent here to sign in to OrbitHire and approve access (keep
+								“write” ticked to let Claude save documents).
+							</li>
+							<li>In a chat, enable OrbitHire in the tools menu and ask: “Tailor my resume for the top job in my inbox”.</li>
+						</ol>
 					</div>
+					<div className="space-y-2">
+						<CopyBlock label="Connect ChatGPT – connector URL" text={mcpUrl} />
+						<ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
+							<li>
+								In ChatGPT open <strong>Settings → Apps &amp; Connectors → Advanced settings</strong> and turn on{" "}
+								<strong>Developer mode</strong> (Plus/Pro/Business plans).
+							</li>
+							<li>
+								Back in <strong>Apps &amp; Connectors</strong> click <strong>Create</strong>: name <em>OrbitHire</em>, paste
+								the URL above as the MCP server URL, choose <strong>OAuth</strong> as authentication, tick “I trust this
+								application” and create it.
+							</li>
+							<li>Sign in to OrbitHire and approve access when ChatGPT opens the login window.</li>
+							<li>
+								In a new chat pick <strong>Developer mode</strong> from the + menu, enable OrbitHire and ask for your top
+								jobs. ChatGPT asks you to confirm each write action.
+							</li>
+						</ol>
+					</div>
+					<p className="text-xs text-muted-foreground">
+						Both need OrbitHire to be reachable over public HTTPS. Connected apps appear under “Connected apps” above.
+					</p>
 				</CardContent>
 			</Card>
 		</div>

@@ -38,7 +38,20 @@ export async function middleware(req: NextRequest) {
 		return NextResponse.next();
 	}
 
+	// OAuth / MCP discovery documents are public on every host (RFC 8414, RFC 9728)
+	if (path.startsWith("/.well-known/")) {
+		return NextResponse.next();
+	}
+
 	const { authenticated, response } = await getAuthState(req);
+
+	// OAuth consent screen: never framed (clickjacking); the page itself sends
+	// signed-out users to /signin and back.
+	if (path.startsWith("/oauth/")) {
+		response.headers.set("X-Frame-Options", "DENY");
+		response.headers.set("Content-Security-Policy", "frame-ancestors 'none'");
+		if (hostname !== "dashboard.himanshurawat.in") return response;
+	}
 
 	const isProtectedRoute = PROTECTED_PATHS.some(
 		(protectedPath) =>

@@ -6,11 +6,12 @@
  * returns a plain JSON response). GET (standalone SSE stream) and DELETE
  * (session end) are not used in stateless mode → 405.
  *
- * Auth: `Authorization: Bearer orb_…` personal access token (Settings → AI
- * connections). Missing/invalid/revoked tokens get a 401 with an RFC 6750
- * `WWW-Authenticate: Bearer` challenge. Phase 5 (OAuth 2.1) adds
- * `resource_metadata="…/.well-known/oauth-protected-resource"` to that same
- * challenge and accepts OAuth access tokens next to PATs in verifyBearer().
+ * Auth: `Authorization: Bearer …` with either a personal access token
+ * (`orb_…`, Settings → AI connections; Claude Desktop / Claude Code) or an
+ * OAuth 2.1 access token (`orb_at_…`, claude.ai / ChatGPT connectors, see
+ * lib/oauth). Missing/invalid/revoked/expired tokens get a 401 with an RFC 6750
+ * challenge carrying `resource_metadata` (RFC 9728) so MCP clients can
+ * discover the authorization server: `/.well-known/oauth-protected-resource/api/mcp`.
  */
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { createServiceSupabase } from "@/lib/supabaseServer";
@@ -18,6 +19,7 @@ import { serverEnv } from "@/lib/config";
 import { sourceClientFrom, touchToken, verifyBearer } from "@/lib/mcp/tokens";
 import { checkRequestRate } from "@/lib/mcp/rateLimit";
 import { buildMcpServer } from "@/lib/mcp/server";
+import { acceptedResources, mcpResourceFor, resourceMetadataUrlFor, SUPPORTED_SCOPES } from "@/lib/oauth/config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,13 +34,18 @@ function jsonRpcError(status: number, code: number, message: string, headers: Re
 	});
 }
 
-function unauthorized(error: "missing_token" | "invalid_token", description: string) {
-	// RFC 6750: no error code when the request simply lacked credentials.
-	const challenge =
-		error === "missing_token"
-			? `Bearer realm="OrbitHire MCP"`
-			: `Bearer realm="OrbitHire MCP", error="invalid_token", error_description="${description.replace(/"/g, "'")}"`;
-	return jsonRpcError(401, -32001, `Unauthorized: ${description}`, { "WWW-Authenticate": challenge });
+function unauthorized(req: Request, error: "missing_token" | "invalid_token", description: string) {
+	// RFC 6750 §3: no error code when the request simply lacked credentials.
+	// RFC 9728 §5.1: resource_metadata points MCP clients at OAuth discovery.
+	const parts = [
+		`realm="OrbitHire MCP"`,
+		`resource_metadata="${resourceMetadataUrlFor(req)}"`,
+		`scope="${SUPPORTED_SCOPES.join(" ")}"`,
+	];
+	if (error === "invalid_token") {
+		parts.push(`error="invalid_token"`, `error_description="${description.replace(/["\\]/g, "'")}"`);
+	}
+	return jsonRpcError(401, -32001, `Unauthorized: ${description}`, { "WWW-Authenticate": `Bearer ${parts.join(", ")}` });
 }
 
 function siteUrl(req: Request): string {
@@ -68,11 +75,13 @@ export async function POST(req: Request) {
 
 	let verified;
 	try {
-		verified = await verifyBearer(service, req.headers.get("authorization"));
+		verified = await verifyBearer(service, req.headers.get("authorization"), {
+			audiences: acceptedResources(req),
+		});
 	} catch {
 		return jsonRpcError(503, -32603, "Authentication service unavailable");
 	}
-	if (!verified.ok) return unauthorized(verified.error, verified.description);
+	if (!verified.ok) return unauthorized(req, verified.error, verified.description);
 	const auth = verified.auth;
 
 	const rate = checkRequestRate(auth.tokenId);
@@ -93,7 +102,7 @@ export async function POST(req: Request) {
 
 	const initClient = initializeClientName(body);
 	await touchToken(service, auth, initClient);
-	const clientName = initClient || auth.lastClient || req.headers.get("user-agent");
+	const clientName = initClient || auth.lastClient || auth.clientName || req.headers.get("user-agent");
 
 	const server = buildMcpServer({
 		service,
@@ -110,10 +119,11 @@ export async function POST(req: Request) {
 		const response = await transport.handleRequest(req, {
 			parsedBody: body,
 			authInfo: {
-				token: "orb_…", // never pass the secret on
+				token: auth.kind === "oauth" ? "orb_at_…" : "orb_…", // never pass the secret on
 				clientId: auth.tokenId,
 				scopes: auth.scopes,
-				extra: { userId: auth.userId },
+				resource: new URL(mcpResourceFor(req)),
+				extra: { userId: auth.userId, kind: auth.kind },
 			},
 		});
 		return response;
