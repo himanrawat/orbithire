@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { CheckCircle2, Eye, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/** Anything with these fields can be shown (ResumeTemplate, TemplateInfo mapped by key, ...). */
+/** Anything with these fields can be shown (e.g. TemplateInfo from lib/templateCatalog). */
 export interface GalleryTemplate {
 	/** Selection id passed to onSelect / onPreview */
 	id: string;
@@ -14,10 +14,7 @@ export interface GalleryTemplate {
 	style: string;
 	description: string;
 	tags: string[];
-	/** Defaults to the legacy HTML thumbnail route */
-	thumbnailUrl?: string;
-	/** e.g. "Typst" or "Classic (HTML)" */
-	engineLabel?: string;
+	thumbnailUrl: string;
 }
 
 export interface TemplateGalleryProps {
@@ -108,7 +105,7 @@ export function TemplateGallery({
 								{/* Static thumbnail image */}
 								{!hasFailed && (
 									<Image
-										src={template.thumbnailUrl ?? `/api/template/thumbnail/${template.id}`}
+										src={template.thumbnailUrl}
 										alt={`${template.name} template preview`}
 										fill
 										className={cn(
@@ -155,18 +152,6 @@ export function TemplateGallery({
 									{template.description}
 								</p>
 								<div className="flex flex-wrap gap-1">
-									{template.engineLabel && (
-										<span
-											className={cn(
-												"rounded px-1.5 py-0.5 text-xs font-medium",
-												template.engineLabel === "Typst"
-													? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-													: "bg-muted text-muted-foreground"
-											)}
-										>
-											{template.engineLabel}
-										</span>
-									)}
 									{template.tags.slice(0, 3).map((tag: string) => (
 										<span
 											key={tag}

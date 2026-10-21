@@ -1,14 +1,15 @@
 /**
  * Server helpers for resumes / cover letters ("documents") in v2:
- * ownership lookup, version rows, queueing Typst renders, and the legacy
- * HTML (Puppeteer) render with visible failures.
+ * ownership lookup, version rows and queueing Typst renders (render_pdf).
+ *
+ * Rows with engine = 'html' are retired: imported PDFs or legacy rows without
+ * structured content. They keep their stored PDF and are never re-rendered
+ * until the user saves structured content, which converts them to Typst.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceSupabase } from "@/lib/supabaseServer";
 import { enqueueTask } from "@/lib/tasks";
-import { generatePDFFromHTML, generateCoverLetterPDF } from "@/lib/pdfGenerator";
-import { generateFileKey, uploadToR2 } from "@/lib/r2";
-import { serverEnv } from "@/lib/config";
+import { resolveTemplateId } from "@/lib/templateCatalog";
 import type { DocumentEngine, DocumentType, PdfStatus } from "@/lib/types/database";
 
 export const DOCUMENT_TABLES: Record<DocumentType, "resumes" | "cover_letters"> = {
@@ -64,7 +65,7 @@ export function toStatus(doc: OwnedDocument): DocumentStatus {
 	return {
 		id: r.id,
 		type: doc.type,
-		engine: r.engine ?? "html",
+		engine: r.engine ?? "typst",
 		template: r.template,
 		pdf_status: r.pdf_status ?? "none",
 		pdf_error: r.pdf_error ?? null,
@@ -146,78 +147,55 @@ export async function queueTypstRender(args: {
 	}
 }
 
+/** True when the row has content a Typst template can render. */
+export function hasRenderableContent(
+	type: DocumentType,
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	row: { content_json?: any; content?: string | null }
+): boolean {
+	const cj = row.content_json;
+	const hasJson =
+		!!cj && typeof cj === "object" && !Array.isArray(cj) && Object.keys(cj).some((k) => k !== "meta");
+	if (type === "resume") return hasJson;
+	return hasJson || (typeof row.content === "string" && row.content.trim() !== "");
+}
+
+/** The Typst template a retired HTML row maps to (same table as migration 027). */
+export function typstTemplateFor(type: DocumentType, row: { engine?: string | null; template?: string | null }): string {
+	return row.engine === "typst" && row.template
+		? row.template
+		: resolveTemplateId(type, row.template ? `html:${row.template}` : "");
+}
+
 /**
- * Legacy HTML engine: render inline with Puppeteer and store the result.
- * Unlike the old code path, failures are recorded on the row
- * (pdf_status = failed, pdf_error) instead of being swallowed.
+ * Make a document renderable with Typst before a re-render.
+ * - Typst rows: returns their template.
+ * - Imported PDFs and retired HTML rows without content: returns null with a
+ *   reason – their stored PDF is kept and never re-rendered.
+ * - Retired HTML rows with content (normally converted by migration 027):
+ *   switched to engine = 'typst' with the mapped template.
  */
-export async function renderLegacyHtmlPdf(args: {
-	type: DocumentType;
-	documentId: string;
-	userId: string;
-	companyName: string;
-	jobTitle?: string | null;
-	templateId?: string | null;
-	resumeJson?: unknown;
-	coverLetterText?: string | null;
-	candidateName?: string | null;
-}): Promise<{ ok: boolean; pdfUrl?: string; error?: string }> {
-	const service = createServiceSupabase();
-	const table = DOCUMENT_TABLES[args.type];
-	await service.from(table).update({ pdf_status: "rendering", pdf_error: null }).eq("id", args.documentId);
-
-	let error: string | undefined;
-	let pdfUrl: string | undefined;
-	let pdfKey: string | undefined;
-	try {
-		let buffer: Buffer | undefined;
-		if (args.type === "resume") {
-			const renderResponse = await fetch(`${serverEnv.siteUrl}/api/resume/render`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ resume: args.resumeJson, templateId: args.templateId || "compact" }),
-			});
-			if (!renderResponse.ok) {
-				throw new Error(`HTML render failed (${renderResponse.status})`);
-			}
-			const { html } = await renderResponse.json();
-			const pdf = await generatePDFFromHTML(html);
-			if (!pdf.success || !pdf.buffer) throw new Error(pdf.error || "PDF generation failed");
-			buffer = pdf.buffer;
-		} else {
-			const pdf = await generateCoverLetterPDF(
-				args.coverLetterText || "",
-				args.candidateName || "Candidate",
-				args.companyName,
-				args.jobTitle || "Position"
-			);
-			if (!pdf.success || !pdf.buffer) throw new Error(pdf.error || "PDF generation failed");
-			buffer = pdf.buffer;
-		}
-		const key = generateFileKey(
-			args.userId,
-			args.type === "resume" ? "resume" : "cover-letter",
-			args.companyName,
-			"pdf"
-		);
-		const upload = await uploadToR2(buffer, key, "application/pdf");
-		if (!upload.success || !upload.url) throw new Error(upload.error || "Upload failed");
-		pdfUrl = upload.url;
-		pdfKey = key;
-	} catch (err) {
-		error = err instanceof Error ? err.message : String(err);
-		console.error(`[documents] legacy ${args.type} PDF failed:`, error);
+export async function ensureTypstDocument(
+	doc: OwnedDocument
+): Promise<{ template: string } | { template: null; reason: string }> {
+	const r = doc.row;
+	if (r.engine === "typst") return { template: r.template };
+	if (r.source === "import") {
+		return { template: null, reason: "Imported PDFs are kept as uploaded and are not re-rendered." };
 	}
-
-	await service
-		.from(table)
-		.update(
-			error
-				? { pdf_status: "failed", pdf_error: error }
-				: { pdf_status: "ready", pdf_error: null, pdf_url: pdfUrl, pdf_key: pdfKey }
-		)
-		.eq("id", args.documentId);
-	return error ? { ok: false, error } : { ok: true, pdfUrl };
+	if (!hasRenderableContent(doc.type, r)) {
+		return { template: null, reason: "This document has no editable content to render; its stored PDF is kept." };
+	}
+	const template = typstTemplateFor(doc.type, r);
+	const { error } = await createServiceSupabase()
+		.from(doc.table)
+		.update({ engine: "typst", template })
+		.eq("id", r.id)
+		.eq("user_id", r.user_id);
+	if (error) return { template: null, reason: `Could not convert the document: ${error.message}` };
+	r.engine = "typst";
+	r.template = template;
+	return { template };
 }
 
 /** Plain-text cover letter -> structured content_json for Typst templates. */

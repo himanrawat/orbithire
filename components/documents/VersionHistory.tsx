@@ -22,7 +22,6 @@ interface VersionRow {
 interface VersionHistoryProps {
 	documentId: string;
 	documentType: DocumentType;
-	engine: "typst" | "html";
 	templateId: string;
 	paper?: "a4" | "letter";
 	/** Content currently in the editor (diffs are shown against it). */
@@ -42,7 +41,6 @@ const SOURCE_LABEL: Record<string, string> = { portal: "Portal", mcp: "AI (MCP)"
 export function VersionHistory({
 	documentId,
 	documentType,
-	engine,
 	templateId,
 	paper,
 	currentContent,
@@ -103,7 +101,7 @@ export function VersionHistory({
 			onRestored(
 				data.document,
 				`Restored version ${data.restored_from} as version ${data.version ?? "?"}. ${
-					engine === "typst" ? "The PDF is rendering in the background." : data.render?.ok ? "PDF rendered." : `PDF failed: ${data.render?.error ?? "unknown error"}`
+					data.render?.ok === false ? `The PDF could not be queued: ${data.render?.error ?? "unknown error"}` : "The PDF is rendering in the background."
 				}`
 			);
 			setSelected(null);
@@ -193,11 +191,7 @@ export function VersionHistory({
 								)}
 								<p className="text-[10px] text-muted-foreground">− in the editor now · + in version {selected.version}</p>
 							</div>
-							{engine === "typst" ? (
-								<TypstPreview documentId={documentId} templateId={templateId} data={selected.content} accent={selected.content?.meta?.accent ?? null} paper={selected.content?.meta?.paper ?? paper ?? null} />
-							) : (
-								<p className="text-xs text-muted-foreground">Classic (HTML) templates have no live preview; restore to render the PDF.</p>
-							)}
+							<TypstPreview documentId={documentId} templateId={templateId} data={selected.content} accent={selected.content?.meta?.accent ?? null} paper={selected.content?.meta?.paper ?? paper ?? null} />
 						</div>
 					)}
 				</CardContent>

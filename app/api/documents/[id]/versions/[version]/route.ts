@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabaseServer";
-import { findOwnedDocument, insertDocumentVersion, queueTypstRender, renderLegacyHtmlPdf, toStatus } from "@/lib/documents";
+import {
+	findOwnedDocument,
+	hasRenderableContent,
+	insertDocumentVersion,
+	queueTypstRender,
+	toStatus,
+	typstTemplateFor,
+} from "@/lib/documents";
 import type { DocumentType } from "@/lib/types/database";
 
 export const runtime = "nodejs";
@@ -42,7 +49,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string; 
 /**
  * POST /api/documents/[id]/versions/[version]?type=… – restore.
  * Copies that version's content onto the document as a NEW version (old versions are
- * never changed) and re-renders the PDF (Typst: queued; HTML: inline, failures recorded).
+ * never changed) and queues a re-render. A retired HTML / imported document is
+ * converted to Typst only when the restored version has content to render;
+ * otherwise its stored PDF is left alone.
  */
 export async function POST(req: NextRequest, { params }: { params: { id: string; version: string } }) {
 	const r = await load(req, params);
@@ -53,6 +62,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string;
 
 	const update: Record<string, unknown> = { content_json: content, updated_at: new Date().toISOString() };
 	let letterText: string | null = null;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const target: Record<string, any> = { content_json: content };
 	if (doc.type === "cover_letter") {
 		const ps: string[] = Array.isArray(content.paragraphs) ? content.paragraphs : [];
 		letterText =
@@ -60,6 +71,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string;
 				? content.content
 				: [content.salutation, ...ps, content.closing, content.signature].filter(Boolean).join("\n\n");
 		if (letterText) update.content = letterText;
+		target.content = letterText;
+	}
+	const renderable = hasRenderableContent(doc.type, target);
+	const template = typstTemplateFor(doc.type, doc.row);
+	if (renderable && doc.row.engine !== "typst") {
+		update.engine = "typst";
+		update.template = template;
 	}
 	const { error } = await supabase.from(doc.table).update(update).eq("id", doc.row.id).eq("user_id", user.id);
 	if (error) return NextResponse.json({ error: "Could not restore this version" }, { status: 500 });
@@ -71,21 +89,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string;
 		contentJson: content,
 	});
 
-	let render: { ok: boolean; error?: string };
-	if ((doc.row.engine ?? "html") === "typst") {
-		render = await queueTypstRender({ type: doc.type, documentId: doc.row.id, userId: user.id, templateId: doc.row.template });
-	} else {
-		render = await renderLegacyHtmlPdf({
-			type: doc.type,
-			documentId: doc.row.id,
-			userId: user.id,
-			companyName: doc.row.companies?.name || doc.row.title || "document",
-			templateId: doc.row.template,
-			resumeJson: content,
-			coverLetterText: letterText ?? doc.row.content,
-			candidateName: content?.basics?.name,
-		});
-	}
+	const render: { ok: boolean; error?: string; skipped?: string } =
+		renderable || doc.row.engine === "typst"
+			? await queueTypstRender({ type: doc.type, documentId: doc.row.id, userId: user.id, templateId: template })
+			: { ok: true, skipped: "nothing to render; the stored PDF is kept" };
 	const fresh = await findOwnedDocument(supabase, doc.row.id, user.id, doc.type);
 	return NextResponse.json({
 		ok: true,

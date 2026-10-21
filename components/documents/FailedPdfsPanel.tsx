@@ -50,9 +50,8 @@ export function FailedPdfsPanel({ className }: { className?: string }) {
 			if (!res.ok) throw new Error(data.error || "Retry failed");
 			const parts = [
 				data.queued && `${data.queued} queued`,
-				data.rendered && `${data.rendered} rendered`,
-				data.failed && `${data.failed} failed again`,
-				data.deferred && `${data.deferred} left (press Retry all again)`,
+				data.failed && `${data.failed} could not be queued`,
+				data.skipped && `${data.skipped} skipped (no content to render)`,
 			].filter(Boolean);
 			setNote(parts.join(", ") || "Nothing to retry.");
 			setRefreshKey((k) => k + 1);

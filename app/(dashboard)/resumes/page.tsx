@@ -38,7 +38,7 @@ type Resume = {
 	template: string;
 	country: string;
 	pdfUrl: string | null;
-	engine: "html" | "typst";
+	imported: boolean;
 	pdfStatus: PdfStatus;
 	pdfError: string | null;
 	createdAt: string;
@@ -77,7 +77,7 @@ export default function ResumesPage() {
 					template,
 					country,
 					pdf_url,
-					engine,
+					source,
 					pdf_status,
 					pdf_error,
 					created_at,
@@ -102,7 +102,7 @@ export default function ResumesPage() {
 				template: r.template || "default",
 				country: r.country || "US",
 				pdfUrl: r.pdf_url,
-				engine: r.engine === "typst" ? "typst" : "html",
+				imported: r.source === "import",
 				pdfStatus: r.pdf_status || (r.pdf_url ? "ready" : "none"),
 				pdfError: r.pdf_error ?? null,
 				createdAt: new Date(r.created_at).toLocaleDateString(),
@@ -256,7 +256,7 @@ export default function ResumesPage() {
 													)}
 													<span>
 														{resume.template}
-														{resume.engine === "typst" ? " (Typst)" : ""}
+														{resume.imported ? " (imported PDF)" : ""}
 													</span>
 													<span>·</span>
 													<span>{resume.country}</span>

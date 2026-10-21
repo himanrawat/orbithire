@@ -1,0 +1,37 @@
+{
+  "id": "cover-moderncv",
+  "name": "Cover Letter – ModernCV",
+  "kind": "cover_letter",
+  "description": "Port of the ai-job-search cover.cls letter: light Lato name centred over a grey contact line, date on the right, airy Raleway body. Pairs with ModernCV.",
+  "regions": [
+    "global"
+  ],
+  "sections": [
+    "sender",
+    "date",
+    "recipient",
+    "subject",
+    "salutation",
+    "paragraphs",
+    "closing",
+    "signature"
+  ],
+  "photo": false,
+  "fonts": [
+    "Lato",
+    "Raleway"
+  ],
+  "page": {
+    "default": "a4",
+    "options": [
+      "a4",
+      "letter"
+    ]
+  },
+  "accent": {
+    "default": "#2b2b2b",
+    "customizable": true
+  },
+  "onePage": true,
+  "pairsWith": "moderncv"
+}

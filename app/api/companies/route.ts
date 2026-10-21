@@ -5,10 +5,9 @@ import {
 	insertDocumentVersion,
 	letterBasicsFromResume,
 	queueTypstRender,
-	renderLegacyHtmlPdf,
 } from "@/lib/documents";
 import { getTypstTemplate } from "@/lib/typstTemplates";
-import { DEFAULT_TYPST_COVER } from "@/lib/templateCatalog";
+import { DEFAULT_TYPST_COVER, resolveTemplateId } from "@/lib/templateCatalog";
 
 export const runtime = "nodejs";
 
@@ -109,26 +108,23 @@ export async function POST(request: NextRequest) {
 			resume,
 			coverLetter,
 			templateId,
-			engine: requestedEngine,
 			coverLetterTemplateId,
 			existingCompanyId,
 		} = body;
 
-		// Typst documents are rendered by the worker (render_pdf task); the
-		// legacy HTML engine still renders inline with Puppeteer.
-		const engine: "typst" | "html" = requestedEngine === "typst" ? "typst" : "html";
-		if (engine === "typst") {
-			const t = templateId ? await getTypstTemplate(templateId) : null;
-			if (!t || t.kind !== "resume") {
-				return NextResponse.json(
-					{ error: `Unknown Typst resume template: ${templateId}` },
-					{ status: 400 }
-				);
-			}
+		// Documents are rendered by the worker (render_pdf task) with Typst.
+		// Legacy HTML template ids from old clients map to their Typst equivalent.
+		const resumeTemplateId = resolveTemplateId("resume", templateId);
+		const t = await getTypstTemplate(resumeTemplateId);
+		if (!t || t.kind !== "resume") {
+			return NextResponse.json(
+				{ error: `Unknown resume template: ${templateId}` },
+				{ status: 400 }
+			);
 		}
 		let coverTemplate: string = DEFAULT_TYPST_COVER;
-		if (engine === "typst" && coverLetterTemplateId) {
-			const ct = await getTypstTemplate(coverLetterTemplateId);
+		if (coverLetterTemplateId) {
+			const ct = await getTypstTemplate(resolveTemplateId("cover_letter", coverLetterTemplateId));
 			if (ct && ct.kind === "cover_letter") coverTemplate = ct.id;
 		}
 
@@ -247,7 +243,6 @@ export async function POST(request: NextRequest) {
 		let resumeRecord: Record<string, unknown> | null = null;
 		let coverLetterRecord: Record<string, unknown> | null = null;
 		const pdfErrors: { document: "resume" | "cover_letter"; error: string }[] = [];
-		const legacyRenders: Promise<void>[] = [];
 
 		if (resume) {
 			const { data: resumeData, error: resumeError } = await supabase
@@ -258,10 +253,10 @@ export async function POST(request: NextRequest) {
 					title: `${jobTitle} at ${name}`,
 					content_json: resume,
 					job_description: jobDescription,
-					template: templateId || (engine === "typst" ? "modern" : "standard"),
-					engine,
+					template: resumeTemplateId,
+					engine: "typst",
 					source: "portal",
-					pdf_status: engine === "typst" ? "queued" : "rendering",
+					pdf_status: "queued",
 				})
 				.select()
 				.single();
@@ -277,43 +272,24 @@ export async function POST(request: NextRequest) {
 					documentId: resumeData.id,
 					contentJson: resume,
 				});
-				if (engine === "typst") {
-					const q = await queueTypstRender({
-						type: "resume",
-						documentId: resumeData.id,
-						userId: user.id,
-						templateId: resumeData.template,
-					});
-					if (!q.ok) pdfErrors.push({ document: "resume", error: q.error || "Could not queue PDF" });
-				} else {
-					legacyRenders.push(
-						renderLegacyHtmlPdf({
-							type: "resume",
-							documentId: resumeData.id,
-							userId: user.id,
-							companyName: name,
-							jobTitle,
-							templateId: templateId || "compact",
-							resumeJson: resume,
-						}).then((r) => {
-							if (!r.ok) pdfErrors.push({ document: "resume", error: r.error || "PDF failed" });
-						})
-					);
-				}
+				const q = await queueTypstRender({
+					type: "resume",
+					documentId: resumeData.id,
+					userId: user.id,
+					templateId: resumeData.template,
+				});
+				if (!q.ok) pdfErrors.push({ document: "resume", error: q.error || "Could not queue PDF" });
 			}
 		}
 
 		if (coverLetter) {
-			const contentJson =
-				engine === "typst"
-					? coverLetterJsonFromText({
-							text: coverLetter,
-							basics: letterBasicsFromResume(resume),
-							companyName: name,
-							recruiterName,
-							jobTitle,
-						})
-					: null;
+			const contentJson = coverLetterJsonFromText({
+				text: coverLetter,
+				basics: letterBasicsFromResume(resume),
+				companyName: name,
+				recruiterName,
+				jobTitle,
+			});
 			const { data: coverLetterData, error: coverLetterError } = await supabase
 				.from("cover_letters")
 				.insert({
@@ -324,10 +300,10 @@ export async function POST(request: NextRequest) {
 					content: coverLetter,
 					content_json: contentJson,
 					job_description: jobDescription,
-					engine,
-					template: engine === "typst" ? coverTemplate : "professional",
+					engine: "typst",
+					template: coverTemplate,
 					source: "portal",
-					pdf_status: engine === "typst" ? "queued" : "rendering",
+					pdf_status: "queued",
 				})
 				.select()
 				.single();
@@ -341,44 +317,24 @@ export async function POST(request: NextRequest) {
 					userId: user.id,
 					type: "cover_letter",
 					documentId: coverLetterData.id,
-					contentJson: contentJson ?? { content: coverLetter },
+					contentJson,
 				});
-				if (engine === "typst") {
-					const q = await queueTypstRender({
-						type: "cover_letter",
-						documentId: coverLetterData.id,
-						userId: user.id,
-						templateId: coverTemplate,
-					});
-					if (!q.ok) pdfErrors.push({ document: "cover_letter", error: q.error || "Could not queue PDF" });
-				} else {
-					legacyRenders.push(
-						renderLegacyHtmlPdf({
-							type: "cover_letter",
-							documentId: coverLetterData.id,
-							userId: user.id,
-							companyName: name,
-							jobTitle,
-							coverLetterText: coverLetter,
-							candidateName: resume?.basics?.name || "Candidate",
-						}).then((r) => {
-							if (!r.ok) pdfErrors.push({ document: "cover_letter", error: r.error || "PDF failed" });
-						})
-					);
-				}
+				const q = await queueTypstRender({
+					type: "cover_letter",
+					documentId: coverLetterData.id,
+					userId: user.id,
+					templateId: coverTemplate,
+				});
+				if (!q.ok) pdfErrors.push({ document: "cover_letter", error: q.error || "Could not queue PDF" });
 			}
 		}
-
-		// Legacy HTML engine renders inline (Puppeteer); failures are stored on
-		// the rows (pdf_status = failed, pdf_error) and returned below.
-		await Promise.all(legacyRenders);
 
 		return NextResponse.json({
 			success: true,
 			company,
 			resume: resumeRecord,
 			coverLetter: coverLetterRecord,
-			engine,
+			engine: "typst",
 			pdfErrors,
 		});
 	} catch (error) {
