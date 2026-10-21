@@ -59,7 +59,9 @@ const idParam = (what: string) => z.string().trim().describe(what);
 async function guardWrite(ctx: McpContext): Promise<CallToolResult | null> {
 	if (!ctx.auth.scopes.includes("write")) {
 		return fail(
-			"This OrbitHire access token is read-only (scope 'read'). Ask the user to create a token with the 'write' scope in Settings → AI connections."
+			ctx.auth.kind === "oauth"
+				? "This OrbitHire connection is read-only (scope 'read'). Ask the user to disconnect OrbitHire and connect again, leaving 'write' ticked on the consent screen."
+				: "This OrbitHire access token is read-only (scope 'read'). Ask the user to create a token with the 'write' scope in Settings → AI connections."
 		);
 	}
 	const rate = await checkWriteRate(ctx.service, ctx.auth.userId, ctx.auth.tokenId);

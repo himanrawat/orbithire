@@ -102,12 +102,44 @@ OrbitHire is also an MCP server, so Claude (Desktop, Claude.ai, Claude Code) or 
 read your profile and inbox, tailor documents in *your* AI subscription, and save them
 straight into OrbitHire (as new versions you review, with the PDF rendered by OrbitHire).
 
-**Setup: Settings → AI connections.** Create a personal access token there (scope
-*read* or *read + write*). It is shown **once** (`orb_…`); copy it right away. You can
-revoke it any time; the list shows when and from which client each token was last used.
+**Setup: Settings → AI connections.** The server endpoint is `https://<your-domain>/api/mcp`
+(Streamable HTTP).
 
-The server endpoint is `https://<your-domain>/api/mcp` (Streamable HTTP). Every request
-sends `Authorization: Bearer orb_…`.
+- **claude.ai and ChatGPT** connect by signing in to OrbitHire (OAuth). No token to copy.
+- **Claude Desktop and Claude Code** use a personal access token: create one in Settings →
+  AI connections (scope *read* or *read + write*). It is shown **once** (`orb_…`); copy it
+  right away. Every request sends `Authorization: Bearer orb_…`.
+
+### claude.ai (custom connector)
+
+1. In claude.ai open **Settings → Connectors** and click **Add custom connector** (on
+   Team / Enterprise plans an owner adds it in the organization's connector settings).
+2. Name: *OrbitHire*. URL: `https://<your-domain>/api/mcp`. Leave the advanced OAuth
+   client ID / secret empty. Click **Add**.
+3. Click **Connect**. A window opens on OrbitHire: sign in if asked, check that the app is
+   **Claude** and it sends you back to **claude.ai**, then click **Allow access**. Keep
+   *write* ticked if Claude should save resumes and cover letters; untick it for read-only.
+4. In a chat, turn OrbitHire on in the tools menu and ask e.g. "Tailor my resume for the
+   top job in my OrbitHire inbox".
+
+### ChatGPT (developer mode connector)
+
+1. In ChatGPT open **Settings → Apps & Connectors → Advanced settings** and turn on
+   **Developer mode** (available on Plus, Pro and business plans).
+2. In **Apps & Connectors** click **Create**. Name: *OrbitHire*; MCP server URL:
+   `https://<your-domain>/api/mcp`; authentication: **OAuth**. Tick that you trust the app
+   and create it.
+3. ChatGPT opens the OrbitHire sign-in and consent screen: approve access (the redirect
+   goes to **chatgpt.com**).
+4. In a new chat choose **Developer mode** in the + menu, enable OrbitHire and ask for your
+   top jobs. ChatGPT asks you to confirm each write action.
+
+Connected apps appear under **Connected apps** in Settings → AI connections with their
+access level and when they were last used; **Disconnect** cuts access immediately. An app
+stays signed in (it refreshes its access in the background) until you disconnect it or it
+is unused for 60 days. Both connectors need OrbitHire to be reachable over public HTTPS.
+
+### Claude Desktop and Claude Code (access token)
 
 - **Claude Desktop** (needs Node.js; `mcp-remote` requires https except for localhost).
   In Claude Desktop → Settings → Developer → Edit config:
@@ -131,19 +163,17 @@ sends `Authorization: Bearer orb_…`.
     --header "Authorization: Bearer orb_YOUR_TOKEN"
   ```
 
-- **claude.ai and ChatGPT** custom connectors need an OAuth login, which is not available
-  yet (planned). Use Claude Desktop or Claude Code for now.
 
 What the AI client can do:
 
-| Read | Write (needs a read + write token) |
+| Read | Write (needs a read + write token or connection) |
 |---|---|
 | `get_profile`, `search_jobs`, `get_job`, `list_applications`, `get_application`, `list_templates`, `get_resume_schema`, `get_document` | `save_resume`, `save_cover_letter`, `create_application`, `update_application_status` |
 
 Prompts `tailor_resume(job_id)` and `write_cover_letter(job_id)` carry the writing
 guidelines. Every save from an AI client creates a **new** resume or cover letter plus a
 version (source "AI (MCP)" in the version history) and queues its PDF; nothing existing is
-overwritten. Limits: 60 requests per minute and 20 writes per hour per token (server
+overwritten. Limits: 60 requests per minute and 20 writes per hour per token or connected app (server
 settings `MCP_RATE_LIMIT_PER_MIN`, `MCP_WRITE_LIMIT_PER_HOUR`).
 
 Typical prompts: "Tailor my resume for the top job in my inbox", "Write a cover letter for
@@ -179,3 +209,6 @@ import as a command.
 | Live preview says "Preview service is not available" | Same: the worker is down. Saving still works; the PDF renders once it's back. |
 | No new jobs | Check Settings → Job search has at least one search or watchlist company; use Fetch now. |
 | Jobs not scored | AI scoring needs an API key (yours or the platform's) and is capped per day. |
+| claude.ai / ChatGPT: "Unknown application" or "Invalid redirect" on the OrbitHire consent page | Remove the connector in the AI app and add it again (it registers itself anew). |
+| claude.ai / ChatGPT can't connect at all | The URL must be `https://<your-domain>/api/mcp` over public HTTPS; the server must forward `X-Forwarded-Host` / `X-Forwarded-Proto` (or set `OAUTH_ISSUER`). |
+| AI app says OrbitHire is read-only | You unticked *write* on the consent screen: disconnect it in Settings → AI connections and connect again. |
