@@ -1,0 +1,3 @@
+Sitemap: https://www.instahyre.com/sitemap.xml
+
+User-agent: *

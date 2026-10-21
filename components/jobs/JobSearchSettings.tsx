@@ -89,7 +89,7 @@ function toForm(s: JobSearch): SearchForm {
 	};
 }
 
-const SOURCE_GROUPS: SourceGroup[] = ["Global", "UK", "Europe", "Singapore", "USA", "Remote"];
+const SOURCE_GROUPS: SourceGroup[] = ["Global", "UK", "Europe", "Singapore", "USA", "Remote", "Scrapers"];
 
 const countryName = (code: string) => countryByCode(code)?.name || code;
 
@@ -413,17 +413,21 @@ export function JobSearchSettings() {
 													key={src.id}
 													className="flex items-center gap-1.5"
 													title={
-														src.env.length
-															? `Needs ${src.env.join(" + ")} on the server`
-															: src.remoteOnly
-																? "Remote jobs only"
-																: undefined
+														src.blocked
+															? `${src.label} can't be read without a browser, so it is skipped`
+															: src.scraper
+																? "Reads public listing pages (no API): opt-in, low volume, may stop working"
+																: src.env.length
+																	? `Needs ${src.env.join(" + ")} on the server`
+																	: src.remoteOnly
+																		? "Remote jobs only"
+																		: undefined
 													}
 												>
 													<input
 														type="checkbox"
 														checked={form.sources.includes(src.id)}
-														disabled={src.remoteOnly && !form.remote_ok}
+														disabled={Boolean(src.blocked) || (src.remoteOnly && !form.remote_ok)}
 														onChange={(e) =>
 															setForm({
 																...form,
@@ -437,6 +441,11 @@ export function JobSearchSettings() {
 													{src.env.length > 0 && (
 														<span className="text-xs text-muted-foreground">(API key)</span>
 													)}
+													{src.scraper && (
+														<span className="text-xs text-muted-foreground">
+															{src.blocked ? `(${src.blocked})` : "(scraper, may break)"}
+														</span>
+													)}
 												</label>
 											))}
 										</div>
@@ -444,7 +453,8 @@ export function JobSearchSettings() {
 								})}
 								<p className="text-xs text-muted-foreground">
 									Sources marked “API key” only run when the server has that key configured. Remote boards
-									list remote jobs open to candidates in {countryName(form.country)}.
+									list remote jobs open to candidates in {countryName(form.country)}. Scrapers are never
+									selected by default: they read public listing pages at low volume and may break.
 								</p>
 							</div>
 							<div className="grid gap-3 sm:grid-cols-4">
