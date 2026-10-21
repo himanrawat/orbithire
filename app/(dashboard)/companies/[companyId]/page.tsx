@@ -79,6 +79,7 @@ type Resume = {
 	pdf_url: string | null;
 	docx_url: string | null;
 	engine?: "html" | "typst";
+	source?: "portal" | "mcp" | "import";
 	pdf_status?: PdfStatus;
 	pdf_error?: string | null;
 	created_at: string;
@@ -211,10 +212,6 @@ export default function CompanyDetailPage({
 	// PDF viewer modal
 	const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
 	const [pdfViewerTitle, setPdfViewerTitle] = useState<string>("");
-	const [resumeActionLoading, setResumeActionLoading] = useState<{
-		id: string;
-		action: "view" | "download";
-	} | null>(null);
 
 	// Interview round modal
 	const [showInterviewModal, setShowInterviewModal] = useState(false);
@@ -446,88 +443,26 @@ export default function CompanyDetailPage({
 		});
 	};
 
-	const renderResumeHtml = async (resume: Resume) => {
-		const resumeData = resume.content_json;
-		if (!resumeData) {
-			throw new Error("Resume content is missing for this record.");
-		}
-
-		const response = await fetch("/api/resume/render", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				resume: resumeData,
-				templateId: resume.template || "standard",
-			}),
-		});
-
-		if (!response.ok) {
-			const data = await response.json().catch(() => ({}));
-			throw new Error(data.error || "Failed to render resume");
-		}
-
-		const { html } = await response.json();
-		return html as string;
+	/** No PDF yet: explain why (rendering, failed, or nothing to render). */
+	const explainMissingPdf = (resume: Resume) => {
+		setError(
+			resume.pdf_status === "failed"
+				? `PDF render failed: ${resume.pdf_error ?? "unknown error"}. Use Retry.`
+				: resume.engine === "typst"
+					? "The PDF is still being rendered – it will appear here in a few seconds."
+					: "This resume has no PDF. Open it in the editor and save to render one."
+		);
 	};
 
-	const handleViewResume = async (resume: Resume) => {
-		if (resume.pdf_url) {
-			setPdfViewerUrl(resume.pdf_url);
-			setPdfViewerTitle(resume.title);
-			return;
-		}
-		if (resume.engine === "typst") {
-			setError(
-				resume.pdf_status === "failed"
-					? `PDF render failed: ${resume.pdf_error ?? "unknown error"}. Use Retry.`
-					: "The PDF is still being rendered – it will appear here in a few seconds."
-			);
-			return;
-		}
-
-		try {
-			setResumeActionLoading({ id: resume.id, action: "view" });
-			const html = await renderResumeHtml(resume);
-			const win = window.open("", "_blank");
-			if (!win)
-				throw new Error("Popup blocked. Please allow popups and try again.");
-			win.document.write(html);
-			win.document.close();
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to open resume");
-		} finally {
-			setResumeActionLoading(null);
-		}
+	const handleViewResume = (resume: Resume) => {
+		if (!resume.pdf_url) return explainMissingPdf(resume);
+		setPdfViewerUrl(resume.pdf_url);
+		setPdfViewerTitle(resume.title);
 	};
 
-	const handleDownloadResume = async (resume: Resume) => {
-		if (resume.pdf_url) {
-			window.open(resume.pdf_url, "_blank");
-			return;
-		}
-		if (resume.engine === "typst") {
-			setError(
-				resume.pdf_status === "failed"
-					? `PDF render failed: ${resume.pdf_error ?? "unknown error"}. Use Retry.`
-					: "The PDF is still being rendered – it will appear here in a few seconds."
-			);
-			return;
-		}
-
-		try {
-			setResumeActionLoading({ id: resume.id, action: "download" });
-			const html = await renderResumeHtml(resume);
-			const win = window.open("", "_blank");
-			if (!win)
-				throw new Error("Popup blocked. Please allow popups and try again.");
-			win.document.write(html);
-			win.document.close();
-			win.onload = () => win.print();
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to download resume");
-		} finally {
-			setResumeActionLoading(null);
-		}
+	const handleDownloadResume = (resume: Resume) => {
+		if (!resume.pdf_url) return explainMissingPdf(resume);
+		window.open(resume.pdf_url, "_blank");
 	};
 
 	const applyPdfStatus = (
@@ -1129,7 +1064,7 @@ export default function CompanyDetailPage({
 												<p className="font-medium">{resume.title}</p>
 												<p className="text-sm text-muted-foreground">
 													Template: {resume.template}
-													{resume.engine === "typst" ? " (Typst)" : " (Classic HTML)"} • Created{" "}
+													{resume.source === "import" ? " (imported PDF)" : ""} • Created{" "}
 													{formatDate(resume.created_at)}
 												</p>
 												<div className="mt-1 flex flex-wrap items-center gap-2">
@@ -1152,39 +1087,13 @@ export default function CompanyDetailPage({
 												</div>
 											</div>
 											<div className="flex gap-2">
-												<Button
-													variant="default"
-													size="sm"
-													disabled={
-														resumeActionLoading?.id === resume.id &&
-														resumeActionLoading?.action === "view"
-													}
-													onClick={() => handleViewResume(resume)}
-												>
-													{resumeActionLoading?.id === resume.id &&
-													resumeActionLoading?.action === "view" ? (
-														<Loader2 className="mr-1 h-4 w-4 animate-spin" />
-													) : (
-														<Eye className="mr-1 h-4 w-4" />
-													)}
+												<Button variant="default" size="sm" onClick={() => handleViewResume(resume)}>
+													<Eye className="mr-1 h-4 w-4" />
 													View
 												</Button>
-												<Button
-													variant="outline"
-													size="sm"
-													disabled={
-														resumeActionLoading?.id === resume.id &&
-														resumeActionLoading?.action === "download"
-													}
-													onClick={() => handleDownloadResume(resume)}
-												>
-													{resumeActionLoading?.id === resume.id &&
-													resumeActionLoading?.action === "download" ? (
-														<Loader2 className="mr-1 h-4 w-4 animate-spin" />
-													) : (
-														<Download className="mr-1 h-4 w-4" />
-													)}
-													{resume.pdf_url ? "PDF" : "Render PDF"}
+												<Button variant="outline" size="sm" onClick={() => handleDownloadResume(resume)}>
+													<Download className="mr-1 h-4 w-4" />
+													PDF
 												</Button>
 												{resume.docx_url && (
 													<Button variant="outline" size="sm" asChild>

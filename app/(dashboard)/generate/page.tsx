@@ -58,20 +58,12 @@ import {
 	AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-	sampleResume,
-	type JSONResume,
-	type ResumeSection,
-} from "@/lib/sampleResume";
+import { type JSONResume, type ResumeSection } from "@/lib/sampleResume";
 import { TemplateGallery } from "@/components/TemplateGallery";
-import { ResumePreview } from "@/components/ResumePreview";
 import { TypstPreview } from "@/components/TypstPreview";
 import {
 	DEFAULT_TYPST_COVER,
 	DEFAULT_TYPST_RESUME,
-	HTML_TEMPLATES,
-	parseTemplateKey,
-	templateKey,
 	type TemplateInfo,
 } from "@/lib/templateCatalog";
 import { ProfileCompletionBanner } from "@/components/ProfileCompletionBanner";
@@ -162,18 +154,14 @@ export default function GeneratePage() {
 	const [contactEmail, setContactEmail] = useState("");
 	const [canOverrideEmail, setCanOverrideEmail] = useState(false);
 	const [profileEmail, setProfileEmail] = useState("");
-	// Selection key "<engine>:<id>" (see lib/templateCatalog.ts)
-	const [selectedTemplateId, setSelectedTemplateId] = useState(
-		templateKey("typst", DEFAULT_TYPST_RESUME)
-	);
-	const [catalog, setCatalog] = useState<TemplateInfo[]>(HTML_TEMPLATES);
+	// Typst template id (templates/typst/<id>)
+	const [selectedTemplateId, setSelectedTemplateId] = useState(DEFAULT_TYPST_RESUME);
+	const [catalog, setCatalog] = useState<TemplateInfo[]>([]);
 	const [accent, setAccent] = useState<string>("");
 	const [paper, setPaper] = useState<"a4" | "letter">("a4");
-	const selectedTemplate = parseTemplateKey(selectedTemplateId);
-	const isTypst = selectedTemplate.engine === "typst";
-	const selectedInfo = catalog.find((t) => t.key === selectedTemplateId);
+	const selectedInfo = catalog.find((t) => t.id === selectedTemplateId);
 
-	// Template catalog: Typst templates (from templates/typst) + Classic (HTML)
+	// Template catalog (resume templates from templates/typst)
 	useEffect(() => {
 		let cancelled = false;
 		fetch("/api/templates?kind=resume")
@@ -183,14 +171,10 @@ export default function GeneratePage() {
 				const list = data.templates as TemplateInfo[];
 				setCatalog(list);
 				setSelectedTemplateId((prev) =>
-					list.some((t) => t.key === prev)
-						? prev
-						: templateKey("html", "standard")
+					list.some((t) => t.id === prev) ? prev : list.find((t) => t.id === DEFAULT_TYPST_RESUME)?.id ?? list[0].id
 				);
 			})
-			.catch(() => {
-				if (!cancelled) setSelectedTemplateId(templateKey("html", "standard"));
-			});
+			.catch(() => {});
 		return () => {
 			cancelled = true;
 		};
@@ -201,7 +185,7 @@ export default function GeneratePage() {
 		if (!selectedInfo) return;
 		setAccent(selectedInfo.accentDefault ?? "");
 		setPaper(selectedInfo.paperDefault);
-	}, [selectedInfo?.key]); // eslint-disable-line react-hooks/exhaustive-deps
+	}, [selectedInfo?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [generatedContent, setGeneratedContent] =
 		useState<GeneratedContent | null>(null);
@@ -264,11 +248,6 @@ export default function GeneratePage() {
 		void loadProfileContactEmail();
 	}, []);
 	const [error, setError] = useState<string | null>(null);
-	const [showPreview, setShowPreview] = useState(false);
-	const [previewResume, setPreviewResume] = useState<JSONResume | null>(null);
-	const [previewTemplateId, setPreviewTemplateId] = useState<string | null>(
-		null
-	);
 	const [copied, setCopied] = useState<"resume" | "cover" | null>(null);
 
 	// Track Application Modal state
@@ -352,7 +331,6 @@ export default function GeneratePage() {
 	// Editable content state - Cover Letter
 	const [editedCoverLetter, setEditedCoverLetter] = useState("");
 
-	// No longer need templatesWithPreviews - TemplateGallery fetches its own previews
 
 	const canProceed =
 		form.companyName.trim().length > 1 &&
@@ -390,7 +368,7 @@ export default function GeneratePage() {
 					companyName: form.companyName.trim(),
 					recruiterName: form.recruiterName.trim() || undefined,
 					recruiterEmail: form.recruiterEmail.trim() || undefined,
-					templateId: selectedTemplate.id,
+					templateId: selectedTemplateId,
 					generateCoverLetter: true,
 					contactEmail:
 						canOverrideEmail && contactEmail.trim().length > 0
@@ -610,67 +588,16 @@ export default function GeneratePage() {
 		setTimeout(() => setCopied(null), 2000);
 	};
 
-	// Handle opening preview for any template (uses sample data for template selection step)
-	const handleTemplatePreview = (key: string) => {
-		const info = catalog.find((t) => t.key === key);
-		const { engine, id: templateId } = parseTemplateKey(key);
-		if (engine === "typst") {
-			if (info) window.open(info.thumbnailUrl, "_blank");
-			return;
-		}
-		setPreviewTemplateId(templateId);
-		setPreviewResume(sampleResume);
-		setShowPreview(true);
+	// Full-size sample of a template (its thumbnail)
+	const handleTemplatePreview = (id: string) => {
+		const info = catalog.find((t) => t.id === id);
+		if (info) window.open(info.thumbnailUrl, "_blank");
 	};
 
-	// Handle opening preview after generation (uses generated data)
-	const handleOpenPreview = () => {
-		if (finalResume) {
-			setPreviewTemplateId(selectedTemplate.id);
-			setPreviewResume(finalResume);
-			setShowPreview(true);
-		}
-	};
-
-	// Handle PDF download
-	const handleDownloadPDF = async () => {
+	// PDFs are rendered by the worker once the application is saved.
+	const handleDownloadPDF = () => {
 		if (!finalResume) return;
-		if (isTypst) {
-			// Typst PDFs are rendered by the worker once the application is saved.
-			setShowTrackModal(true);
-			return;
-		}
-
-		try {
-			// Fetch the rendered HTML from the API
-			const response = await fetch("/api/resume/render", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					resume: finalResume,
-					templateId: selectedTemplate.id,
-				}),
-			});
-
-			if (!response.ok) {
-				throw new Error("Failed to render resume");
-			}
-
-			const { html } = await response.json();
-
-			// Open a new window with the HTML and trigger print (save as PDF)
-			const printWindow = window.open("", "_blank");
-			if (printWindow) {
-				printWindow.document.write(html);
-				printWindow.document.close();
-				printWindow.onload = () => {
-					printWindow.print();
-				};
-			}
-		} catch (err) {
-			console.error("Download failed:", err);
-			setError("Failed to download PDF. Please try again.");
-		}
+		setShowTrackModal(true);
 	};
 
 	const hideSection = (section: ResumeSection) => {
@@ -779,13 +706,10 @@ export default function GeneratePage() {
 					appliedAt:
 						trackForm.status === "applied" ? trackForm.appliedAt : null,
 					followUpDate: trackForm.followUpDate || null,
-					resume: isTypst ? typstResume : finalResume,
+					resume: typstResume,
 					coverLetter: editedCoverLetter,
-					templateId: selectedTemplate.id,
-					engine: selectedTemplate.engine,
-					coverLetterTemplateId: isTypst
-						? selectedInfo?.pairsWith || DEFAULT_TYPST_COVER
-						: undefined,
+					templateId: selectedTemplateId,
+					coverLetterTemplateId: selectedInfo?.pairsWith || DEFAULT_TYPST_COVER,
 				}),
 			});
 
@@ -1101,9 +1025,7 @@ export default function GeneratePage() {
 									)}
 
 									<TemplateGallery
-										templates={catalog
-											.filter((t) => t.kind === "resume")
-											.map((t) => ({ ...t, id: t.key }))}
+										templates={catalog.filter((t) => t.kind === "resume")}
 										selectedId={selectedTemplateId}
 										onSelect={setSelectedTemplateId}
 										onPreview={handleTemplatePreview}
@@ -1185,10 +1107,7 @@ export default function GeneratePage() {
 							exit={{ opacity: 0, y: 20 }}
 						>
 							<div
-								className={cn(
-									isTypst &&
-										"grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]"
-								)}
+								className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]"
 							>
 							<Card className="border-border/50 bg-card/80 backdrop-blur">
 								<CardHeader>
@@ -1203,13 +1122,9 @@ export default function GeneratePage() {
 											</CardDescription>
 										</div>
 										<div className="flex gap-2">
-											{/* <Button variant="outline" onClick={handleOpenPreview}>
-												<Eye className="mr-2 h-4 w-4" />
-												Full Preview
-											</Button> */}
 											<Button onClick={handleDownloadPDF}>
 												<Download className="mr-2 h-4 w-4" />
-												{isTypst ? "Save & render PDF" : "Download PDF"}
+												Save & render PDF
 											</Button>
 										</div>
 									</div>
@@ -1766,14 +1681,14 @@ export default function GeneratePage() {
 									</div>
 								</CardContent>
 							</Card>
-							{isTypst && typstResume && (
+							{typstResume && (
 								<aside className="space-y-3 lg:sticky lg:top-4">
 									<Card className="border-border/50 bg-card/80 backdrop-blur">
 										<CardHeader className="pb-3">
 											<CardTitle className="text-base">Live preview</CardTitle>
 											<CardDescription>
-												{selectedInfo?.name ?? selectedTemplate.id} · Typst. The PDF
-												is rendered in the background when you save.
+												{selectedInfo?.name ?? selectedTemplateId}. The PDF is
+												rendered in the background when you save.
 											</CardDescription>
 										</CardHeader>
 										<CardContent className="space-y-3">
@@ -1791,9 +1706,8 @@ export default function GeneratePage() {
 															{catalog
 																.filter((t) => t.kind === "resume")
 																.map((t) => (
-																	<SelectItem key={t.key} value={t.key}>
+																	<SelectItem key={t.id} value={t.id}>
 																		{t.name}
-																		{t.engine === "html" ? " · Classic (HTML)" : ""}
 																	</SelectItem>
 																))}
 														</SelectContent>
@@ -1828,7 +1742,7 @@ export default function GeneratePage() {
 												</div>
 											</div>
 											<TypstPreview
-												templateId={selectedTemplate.id}
+												templateId={selectedTemplateId}
 												data={typstResume}
 												accent={accent || null}
 												paper={paper}
@@ -1842,19 +1756,6 @@ export default function GeneratePage() {
 					)}
 				</AnimatePresence>
 			</div>
-
-			{/* Full Preview Modal */}
-			{showPreview && previewResume && (
-				<ResumePreview
-					resume={previewResume}
-					templateId={previewTemplateId || selectedTemplate.id}
-					isOpen={showPreview}
-					onClose={() => {
-						setShowPreview(false);
-						setPreviewTemplateId(null);
-					}}
-				/>
-			)}
 
 			{/* Track Application Modal */}
 			<Dialog open={showTrackModal} onOpenChange={setShowTrackModal}>

@@ -165,6 +165,12 @@ New columns on `resumes` and `cover_letters`: `engine` (`html`/`typst`), `pdf_st
 but every row needs `content` or `content_json`. Existing rows with a stored PDF were set to
 `pdf_status = 'ready'`.
 
+Migration `027_retire_html` retires the HTML engine: `engine = 'html'` rows with content move to
+the closest Typst template (`standard→moderncv`, `professional/elegant/paper→ats-classic`,
+`even/flat/spartacus/modern→modern`, `compact→compact`, cover letters→`cover-classic`) and get a
+`render_pdf` task; imported PDFs (`source = 'import'`) and rows without content stay `html` and are
+never re-rendered. Column defaults become `engine = 'typst'`, `template = 'modern'` / `'cover-modern'`.
+
 ### Task queue
 
 - Enqueue from the app (as the logged-in user):

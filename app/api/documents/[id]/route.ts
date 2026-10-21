@@ -4,11 +4,11 @@ import {
 	findOwnedDocument,
 	insertDocumentVersion,
 	queueTypstRender,
-	renderLegacyHtmlPdf,
 	toStatus,
+	typstTemplateFor,
 } from "@/lib/documents";
 import { getTypstTemplate } from "@/lib/typstTemplates";
-import { ACCENT_RE, HTML_TEMPLATES } from "@/lib/templateCatalog";
+import { ACCENT_RE, resolveTemplateId } from "@/lib/templateCatalog";
 import type { DocumentType } from "@/lib/types/database";
 
 export const runtime = "nodejs";
@@ -36,10 +36,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
 /**
  * PUT /api/documents/[id] – save from the portal editor.
- * Body: { content_json, engine?: "typst"|"html", template?, accent?, paper?, content? }
- * Writes a document_versions row. Typst: enqueues render_pdf and returns
- * immediately (pdf_status = queued). HTML: renders inline (legacy) and records
- * failures on the row.
+ * Body: { content_json, template?, accent?, paper?, content? }
+ * Writes a document_versions row, enqueues render_pdf and returns immediately
+ * (pdf_status = queued). Saving a retired HTML or imported document converts
+ * it to Typst (template defaults to the closest match of its old template).
+ * A legacy `engine: "html"` + HTML template id from old clients is mapped too.
  */
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
 	const supabase = createServerSupabase();
@@ -65,16 +66,14 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 		return NextResponse.json({ error: "Document is too large" }, { status: 413 });
 	}
 
-	const engine = body.engine === "typst" || body.engine === "html" ? body.engine : doc.row.engine || "html";
-	const template = typeof body.template === "string" && body.template ? body.template : doc.row.template;
-	if (engine === "typst") {
-		const t = await getTypstTemplate(template);
-		if (!t) return NextResponse.json({ error: `Unknown Typst template: ${template}` }, { status: 400 });
-		if (t.kind !== doc.type) {
-			return NextResponse.json({ error: `${t.name} is not a ${doc.type.replace("_", " ")} template` }, { status: 400 });
-		}
-	} else if (doc.type === "resume" && !HTML_TEMPLATES.some((t) => t.id === template)) {
-		return NextResponse.json({ error: `Unknown HTML template: ${template}` }, { status: 400 });
+	const template =
+		typeof body.template === "string" && body.template
+			? resolveTemplateId(doc.type, body.engine === "html" ? `html:${body.template}` : body.template)
+			: typstTemplateFor(doc.type, doc.row);
+	const t = await getTypstTemplate(template);
+	if (!t) return NextResponse.json({ error: `Unknown template: ${template}` }, { status: 400 });
+	if (t.kind !== doc.type) {
+		return NextResponse.json({ error: `${t.name} is not a ${doc.type.replace("_", " ")} template` }, { status: 400 });
 	}
 
 	// accent / paper live in content_json.meta (the templates read them from there too)
@@ -92,7 +91,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
 	const update: Record<string, unknown> = {
 		content_json: contentJson,
-		engine,
+		engine: "typst",
 		template,
 		updated_at: new Date().toISOString(),
 	};
@@ -112,23 +111,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 		contentJson,
 	});
 
-	let render: { ok: boolean; error?: string };
-	if (engine === "typst") {
-		render = await queueTypstRender({ type: doc.type, documentId: doc.row.id, userId: user.id, templateId: template });
-	} else {
-		const companyName = doc.row.companies?.name || doc.row.title || "document";
-		render = await renderLegacyHtmlPdf({
-			type: doc.type,
-			documentId: doc.row.id,
-			userId: user.id,
-			companyName,
-			templateId: template,
-			resumeJson: contentJson,
-			coverLetterText: (update.content as string) ?? doc.row.content,
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			candidateName: (contentJson as any)?.basics?.name,
-		});
-	}
+	const render = await queueTypstRender({ type: doc.type, documentId: doc.row.id, userId: user.id, templateId: template });
 
 	const fresh = await findOwnedDocument(supabase, doc.row.id, user.id, doc.type);
 	return NextResponse.json({

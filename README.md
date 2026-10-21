@@ -108,7 +108,7 @@ RLS: server and worker only.
 | Job Inbox, shortlist, create application | `/jobs` | `app/api/jobs/**`, `fetch_jobs`, `rank_jobs` |
 | Applications + follow-ups | `/companies` | `app/api/companies/**` |
 | Resume / cover letter editor, live preview, version history | `/documents/[id]` | `app/api/documents/**`, `render_pdf`, worker `/preview` |
-| Templates (Typst + classic HTML) | `/templates` | `templates/typst/`, `lib/templateCatalog.ts` |
+| Templates (Typst: modern, ats-classic, compact, eu-photo, moderncv + cover letters; default `modern`) | `/templates` | `templates/typst/`, `lib/templateCatalog.ts` |
 | Failed PDFs + "Retry all" | dashboard, `/companies` | `GET/POST /api/documents/failed` |
 | Import from ai-job-search (tracker CSV, PDFs, profile) | Settings → Import (`/import`) | `app/api/import/**`, `worker/orbithire_worker/import_legacy.py` |
 | AI connections (MCP for Claude / ChatGPT) | Settings → AI connections | `/api/mcp`, `mcp_tokens` |

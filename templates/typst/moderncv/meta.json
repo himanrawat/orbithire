@@ -1,0 +1,46 @@
+{
+  "id": "moderncv",
+  "name": "ModernCV",
+  "kind": "resume",
+  "description": "Port of the LaTeX moderncv ‘banking’ style: centred name and contact lines, blue section titles over a full-width rule, organisation in bold with the role in italics and dates flush right. Single column, ATS friendly.",
+  "regions": [
+    "UK",
+    "IE",
+    "EU",
+    "IN",
+    "AU",
+    "global"
+  ],
+  "sections": [
+    "summary",
+    "experience",
+    "education",
+    "skills",
+    "projects",
+    "certificates",
+    "awards",
+    "publications",
+    "volunteer",
+    "languages",
+    "interests",
+    "references",
+    "custom"
+  ],
+  "photo": false,
+  "fonts": [
+    "Latin Modern Sans"
+  ],
+  "page": {
+    "default": "a4",
+    "options": [
+      "a4",
+      "letter"
+    ]
+  },
+  "accent": {
+    "default": "#3873b3",
+    "customizable": true
+  },
+  "onePage": false,
+  "pairsWith": "cover-moderncv"
+}

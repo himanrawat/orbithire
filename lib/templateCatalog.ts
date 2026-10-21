@@ -1,27 +1,31 @@
 /**
  * Template catalog shared by server and client code (no server imports).
  *
- * Two engines live side by side until Phase 7:
- *  - "typst": templates/typst/<id>/ (meta.json + thumbnail.png), rendered by the worker
- *  - "html":  the legacy JSON Resume themes rendered by /api/resume/render + Puppeteer,
- *             shown as "Classic (HTML)" in the UI
+ * All generated documents use Typst templates from templates/typst/<id>/
+ * (meta.json + thumbnail.png), rendered by the worker's render_pdf task.
  *
- * Some ids exist in both engines ("modern", "compact"), so UI selections use a
- * key of the form "<engine>:<id>". The database stores `template = id` and
- * `engine` separately.
+ * The old HTML templates (Puppeteer) were retired in Phase 7. Their ids can
+ * still arrive from old clients, bookmarks or user settings, so
+ * `resolveTemplateId` maps them to the closest Typst template. The same
+ * mapping is applied to stored rows by
+ * supabase/migrations/20250101000027_retire_html.sql — keep the two in sync.
+ *
+ * `engine = 'html'` rows that remain in the database are PDFs that cannot be
+ * re-rendered (imported PDFs, or legacy rows without structured content);
+ * they are served as stored files only.
  */
 import type { DocumentEngine } from "@/lib/types/database";
 
 export type TemplateKind = "resume" | "cover_letter";
 
 export interface TemplateInfo {
-	/** "<engine>:<id>" – unique across engines */
+	/** "typst:<id>" – kept for stable React keys / old URLs */
 	key: string;
 	id: string;
 	engine: DocumentEngine;
 	kind: TemplateKind;
 	name: string;
-	/** Short label shown on the card ("Typst", "Classic (HTML)") */
+	/** Short label shown on the card */
 	engineLabel: string;
 	style: string;
 	description: string;
@@ -32,70 +36,55 @@ export interface TemplateInfo {
 	accentDefault: string | null;
 	accentCustomizable: boolean;
 	paperDefault: "a4" | "letter";
-	/** Typst only: the cover letter template matching this resume template */
+	/** The cover letter template matching this resume template (or vice versa) */
 	pairsWith?: string | null;
 }
 
-export const HTML_ENGINE_LABEL = "Classic (HTML)";
 export const TYPST_ENGINE_LABEL = "Typst";
-
-function html(
-	id: string,
-	name: string,
-	style: string,
-	description: string,
-	tags: string[]
-): TemplateInfo {
-	return {
-		key: `html:${id}`,
-		id,
-		engine: "html",
-		kind: "resume",
-		name,
-		engineLabel: HTML_ENGINE_LABEL,
-		style,
-		description,
-		tags,
-		thumbnailUrl: `/api/template/thumbnail/${id}`,
-		photo: false,
-		onePage: false,
-		accentDefault: null,
-		accentCustomizable: false,
-		paperDefault: "letter",
-		pairsWith: null,
-	};
-}
-
-export const HTML_TEMPLATES: TemplateInfo[] = [
-	html("standard", "Standard", "Classic", "The official reference theme - clean, professional, and widely recognized", ["Official", "ATS-Friendly", "Classic"]),
-	html("professional", "Professional", "Executive", "Modern and elegant design with great typography for senior roles", ["Executive", "Corporate", "Premium"]),
-	html("even", "Even", "Modern Flat", "Clean, flat design with excellent readability and modern aesthetics", ["Modern", "ATS-Friendly", "Popular"]),
-	html("elegant", "Elegant", "Minimalist", "Detailed, professional layout with comprehensive sections", ["Corporate", "Detailed", "Executive"]),
-	html("flat", "Flat", "Contemporary", "Contemporary flat design with clean lines and bold sections", ["Modern", "Clean", "Tech"]),
-	html("spartacus", "Spartacus", "Bold", "Bold and impactful layout with strong visual hierarchy", ["Bold", "Visual", "Standout"]),
-	html("paper", "Paper", "Minimal", "Minimal paper-like design focused purely on content", ["Minimal", "Print-Ready", "Clean"]),
-	html("compact", "Compact", "ATS-Optimized", "Single column, keyword-dense format optimized for ATS systems", ["ATS-Friendly", "1 Page", "US Format"]),
-	html("modern", "Modern", "Two-Column", "Sleek sidebar layout with skills and contact prominently displayed", ["Visual", "Tech", "Startups"]),
-];
 
 export const DEFAULT_TYPST_RESUME = "modern";
 export const DEFAULT_TYPST_COVER = "cover-modern";
 
-export function templateKey(engine: DocumentEngine, id: string): string {
-	return `${engine}:${id}`;
-}
+/**
+ * Retired HTML template id -> closest Typst resume template.
+ * (Mirrored in migration 027; see docs in README "Templates".)
+ */
+export const LEGACY_HTML_RESUME_MAP: Record<string, string> = {
+	standard: "moderncv", // sans, centred header, ruled section titles
+	professional: "ats-classic", // serif executive
+	even: "modern", // flat sans
+	elegant: "ats-classic", // Georgia serif, detailed
+	flat: "modern", // contemporary sans
+	spartacus: "modern", // bold sans
+	paper: "ats-classic", // minimal serif
+	compact: "compact", // dense one-page ATS
+	modern: "modern", // two-column sans -> accent-header sans
+};
 
-/** "typst:modern" -> {engine:"typst", id:"modern"}; bare ids are treated as legacy HTML. */
-export function parseTemplateKey(key: string): { engine: DocumentEngine; id: string } {
-	const idx = key.indexOf(":");
-	if (idx > 0) {
-		const engine = key.slice(0, idx);
-		if (engine === "typst" || engine === "html") {
-			return { engine, id: key.slice(idx + 1) };
-		}
-	}
-	return { engine: "html", id: key };
-}
+/** The single HTML cover letter layout was a Georgia serif letter. */
+export const LEGACY_HTML_COVER = "cover-classic";
 
 export const TYPST_ID_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 export const ACCENT_RE = /^#[0-9a-fA-F]{6}$/;
+
+/**
+ * Normalise a template id from a request: strips an "<engine>:" prefix,
+ * maps retired HTML ids and falls back to the default for the kind.
+ * The result still has to be checked against the catalog.
+ */
+export function resolveTemplateId(kind: TemplateKind, raw: unknown): string {
+	let id = typeof raw === "string" ? raw.trim() : "";
+	let legacy = false;
+	const idx = id.indexOf(":");
+	if (idx > 0) {
+		legacy = id.slice(0, idx) === "html";
+		id = id.slice(idx + 1);
+	}
+	if (!id) return kind === "resume" ? DEFAULT_TYPST_RESUME : DEFAULT_TYPST_COVER;
+	if (kind === "resume") {
+		// "modern" / "compact" exist in both engines and map to themselves.
+		return LEGACY_HTML_RESUME_MAP[id] ?? id;
+	}
+	if (legacy || id === "professional") return LEGACY_HTML_COVER;
+	return id;
+}

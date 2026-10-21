@@ -263,3 +263,52 @@ def test_cover_letter_user_text_is_literal(template: str) -> None:
     for s in INJECTIONS:
         assert_contains(text, s)
     assert_contains(text, "$x$ #panic()")
+
+
+# ------------------------------------------------------------ meta / fonts
+
+def embedded_fonts(reader: PdfReader) -> set[str]:
+    names: set[str] = set()
+    for page in reader.pages:
+        fonts = (page.get("/Resources", {}) or {}).get("/Font", {}) or {}
+        for f in fonts.values():
+            base = str(f.get_object().get("/BaseFont", ""))
+            names.add(base.split("+", 1)[-1].lstrip("/"))
+    return names
+
+
+@pytest.mark.parametrize("template", RESUMES + LETTERS)
+def test_meta_is_consistent(template: str) -> None:
+    meta = META[template]
+    assert meta["id"] == template
+    assert meta["kind"] in ("resume", "cover_letter")
+    assert (HERE / template / "thumbnail.png").is_file(), "run: render.py thumbnails " + template
+    pair = meta.get("pairsWith")
+    if pair:
+        assert pair in META, f"{template} pairs with unknown template {pair!r}"
+        assert META[pair]["kind"] != meta["kind"]
+        if meta["kind"] == "cover_letter":  # several resumes may share a letter, not vice versa
+            assert META[pair].get("pairsWith") == template
+
+
+@pytest.mark.parametrize(
+    "template,sample,expected",
+    [
+        ("moderncv", "resume-full", ["LMSans10-Regular", "LMSans10-Bold", "LMSans10-Oblique"]),
+        ("cover-moderncv", "cover-letter", ["Raleway-Medium", "Lato-Light", "Lato-Bold"]),
+    ],
+)
+def test_moderncv_uses_bundled_fonts(template: str, sample: str, expected: list[str]) -> None:
+    fonts = embedded_fonts(compile_pdf(template, load(sample)))
+    for name in expected:
+        assert any(name.lower() in f.lower() for f in fonts), f"{name} not embedded; got {sorted(fonts)}"
+
+
+def test_moderncv_entry_layout() -> None:
+    """Organisation on the first line, role on the second (moderncv banking)."""
+    text = pdf_text(compile_pdf("moderncv", load("resume-full")))
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    org = lines.index(next(line for line in lines if line.startswith("Northwind Analytics")))
+    assert lines[org + 1].startswith("Senior Software Engineer")
+    assert "Mar 2021 – Present" in lines[org + 1]
+    assert_contains(text, "English (native), Spanish (professional).")

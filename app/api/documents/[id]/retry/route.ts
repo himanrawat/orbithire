@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabaseServer";
-import { findOwnedDocument, queueTypstRender, renderLegacyHtmlPdf, toStatus } from "@/lib/documents";
+import { ensureTypstDocument, findOwnedDocument, queueTypstRender, toStatus } from "@/lib/documents";
 import type { DocumentType } from "@/lib/types/database";
 
 export const runtime = "nodejs";
@@ -8,8 +8,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/documents/[id]/retry?type=resume|cover_letter
- * Re-render the PDF. Typst: enqueue render_pdf (returns immediately).
- * HTML (legacy): render inline; failures are stored on the row.
+ * Re-render the PDF: enqueue render_pdf (returns immediately).
+ * Imported PDFs (and retired HTML rows without content) are never re-rendered: 409.
  */
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
 	const supabase = createServerSupabase();
@@ -29,21 +29,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 		return NextResponse.json({ ok: true, status: toStatus(doc), note: "already in progress" });
 	}
 
-	let result: { ok: boolean; error?: string };
-	if ((doc.row.engine ?? "html") === "typst") {
-		result = await queueTypstRender({ type: doc.type, documentId: doc.row.id, userId: user.id });
-	} else {
-		result = await renderLegacyHtmlPdf({
-			type: doc.type,
-			documentId: doc.row.id,
-			userId: user.id,
-			companyName: doc.row.companies?.name || doc.row.title || "document",
-			templateId: doc.row.template,
-			resumeJson: doc.row.content_json,
-			coverLetterText: doc.row.content,
-			candidateName: doc.row.content_json?.basics?.name,
-		});
+	const typst = await ensureTypstDocument(doc);
+	if ("reason" in typst) {
+		return NextResponse.json({ ok: false, error: typst.reason, status: toStatus(doc) }, { status: 409 });
 	}
+	const result = await queueTypstRender({
+		type: doc.type,
+		documentId: doc.row.id,
+		userId: user.id,
+		templateId: typst.template,
+	});
 	const fresh = await findOwnedDocument(supabase, doc.row.id, user.id, doc.type);
 	return NextResponse.json(
 		{ ok: result.ok, error: result.error, status: fresh ? toStatus(fresh) : null },

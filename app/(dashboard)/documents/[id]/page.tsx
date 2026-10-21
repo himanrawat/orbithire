@@ -16,8 +16,7 @@ import { VersionHistory } from "@/components/documents/VersionHistory";
 import {
 	DEFAULT_TYPST_COVER,
 	DEFAULT_TYPST_RESUME,
-	parseTemplateKey,
-	templateKey,
+	resolveTemplateId,
 	type TemplateInfo,
 } from "@/lib/templateCatalog";
 import type { DocumentType } from "@/lib/types/database";
@@ -107,7 +106,7 @@ export default function DocumentEditorPage() {
 	const [row, setRow] = useState<Json | null>(null);
 	const [content, setContent] = useState<Json>({});
 	const [catalog, setCatalog] = useState<TemplateInfo[]>([]);
-	const [selectedKey, setSelectedKey] = useState<string>("");
+	const [templateId, setTemplateId] = useState<string>("");
 	const [accent, setAccent] = useState("");
 	const [paper, setPaper] = useState<"a4" | "letter">("a4");
 	const [loading, setLoading] = useState(true);
@@ -133,15 +132,12 @@ export default function DocumentEditorPage() {
 				setAccent(c?.meta?.accent ?? "");
 				setPaper(c?.meta?.paper === "letter" ? "letter" : "a4");
 				const tr = await fetch(`/api/templates?kind=${t}`).then((x) => x.json());
-				setCatalog(tr.templates || []);
-				const engine = r.engine === "typst" ? "typst" : "html";
-				setSelectedKey(
-					engine === "typst"
-						? templateKey("typst", r.template)
-						: t === "resume"
-							? templateKey("html", r.template || "standard")
-							: "html:professional"
-				);
+				const list: TemplateInfo[] = tr.templates || [];
+				setCatalog(list);
+				// Retired HTML / imported rows: preselect the closest Typst template.
+				const wanted = r.engine === "typst" ? r.template : resolveTemplateId(t, r.template);
+				const fallback = t === "resume" ? DEFAULT_TYPST_RESUME : DEFAULT_TYPST_COVER;
+				setTemplateId(list.some((x) => x.id === wanted) ? wanted : fallback);
 			} catch (err) {
 				setError(err instanceof Error ? err.message : "Failed to load document");
 			} finally {
@@ -150,15 +146,8 @@ export default function DocumentEditorPage() {
 		})();
 	}, [id, typeHint]);
 
-	const { engine, id: templateId } = parseTemplateKey(selectedKey || "html:standard");
-	const info = catalog.find((t) => t.key === selectedKey);
-	const options = useMemo(() => {
-		const list = [...catalog];
-		if (type === "cover_letter") {
-			list.push({ ...catalog[0], key: "html:professional", id: "professional", engine: "html", name: "Plain letter", engineLabel: "Classic (HTML)" } as TemplateInfo);
-		}
-		return list.filter(Boolean);
-	}, [catalog, type]);
+	const info = catalog.find((t) => t.id === templateId);
+	const staticPdf = row ? row.engine !== "typst" : false;
 
 	const previewData = useMemo(
 		() => ({ ...content, meta: { ...(content.meta || {}), ...(accent ? { accent } : {}), paper } }),
@@ -179,10 +168,10 @@ export default function DocumentEditorPage() {
 		});
 	};
 
-	const switchTemplate = (key: string) => {
-		setSelectedKey(key);
-		const t = catalog.find((x) => x.key === key);
-		if (t?.engine === "typst") {
+	const switchTemplate = (id: string) => {
+		setTemplateId(id);
+		const t = catalog.find((x) => x.id === id);
+		if (t) {
 			setAccent(t.accentDefault ?? "");
 			setPaper(t.paperDefault);
 		}
@@ -196,10 +185,9 @@ export default function DocumentEditorPage() {
 		try {
 			const body: Json = {
 				content_json: content,
-				engine,
-				template: engine === "typst" ? templateId : type === "resume" ? templateId : row?.template || "professional",
-				accent: engine === "typst" ? accent : undefined,
-				paper: engine === "typst" ? paper : undefined,
+				template: templateId,
+				accent,
+				paper,
 			};
 			if (type === "cover_letter") {
 				const ps: string[] = content.paragraphs || [];
@@ -212,12 +200,11 @@ export default function DocumentEditorPage() {
 			});
 			const data = await res.json();
 			if (!res.ok) throw new Error(data.error || "Save failed");
+			if (data.status?.engine) setRow((r) => (r ? { ...r, engine: data.status.engine, template: data.status.template } : r));
 			setMessage(
-				engine === "typst"
-					? `Saved version ${data.version ?? ""}. The PDF is rendering in the background.`
-					: data.render?.ok
-						? `Saved version ${data.version ?? ""} and rendered the PDF.`
-						: `Saved, but the PDF failed: ${data.render?.error ?? "unknown error"}`
+				data.render?.ok === false
+					? `Saved version ${data.version ?? ""}, but the PDF could not be queued: ${data.render?.error ?? "unknown error"}`
+					: `Saved version ${data.version ?? ""}. The PDF is rendering in the background.`
 			);
 			setRefreshKey((k) => k + 1);
 		} catch (err) {
@@ -271,11 +258,18 @@ export default function DocumentEditorPage() {
 					Save
 				</Button>
 			</div>
-			{row.source === "import" && Object.keys(row.content_json || {}).length === 0 && (type === "resume" || !row.content) && (
+			{row.source === "import" && staticPdf ? (
 				<div className="rounded-lg border bg-muted/40 p-3 text-sm">
-					This document was imported as a finished PDF, so there are no form fields to edit yet. Download the PDF
-					above, or fill in the form and save to render a new PDF with a template (the imported PDF is replaced).
+					This document was imported as a finished PDF and is kept exactly as uploaded. Download the PDF above, or
+					fill in the form and save to render a new PDF with a template (the imported PDF is replaced).
 				</div>
+			) : (
+				staticPdf && (
+					<div className="rounded-lg border bg-muted/40 p-3 text-sm">
+						This document was made with a retired template and has no editable content. Its PDF is kept as is; fill
+						in the form and save to render it with a Typst template.
+					</div>
+				)
 			)}
 			{error && <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
 			{message && <div className="rounded-lg border bg-muted/40 p-3 text-sm">{message}</div>}
@@ -411,30 +405,26 @@ export default function DocumentEditorPage() {
 					<Card className="border-border/50 bg-card/80">
 						<CardHeader className="pb-3">
 							<CardTitle className="text-base">Template & preview</CardTitle>
-							<CardDescription>
-								{engine === "typst"
-									? "Live Typst preview of page 1. Saving renders the PDF in the background."
-									: "Classic (HTML) templates have no live preview; saving renders the PDF."}
-							</CardDescription>
+							<CardDescription>Live preview of page 1. Saving renders the PDF in the background.</CardDescription>
 						</CardHeader>
 						<CardContent className="space-y-3">
 							<div className="flex flex-wrap items-end gap-3">
 								<div className="space-y-1">
 									<Label className="text-xs">Template</Label>
-									<Select value={selectedKey} onValueChange={switchTemplate}>
+									<Select value={templateId} onValueChange={switchTemplate}>
 										<SelectTrigger className="h-8 w-52 text-xs">
 											<SelectValue />
 										</SelectTrigger>
 										<SelectContent>
-											{options.map((t) => (
-												<SelectItem key={t.key} value={t.key}>
-													{t.name} · {t.engineLabel}
+											{catalog.map((t) => (
+												<SelectItem key={t.id} value={t.id}>
+													{t.name}
 												</SelectItem>
 											))}
 										</SelectContent>
 									</Select>
 								</div>
-								{engine === "typst" && info?.accentCustomizable && (
+								{info?.accentCustomizable && (
 									<div className="space-y-1">
 										<Label className="text-xs">Accent</Label>
 										<input
@@ -446,41 +436,31 @@ export default function DocumentEditorPage() {
 										/>
 									</div>
 								)}
-								{engine === "typst" && (
-									<div className="space-y-1">
-										<Label className="text-xs">Paper</Label>
-										<Select value={paper} onValueChange={(v) => setPaper(v as "a4" | "letter")}>
-											<SelectTrigger className="h-8 w-24 text-xs">
-												<SelectValue />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectItem value="a4">A4</SelectItem>
-												<SelectItem value="letter">Letter</SelectItem>
-											</SelectContent>
-										</Select>
-									</div>
-								)}
+								<div className="space-y-1">
+									<Label className="text-xs">Paper</Label>
+									<Select value={paper} onValueChange={(v) => setPaper(v as "a4" | "letter")}>
+										<SelectTrigger className="h-8 w-24 text-xs">
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="a4">A4</SelectItem>
+											<SelectItem value="letter">Letter</SelectItem>
+										</SelectContent>
+									</Select>
+								</div>
 							</div>
-							{engine === "typst" ? (
-								<TypstPreview
-									documentId={row.id}
-									templateId={templateId || (type === "resume" ? DEFAULT_TYPST_RESUME : DEFAULT_TYPST_COVER)}
-									data={previewData}
-									accent={accent || null}
-									paper={paper}
-								/>
-							) : (
-								info && (
-									// eslint-disable-next-line @next/next/no-img-element
-									<img src={info.thumbnailUrl} alt={`${info.name} sample`} className="w-full rounded border bg-white" />
-								)
-							)}
+							<TypstPreview
+								documentId={row.id}
+								templateId={templateId || (type === "resume" ? DEFAULT_TYPST_RESUME : DEFAULT_TYPST_COVER)}
+								data={previewData}
+								accent={accent || null}
+								paper={paper}
+							/>
 						</CardContent>
 					</Card>
 					<VersionHistory
 						documentId={row.id}
 						documentType={type}
-						engine={engine === "typst" ? "typst" : "html"}
 						templateId={templateId || (type === "resume" ? DEFAULT_TYPST_RESUME : DEFAULT_TYPST_COVER)}
 						paper={paper}
 						currentContent={previewData}

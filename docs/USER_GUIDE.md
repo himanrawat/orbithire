@@ -82,8 +82,10 @@ reminder with a ready-to-send message for the recruiter.
 Open any document to edit it (`/documents/<id>`): form fields on the left, live preview on
 the right, template picker, accent colour and paper size.
 
-- **Templates**: Typst templates (fast, rendered in the background) and the classic HTML
-  templates (being retired). Browse them under **Templates**.
+- **Templates**: Typst templates rendered in the background (default **Modern**; also ATS
+  Classic, Compact, EU Photo and ModernCV, each with a matching cover letter). Browse them
+  under **Templates**. Documents made with the old HTML templates were moved to the closest
+  Typst template automatically; imported PDFs are kept exactly as uploaded.
 - **Saving** stores a new version and renders the PDF. The **PDF badge** shows
   Queued → Rendering → PDF ready, or **PDF failed** with a **Retry** button. A render that
   hangs for more than a couple of minutes also offers Retry.
