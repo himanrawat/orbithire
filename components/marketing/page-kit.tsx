@@ -22,7 +22,7 @@ export const TONES = {
 } satisfies Record<string, Tone>;
 
 /* the milestone mark: a cap-yellow arch on an ink post */
-function Stone({ cap = "var(--cap)" }: { cap?: string }) {
+function Stone({ cap = "var(--cap)" }: Readonly<{ cap?: string }>) {
 	return (
 		<span className="mt-1 grid w-3 flex-none gap-px" aria-hidden="true">
 			<span className="nm-arch h-1.5" style={{ background: cap }} />
@@ -31,7 +31,7 @@ function Stone({ cap = "var(--cap)" }: { cap?: string }) {
 	);
 }
 
-export function Eyebrow({ tone, children }: { tone: Tone; children: ReactNode }) {
+export function Eyebrow({ tone, children }: Readonly<{ tone: Tone; children: ReactNode }>) {
 	return (
 		<span
 			className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[13px] font-semibold"
@@ -54,7 +54,7 @@ export function PageHero({
 	facts,
 	redirectQuery,
 	secondary,
-}: {
+}: Readonly<{
 	tone: Tone;
 	eyebrow: string;
 	title: string;
@@ -63,7 +63,7 @@ export function PageHero({
 	facts: [string, string][];
 	redirectQuery: string;
 	secondary?: { label: string; href: string };
-}) {
+}>) {
 	return (
 		<section aria-labelledby="h1" className="pb-14 pt-10 md:pb-[88px] md:pt-20">
 			<div className="nm-wrap grid items-end gap-12 lg:grid-cols-[7fr_4fr] lg:gap-16">
@@ -111,7 +111,7 @@ export function PageHero({
 }
 
 /* The split heading every section on the landing page opens with. */
-export function SectionHead({ id, title, lead }: { id: string; title: string; lead?: string }) {
+export function SectionHead({ id, title, lead }: Readonly<{ id: string; title: string; lead?: string }>) {
 	return (
 		<div className="mb-12 grid items-end gap-6 md:grid-cols-[6fr_5fr] md:gap-12">
 			<h2 id={id} className="nm-h2">
@@ -123,7 +123,7 @@ export function SectionHead({ id, title, lead }: { id: string; title: string; le
 }
 
 /* Numbered rows between hairlines, as in Interview prep's steps, laid out in columns. */
-export function Points({ id, title, lead, items }: { id: string; title: string; lead?: string; items: [string, string][] }) {
+export function Points({ id, title, lead, items }: Readonly<{ id: string; title: string; lead?: string; items: [string, string][] }>) {
 	return (
 		<section aria-labelledby={id} className="py-14 md:py-[104px]">
 			<div className="nm-wrap">
@@ -154,7 +154,7 @@ const STAGES = [
 export type StageCopy = Record<(typeof STAGES)[number]["key"], string>;
 
 /* What the feature leads with at each career stage. */
-export function StageGrid({ id, title, lead, copy }: { id: string; title: string; lead?: string; copy: StageCopy }) {
+export function StageGrid({ id, title, lead, copy }: Readonly<{ id: string; title: string; lead?: string; copy: StageCopy }>) {
 	return (
 		<section aria-labelledby={id} className="py-14 md:py-[104px]">
 			<div className="nm-wrap">
@@ -183,7 +183,7 @@ export function StageGrid({ id, title, lead, copy }: { id: string; title: string
 }
 
 /* Short notes with the milestone mark, as under the Today frame. */
-export function Notes({ items }: { items: [string, string][] }) {
+export function Notes({ items }: Readonly<{ items: [string, string][] }>) {
 	return (
 		<div className="grid gap-6 md:grid-cols-3">
 			{items.map(([b, rest]) => (
@@ -199,7 +199,7 @@ export function Notes({ items }: { items: [string, string][] }) {
 }
 
 /* The landing page's bordered FAQ block, with this page's questions. */
-export function PageFaq({ title = "Questions, answered.", items }: { title?: string; items: readonly FaqItem[] }) {
+export function PageFaq({ title = "Questions, answered.", items }: Readonly<{ title?: string; items: readonly FaqItem[] }>) {
 	return (
 		<section aria-labelledby="h-page-faq" className="py-16 md:py-24">
 			<div className="nm-wrap">
@@ -240,7 +240,7 @@ export function PageFaq({ title = "Questions, answered.", items }: { title?: str
 }
 
 /* Closing call to action on the ink card. */
-export function CtaBand({ redirectQuery, title, lead }: { redirectQuery: string; title: string; lead: string }) {
+export function CtaBand({ redirectQuery, title, lead }: Readonly<{ redirectQuery: string; title: string; lead: string }>) {
 	return (
 		<section aria-labelledby="h-cta" className="py-14 md:py-[104px]">
 			<div className="nm-wrap">
@@ -273,7 +273,7 @@ export const PAGES = [
 ] as const;
 
 /* Links on to the other pages, leaving out the one you are on. */
-export function MorePages({ current }: { current: string }) {
+export function MorePages({ current }: Readonly<{ current: string }>) {
 	const pages = PAGES.filter((p) => p.href !== current);
 	return (
 		<section aria-labelledby="h-more" className="pb-14 pt-6 md:pb-[104px]">

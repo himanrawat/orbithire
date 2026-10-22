@@ -1,56 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabaseServer";
 import { serverEnv } from "@/lib/config";
+import { z } from "zod";
+import { parseJson } from "@/lib/api";
+import { enforceRateLimit } from "@/lib/requestSecurity";
+
+const schema = z.object({
+	email: z.string().trim().email().max(254).transform((value) => value.toLowerCase()),
+}).strict();
 
 export async function POST(req: NextRequest) {
 	try {
-		const { email } = await req.json();
-
-		if (!email) {
-			return NextResponse.json(
-				{ error: "Email is required" },
-				{ status: 400 }
-			);
-		}
+		const parsed = await parseJson(req, schema);
+		if (!parsed.success) return parsed.response;
+		const { email } = parsed.data;
+		const limited = await enforceRateLimit(req, {
+			scope: "auth.password_reset",
+			limit: 4,
+			windowSeconds: 60 * 60,
+			identifier: email,
+			captchaAfter: 2,
+			captchaToken: req.headers.get("x-captcha-token"),
+		});
+		if (limited) return limited;
 
 		const supabase = createServerSupabase();
-
-		// Check if user exists in profiles table
-		const { data: profile } = await supabase
-			.from("profiles")
-			.select("id")
-			.eq("email", email.toLowerCase())
-			.single();
-
-		if (!profile) {
-			return NextResponse.json(
-				{ error: "No account found with this email. Please sign up first." },
-				{ status: 404 }
-			);
-		}
 
 		// Send password reset email
 		const { error } = await supabase.auth.resetPasswordForEmail(email, {
 			redirectTo: `${serverEnv.siteUrl}/reset-password`,
 		});
 
-		if (error) {
-			if (error.message.includes("rate limit")) {
-				return NextResponse.json(
-					{ error: "Too many requests. Please wait a few minutes and try again." },
-					{ status: 429 }
-				);
-			}
-			console.error("Password reset error:", error);
-			return NextResponse.json(
-				{ error: "Failed to send password reset email. Please try again." },
-				{ status: 500 }
-			);
-		}
+		if (error) console.error("Password reset provider error:", error.message);
 
 		return NextResponse.json({
 			success: true,
-			message: "Password reset link has been sent to your email.",
+			message: "If an account exists, a password reset link has been sent.",
 		});
 	} catch {
 		return NextResponse.json(

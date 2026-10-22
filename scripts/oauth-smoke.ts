@@ -106,7 +106,7 @@ async function register(meta: Record<string, unknown>) {
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(meta),
 	});
-	const json = await res.json();
+	const json = (await res.json()) as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 	if (json.client_id) createdClients.add(json.client_id);
 	return { status: res.status, json };
 }
@@ -284,12 +284,12 @@ async function main() {
 	const www = unauth.headers.get("www-authenticate") || "";
 	const prmUrl = www.match(/resource_metadata="([^"]+)"/)?.[1] || "";
 	check("401 carries resource_metadata + scope", unauth.status === 401 && !!prmUrl && /scope="read write"/.test(www), www);
-	const prm = await (await fetch(prmUrl)).json();
+	const prm = (await (await fetch(prmUrl)).json()) as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 	check("PRM (path-suffixed) resource = MCP URL", prm.resource === MCP_URL, prm.resource);
-	const prmRoot = await (await fetch(`${BASE}/.well-known/oauth-protected-resource`)).json();
+	const prmRoot = (await (await fetch(`${BASE}/.well-known/oauth-protected-resource`)).json()) as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 	check("PRM (root) served too", prmRoot.resource === MCP_URL && prmRoot.authorization_servers?.[0] === prm.authorization_servers?.[0]);
 	const issuer: string = prm.authorization_servers?.[0];
-	const asm = await (await fetch(`${issuer}/.well-known/oauth-authorization-server`)).json();
+	const asm = (await (await fetch(`${issuer}/.well-known/oauth-authorization-server`)).json()) as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 	check("AS metadata issuer matches", asm.issuer === issuer, asm.issuer);
 	check(
 		"AS metadata: S256, CIMD, DCR, revocation, iss param",
@@ -453,7 +453,8 @@ async function main() {
 	check("read-only OAuth token cannot write", !!roWrite.isError && /read-only/.test(JSON.stringify(roWrite.content)));
 	await roClient.close();
 	const grantsRes = await fetch(`${BASE}/api/oauth/grants`, { headers: { Cookie: cookie } });
-	const grants = (await grantsRes.json()).grants as { id: string; client_id: string; scopes: string[] }[];
+	const grantsPayload = (await grantsRes.json()) as { grants: { id: string; client_id: string; scopes: string[] }[] };
+	const grants = grantsPayload.grants;
 	const roGrant = grants.find((g) => g.client_id === clientId && g.scopes.join() === "read");
 	check("Settings API lists the connected app", grantsRes.status === 200 && !!roGrant, `${grants.length} active grants`);
 	const del = await fetch(`${BASE}/api/oauth/grants/${roGrant?.id}`, { method: "DELETE", headers: { Cookie: cookie, Origin: BASE } });

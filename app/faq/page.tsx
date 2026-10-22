@@ -42,7 +42,7 @@ const structuredData = {
 	),
 };
 
-export default function FaqPage({ searchParams }: { searchParams?: SearchParams }) {
+export default function FaqPage({ searchParams }: Readonly<{ searchParams?: SearchParams }>) {
 	const redirectQuery = getRedirectQuery(searchParams);
 	return (
 		<MarketingShell redirectQuery={redirectQuery} structuredData={structuredData}>

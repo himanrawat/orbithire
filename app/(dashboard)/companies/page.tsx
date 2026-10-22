@@ -96,7 +96,7 @@ export default function CompaniesPage() {
 			}
 		}
 
-		fetchCompanies();
+		void fetchCompanies();
 	}, []);
 
 	const filteredCompanies = companies.filter((company) => {

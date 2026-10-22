@@ -47,13 +47,13 @@ function Toggle({
 	onChange,
 	label,
 	description,
-}: {
+}: Readonly<{
 	id: string;
 	checked: boolean;
 	onChange: (v: boolean) => void;
 	label: string;
 	description?: string;
-}) {
+}>) {
 	return (
 		<div className="flex items-start justify-between gap-4">
 			<div className="space-y-1">
@@ -88,7 +88,7 @@ function formatHour(h: number) {
 	return `${hour}:00 ${suffix}`;
 }
 
-export function RankingSettings({ className }: { className?: string }) {
+export function RankingSettings({ className }: Readonly<{ className?: string }>) {
 	const [data, setData] = useState<RankingSettingsData | null>(null);
 	const [usage, setUsage] = useState<Usage | null>(null);
 	const [lastDigestAt, setLastDigestAt] = useState<string | null>(null);

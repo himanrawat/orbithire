@@ -1,16 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabaseServer";
+import { z } from "zod";
+import { parseJson } from "@/lib/api";
+import { enforceRateLimit } from "@/lib/requestSecurity";
+
+const schema = z.object({
+	email: z.string().trim().email().max(254).transform((value) => value.toLowerCase()),
+}).strict();
 
 export async function POST(req: NextRequest) {
 	try {
-		const { email } = await req.json();
-
-		if (!email) {
-			return NextResponse.json(
-				{ error: "Email is required" },
-				{ status: 400 }
-			);
-		}
+		const parsed = await parseJson(req, schema);
+		if (!parsed.success) return parsed.response;
+		const { email } = parsed.data;
+		const limited = await enforceRateLimit(req, {
+			scope: "auth.resend_confirmation",
+			limit: 4,
+			windowSeconds: 60 * 60,
+			identifier: email,
+			captchaAfter: 2,
+			captchaToken: req.headers.get("x-captcha-token"),
+		});
+		if (limited) return limited;
 
 		const supabase = createServerSupabase();
 
@@ -20,23 +31,11 @@ export async function POST(req: NextRequest) {
 			email,
 		});
 
-		if (error) {
-			// Don't expose whether the email exists or not for security
-			if (error.message.includes("rate limit")) {
-				return NextResponse.json(
-					{ error: "Too many requests. Please wait a few minutes and try again." },
-					{ status: 429 }
-				);
-			}
-			return NextResponse.json(
-				{ error: "Failed to resend confirmation email. Please try again." },
-				{ status: 400 }
-			);
-		}
+		if (error) console.error("Confirmation resend provider error:", error.message);
 
 		return NextResponse.json({
 			success: true,
-			message: "Confirmation email sent. Please check your inbox and spam folder.",
+			message: "If the account is eligible, a confirmation email has been sent.",
 		});
 	} catch {
 		return NextResponse.json(

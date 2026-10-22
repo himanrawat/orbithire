@@ -4,6 +4,8 @@ import { serverEnv } from "@/lib/config";
 import { getProvider } from "@/lib/ai/providers/registry";
 import { autoUpgradeDeprecatedModel } from "@/lib/ai/modelUpgrade";
 import { encryptApiKey } from "@/lib/encryption";
+import { parseJson } from "@/lib/api";
+import { settingsSchema, settingsVerificationSchema } from "@/lib/schemas/api";
 
 export const runtime = "nodejs";
 // Reads the session from req.cookies, which does not opt out of Next's fetch cache:
@@ -47,7 +49,7 @@ export async function GET(req: NextRequest) {
 	// Fetch user settings
 	const { data: settings, error: settingsError } = await supabase
 		.from("user_settings")
-		.select("*")
+		.select("ai_provider,ai_api_key_encrypted,ai_base_url,ai_default_model,ai_connection_verified,ai_last_verified_at,default_template,default_country,free_generations_used")
 		.eq("user_id", user.id)
 		.single();
 
@@ -168,12 +170,9 @@ export async function POST(req: NextRequest) {
 		return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 	}
 
-	let body: SettingsPayload;
-	try {
-		body = await req.json();
-	} catch {
-		return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-	}
+	const parsed = await parseJson(req, settingsSchema);
+	if (!parsed.success) return parsed.response;
+	const body: SettingsPayload = parsed.data;
 
 	const { provider, apiKey, baseUrl, defaultModel } = body;
 
@@ -260,12 +259,9 @@ export async function PATCH(req: NextRequest) {
 		return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 	}
 
-	let body: { verified: boolean };
-	try {
-		body = await req.json();
-	} catch {
-		return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-	}
+	const parsed = await parseJson(req, settingsVerificationSchema);
+	if (!parsed.success) return parsed.response;
+	const body = parsed.data;
 
 	const { error: updateError } = await supabase
 		.from("user_settings")

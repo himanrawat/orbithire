@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/app/page-header";
 
 async function getUsers(searchParams: { page?: string; search?: string }) {
 	const supabase = createServiceSupabase();
-	const page = parseInt(searchParams.page || "1");
+	const page = Number.parseInt(searchParams.page || "1");
 	const pageSize = 20;
 	const offset = (page - 1) * pageSize;
 	const search = searchParams.search || "";
@@ -36,9 +36,9 @@ async function getUsers(searchParams: { page?: string; search?: string }) {
 
 export default async function UsersPage({
 	searchParams,
-}: {
+	}: Readonly<{
 	searchParams: { page?: string; search?: string };
-}) {
+	}>) {
 	const { users, total, page, pageSize } = await getUsers(searchParams);
 	const totalPages = Math.ceil(total / pageSize);
 

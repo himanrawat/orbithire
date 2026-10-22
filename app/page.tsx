@@ -51,7 +51,7 @@ const structuredData = {
 	],
 };
 
-export default function LandingPage({ searchParams }: { searchParams?: SearchParams }) {
+export default function LandingPage({ searchParams }: Readonly<{ searchParams?: SearchParams }>) {
 	const redirectParam = searchParams?.redirect;
 	const redirectValue = Array.isArray(redirectParam) ? redirectParam[0] : redirectParam || null;
 

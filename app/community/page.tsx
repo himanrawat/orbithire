@@ -20,7 +20,7 @@ const RULES = [
 	["Invite-only at launch", "The community opens in small groups so the first conversations set the tone."],
 ] as [string, string][];
 
-export default function CommunityPage({ searchParams }: { searchParams?: SearchParams }) {
+export default function CommunityPage({ searchParams }: Readonly<{ searchParams?: SearchParams }>) {
 	const redirectQuery = getRedirectQuery(searchParams);
 	return (
 		<MarketingShell redirectQuery={redirectQuery}>

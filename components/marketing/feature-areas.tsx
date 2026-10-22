@@ -4,7 +4,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-function Card({ children, className }: { children: ReactNode; className?: string }) {
+function Card({ children, className }: Readonly<{ children: ReactNode; className?: string }>) {
 	return (
 		<article
 			className={cn(
@@ -17,7 +17,7 @@ function Card({ children, className }: { children: ReactNode; className?: string
 	);
 }
 
-function Title({ children, fact }: { children: ReactNode; fact: string }) {
+function Title({ children, fact }: Readonly<{ children: ReactNode; fact: string }>) {
 	return (
 		<div className="px-6 text-center">
 			<h3 className="text-[20px] font-semibold leading-[26px] tracking-[-0.01em]">{children}</h3>

@@ -62,7 +62,7 @@ function firstLine(text: string | null) {
 	return text ? text.split("\n")[0] : "";
 }
 
-export function TasksTable({ tasks, total, page, pageSize, totalPages, counts }: TasksTableProps) {
+export function TasksTable({ tasks, total, page, pageSize, totalPages, counts }: Readonly<TasksTableProps>) {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const [busyId, setBusyId] = useState<string | null>(null);

@@ -44,7 +44,7 @@ function fmt(ts: string | null) {
 	return new Date(ts).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
-function CopyBlock({ label, text }: { label: string; text: string }) {
+function CopyBlock({ label, text }: Readonly<{ label: string; text: string }>) {
 	const [copied, setCopied] = useState(false);
 	return (
 		<div className="space-y-1.5">
@@ -75,7 +75,7 @@ function CopyBlock({ label, text }: { label: string; text: string }) {
 	);
 }
 
-export function AiConnections({ className }: { className?: string }) {
+export function AiConnections({ className }: Readonly<{ className?: string }>) {
 	const [tokens, setTokens] = useState<McpToken[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);

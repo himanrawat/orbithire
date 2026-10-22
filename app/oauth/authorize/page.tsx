@@ -40,10 +40,11 @@ function currentRequest(query: string): Request {
 	const h = headers();
 	const host = h.get("x-forwarded-host") || h.get("host") || "localhost";
 	const proto = h.get("x-forwarded-proto") || "http";
-	return new Request(`${proto}://${host}${AUTHORIZE_PATH}${query ? `?${query}` : ""}`, { headers: new Headers(Array.from(h.entries())) });
+	const querySuffix = query ? `?${query}` : "";
+	return new Request(`${proto}://${host}${AUTHORIZE_PATH}${querySuffix}`, { headers: new Headers(Array.from(h.entries())) });
 }
 
-function ErrorCard({ title, message }: { title: string; message: string }) {
+function ErrorCard({ title, message }: Readonly<{ title: string; message: string }>) {
 	return (
 		<main className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
 			<Card className="w-full max-w-md">
@@ -59,7 +60,7 @@ function ErrorCard({ title, message }: { title: string; message: string }) {
 	);
 }
 
-export default async function AuthorizePage({ searchParams }: { searchParams: SearchParams }) {
+export default async function AuthorizePage({ searchParams }: Readonly<{ searchParams: SearchParams }>) {
 	const params = toParams(searchParams);
 	const query = params.toString();
 	const req = currentRequest(query);
@@ -74,7 +75,8 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Se
 		data: { user },
 	} = await supabase.auth.getUser();
 	if (!user) {
-		redirect(`/signin?redirect=${encodeURIComponent(`${AUTHORIZE_PATH}?${query}`)}`);
+		const authorizationUrl = `${AUTHORIZE_PATH}?${query}`;
+		redirect(`/signin?redirect=${encodeURIComponent(authorizationUrl)}`);
 	}
 
 	const { client, request } = result;

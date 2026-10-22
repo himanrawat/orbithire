@@ -29,7 +29,7 @@ import {
 	type MatchStatus,
 } from "@/lib/jobs/types";
 
-export default function JobDetailPage({ params }: { params: { id: string } }) {
+export default function JobDetailPage({ params }: Readonly<{ params: { id: string } }>) {
 	const router = useRouter();
 	const [job, setJob] = useState<JobDetail | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -51,7 +51,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
 	}, [params.id]);
 
 	useEffect(() => {
-		load();
+		void load();
 	}, [load]);
 
 	const setStatus = async (status: MatchStatus) => {
@@ -259,8 +259,8 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
 									<div>
 										<p className="font-medium">Red flags</p>
 										<ul className="list-disc pl-5 text-xs text-muted-foreground">
-											{reasons!.red_flags!.map((f, i) => (
-												<li key={i}>{f}</li>
+											{reasons!.red_flags!.map((flag) => (
+												<li key={flag}>{flag}</li>
 											))}
 										</ul>
 									</div>

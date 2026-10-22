@@ -8,6 +8,8 @@ import {
 	serverError,
 } from "@/lib/jobs/server";
 import { MAX_JOB_SEARCHES } from "@/lib/jobs/types";
+import { parseJson } from "@/lib/api";
+import { jobSearchCreateSchema } from "@/lib/schemas/api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +20,7 @@ export async function GET() {
 	if (auth.error) return auth.error;
 	const { data, error } = await auth.supabase
 		.from("job_searches")
-		.select("*")
+		.select("id,user_id,name,keywords,include_keywords,exclude_keywords,locations,sites,sources,country,remote_ok,hours_old,results_wanted,enabled,created_at,updated_at")
 		.eq("user_id", auth.user.id)
 		.order("created_at", { ascending: true });
 	if (error) return serverError("Failed to load searches", error);
@@ -30,8 +32,9 @@ export async function GET() {
 export async function POST(req: NextRequest) {
 	const auth = await requireUser();
 	if (auth.error) return auth.error;
-	const body = await req.json().catch(() => null);
-	if (!body || typeof body !== "object") return badRequest("Invalid JSON body");
+	const parsed = await parseJson(req, jobSearchCreateSchema);
+	if (!parsed.success) return parsed.response;
+	const body = parsed.data;
 	const { data: input, error: inputError } = parseSearchInput(body, false);
 	if (inputError) return badRequest(inputError);
 	const { count, error: countError } = await auth.supabase
@@ -43,7 +46,7 @@ export async function POST(req: NextRequest) {
 	const { data, error } = await auth.supabase
 		.from("job_searches")
 		.insert({ ...input, user_id: auth.user.id })
-		.select("*")
+		.select("id,user_id,name,keywords,include_keywords,exclude_keywords,locations,sites,sources,country,remote_ok,hours_old,results_wanted,enabled,created_at,updated_at")
 		.single();
 	if (error) {
 		if (isSearchLimitError(error)) return searchLimitReached();

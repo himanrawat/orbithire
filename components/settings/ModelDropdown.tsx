@@ -17,7 +17,7 @@ export function ModelDropdown({
 	value,
 	onChange,
 	disabled = false,
-}: ModelDropdownProps) {
+}: Readonly<ModelDropdownProps>) {
 	// Group models by category
 	const recommended = models.filter((m) => m.category === "recommended");
 	const alternative = models.filter((m) => m.category === "alternative");

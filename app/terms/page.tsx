@@ -127,7 +127,7 @@ const SECTIONS: LegalSection[] = [
 	},
 ];
 
-export default function TermsPage({ searchParams }: { searchParams?: SearchParams }) {
+export default function TermsPage({ searchParams }: Readonly<{ searchParams?: SearchParams }>) {
 	return (
 		<MarketingShell redirectQuery={getRedirectQuery(searchParams)}>
 			<LegalPage

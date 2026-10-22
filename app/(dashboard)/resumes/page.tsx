@@ -7,21 +7,16 @@ import { PageHeader } from "@/components/app/page-header";
 import { EmptyState } from "@/components/app/blocks";
 import {
 	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
+	CardContent
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
 	FileText,
 	Sparkles,
 	Search,
-	ChevronRight,
 	Download,
 	Eye,
 	Trash2,
-	MoreVertical,
 	Calendar,
 	X,
 	Loader2,
@@ -57,7 +52,7 @@ export default function ResumesPage() {
 	const [deleting, setDeleting] = useState<string | null>(null);
 
 	useEffect(() => {
-		fetchResumes();
+		void fetchResumes();
 	}, []);
 
 	const fetchResumes = async () => {
@@ -148,6 +143,8 @@ export default function ResumesPage() {
 			resume.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			resume.companyName?.toLowerCase().includes(searchQuery.toLowerCase())
 	);
+	const hasResumes = !loading && filteredResumes.length > 0;
+	const showEmptyState = !loading && filteredResumes.length === 0;
 
 	return (
 		<div className="min-h-screen">
@@ -218,13 +215,14 @@ export default function ResumesPage() {
 					animate={{ opacity: 1, y: 0 }}
 					transition={{ delay: 0.2 }}
 				>
-					{loading ? (
+					{loading && (
 						<Card>
 							<CardContent className="flex items-center justify-center py-16">
 								<Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
 							</CardContent>
 						</Card>
-					) : filteredResumes.length > 0 ? (
+					)}
+					{hasResumes && (
 						<div className="space-y-4">
 							{filteredResumes.map((resume) => (
 								<Card
@@ -307,7 +305,7 @@ export default function ResumesPage() {
 											<Button
 												variant="ghost"
 												size="icon"
-												onClick={() => handleDelete(resume.id)}
+											onClick={() => void handleDelete(resume.id)}
 												disabled={deleting === resume.id}
 												title="Delete resume"
 											>
@@ -322,7 +320,8 @@ export default function ResumesPage() {
 								</Card>
 							))}
 						</div>
-					) : (
+					)}
+					{showEmptyState && (
 						<Card>
 							<EmptyState
 								title={searchQuery ? "No resumes found" : "No resumes yet"}

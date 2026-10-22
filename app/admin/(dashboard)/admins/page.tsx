@@ -1,8 +1,8 @@
 import { createServiceSupabase } from "@/lib/supabaseServer";
 import { AdminsPanel, CreateAdminButton } from "../users/AdminsPanel";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/app/page-header";
+import { getAdminSession } from "@/lib/adminAuth";
 
 async function getAdmins() {
 	const supabase = createServiceSupabase();
@@ -20,24 +20,8 @@ async function getAdmins() {
 }
 
 export default async function AdminsPage() {
-	const cookieStore = cookies();
-	const adminToken = cookieStore.get("admin_token")?.value;
-
-	// Require admin session
-	if (!adminToken) {
-		redirect("/admin/signin");
-	}
-
-	// Verify super admin role
-	const supabase = createServiceSupabase();
-	const { data: self } = await supabase
-		.from("admin_users")
-		.select("role")
-		.eq("id", adminToken)
-		.eq("is_active", true)
-		.single();
-
-	if (!self || self.role !== "super_admin") {
+	const self = await getAdminSession("super_admin");
+	if (!self) {
 		redirect("/admin/dashboard");
 	}
 

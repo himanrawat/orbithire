@@ -1,99 +1,15 @@
-import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { serverEnv } from "@/lib/config";
+import { createServerSupabase } from "@/lib/supabaseServer";
+import {
+	getR2Client,
+	objectBodyToWebStream,
+	safeContentDispositionFilename,
+} from "@/lib/r2Object";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-// Initialize R2 client
-const r2Client =
-	serverEnv.r2Endpoint &&
-	serverEnv.r2Bucket &&
-	serverEnv.r2AccessKeyId &&
-	serverEnv.r2SecretAccessKey
-		? new S3Client({
-				region: "auto",
-				endpoint: serverEnv.r2Endpoint,
-				credentials: {
-					accessKeyId: serverEnv.r2AccessKeyId,
-					secretAccessKey: serverEnv.r2SecretAccessKey,
-				},
-		  })
-		: null;
-
-/**
- * Create Supabase client for authentication
- */
-function createSupabaseClient() {
-	return createServerClient(serverEnv.supabaseUrl, serverEnv.supabaseAnonKey, {
-		cookies: {
-			get(name: string) {
-				return cookies().get(name)?.value;
-			},
-			set(name: string, value: string, options: any) {
-				cookies().set({
-					name,
-					value,
-					httpOnly: true,
-					secure: true,
-					sameSite: "lax",
-					domain: serverEnv.authCookieDomain,
-					path: "/",
-					...options,
-				});
-			},
-			remove(name: string, options: any) {
-				cookies().set({
-					name,
-					value: "",
-					expires: new Date(0),
-					httpOnly: true,
-					secure: true,
-					sameSite: "lax",
-					domain: serverEnv.authCookieDomain,
-					path: "/",
-					...options,
-				});
-			},
-		},
-	});
-}
-
-/**
- * Fetch file from R2
- */
-async function fetchFromR2(
-	key: string
-): Promise<{ buffer: Buffer; contentType: string } | null> {
-	if (!r2Client || !serverEnv.r2Bucket) return null;
-
-	try {
-		const response = await r2Client.send(
-			new GetObjectCommand({
-				Bucket: serverEnv.r2Bucket,
-				Key: key,
-			})
-		);
-
-		if (!response.Body) return null;
-
-		// Convert stream to buffer
-		const chunks: Uint8Array[] = [];
-		for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {
-			chunks.push(chunk);
-		}
-
-		return {
-			buffer: Buffer.concat(chunks),
-			contentType: response.ContentType || "application/octet-stream",
-		};
-	} catch (err) {
-		console.error("Failed to fetch from R2:", err);
-		return null;
-	}
-}
 
 /**
  * GET /api/files/[...path]
@@ -108,6 +24,7 @@ export async function GET(
 	request: NextRequest,
 	{ params }: { params: { path: string[] } }
 ) {
+	const r2Client = getR2Client();
 	if (!r2Client || !serverEnv.r2Bucket) {
 		return NextResponse.json(
 			{ error: "File storage is not configured." },
@@ -126,7 +43,7 @@ export async function GET(
 	const fileUserId = pathParts[0];
 
 	// Authenticate the user
-	const supabase = createSupabaseClient();
+	const supabase = createServerSupabase();
 	const {
 		data: { user },
 		error: authError,
@@ -141,28 +58,49 @@ export async function GET(
 		return NextResponse.json({ error: "Access denied." }, { status: 403 });
 	}
 
-	// Fetch the file from R2
-	const result = await fetchFromR2(r2Key);
+	const range = request.headers.get("range");
+	if (range && !/^bytes=\d*-\d*$/.test(range)) {
+		return NextResponse.json({ error: "Invalid byte range." }, { status: 416 });
+	}
 
-	if (!result) {
+	let result;
+	try {
+		result = await r2Client.send(
+			new GetObjectCommand({
+				Bucket: serverEnv.r2Bucket,
+				Key: r2Key,
+				Range: range || undefined,
+			})
+		);
+	} catch (error) {
+		console.error("Failed to fetch from R2:", error);
 		return NextResponse.json({ error: "File not found." }, { status: 404 });
+	}
+	if (!result.Body) return NextResponse.json({ error: "File not found." }, { status: 404 });
+	if ((result.ContentLength || 0) > serverEnv.maxProxyBytes) {
+		(result.Body as { destroy?: () => void }).destroy?.();
+		return NextResponse.json({ error: "File is too large to proxy." }, { status: 413 });
 	}
 
 	// Determine content-disposition based on file type
-	const filename = pathParts.at(-1) || "file";
+	const filename = safeContentDispositionFilename(pathParts.at(-1) || "file");
 	const isInline = request.nextUrl.searchParams.get("view") === "true";
 	const disposition = isInline
 		? "inline"
 		: `attachment; filename="${filename}"`;
 
-	// Return the file with proper headers
-	return new NextResponse(new Uint8Array(result.buffer), {
-		status: 200,
-		headers: {
-			"Content-Type": result.contentType,
+	const headers = new Headers({
+		"Content-Type": result.ContentType || "application/octet-stream",
 			"Content-Disposition": disposition,
-			"Content-Length": result.buffer.length.toString(),
-			"Cache-Control": "private, max-age=3600", // 1 hour cache
-		},
+		"Cache-Control": "private, max-age=3600",
+		"Accept-Ranges": "bytes",
+	});
+	if (result.ContentLength !== undefined) headers.set("Content-Length", String(result.ContentLength));
+	if (result.ContentRange) headers.set("Content-Range", result.ContentRange);
+	if (result.ETag) headers.set("ETag", result.ETag);
+	if (result.LastModified) headers.set("Last-Modified", result.LastModified.toUTCString());
+	return new NextResponse(objectBodyToWebStream(result.Body), {
+		status: result.ContentRange ? 206 : 200,
+		headers,
 	});
 }

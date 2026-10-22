@@ -11,7 +11,7 @@ type BtnProps = {
 };
 
 /** The website button: label rolls on hover, a fill rises in an arch. */
-export function Btn({ href, children, variant = "primary", arrow, className }: BtnProps) {
+export function Btn({ href, children, variant = "primary", arrow, className }: Readonly<BtnProps>) {
 	return (
 		<Link href={href} className={cn("nm-btn", variant === "primary" ? "nm-btn-primary" : "nm-btn-secondary", className)}>
 			<span className="lbl">

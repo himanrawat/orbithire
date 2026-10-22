@@ -1,24 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceSupabase } from "@/lib/supabaseServer";
 import bcrypt from "bcryptjs";
+import { z } from "zod";
+import { parseJson } from "@/lib/api";
+import { enforceRateLimit } from "@/lib/requestSecurity";
+
+const schema = z.object({
+	name: z.string().trim().min(1).max(120),
+	email: z.string().trim().email().max(254).transform((value) => value.toLowerCase()),
+	password: z.string().min(8).max(256),
+	accessCode: z.string().trim().min(6).max(128),
+}).strict();
 
 export async function POST(req: NextRequest) {
 	try {
-		const { name, email, password, accessCode } = await req.json();
-
-		if (!name || !email || !password || !accessCode) {
-			return NextResponse.json(
-				{ error: "All fields are required" },
-				{ status: 400 }
-			);
-		}
-
-		if (password.length < 8) {
-			return NextResponse.json(
-				{ error: "Password must be at least 8 characters" },
-				{ status: 400 }
-			);
-		}
+		const parsed = await parseJson(req, schema);
+		if (!parsed.success) return parsed.response;
+		const { name, email, password, accessCode } = parsed.data;
+		const limited = await enforceRateLimit(req, {
+			scope: "admin.signup",
+			limit: 5,
+			windowSeconds: 60 * 60,
+			identifier: email,
+			captchaAfter: 2,
+			captchaToken: req.headers.get("x-captcha-token"),
+		});
+		if (limited) return limited;
 
 		const supabase = createServiceSupabase();
 
@@ -61,7 +68,7 @@ export async function POST(req: NextRequest) {
 		const { data: existingAdmin } = await supabase
 			.from("admin_users")
 			.select("id")
-			.eq("email", email.toLowerCase())
+			.eq("email", email)
 			.single();
 
 		if (existingAdmin) {
@@ -78,7 +85,7 @@ export async function POST(req: NextRequest) {
 		const { data: newAdmin, error: createError } = await supabase
 			.from("admin_users")
 			.insert({
-				email: email.toLowerCase(),
+				email,
 				password_hash: passwordHash,
 				name,
 			})

@@ -34,12 +34,12 @@ export function ImportData() {
 
 export default ImportData;
 
-function ErrorBox({ error }: { error: string | null }) {
+function ErrorBox({ error }: Readonly<{ error: string | null }>) {
 	if (!error) return null;
 	return <div className="rounded-[var(--radius-control)] bg-[var(--danger-soft)] p-3 text-sm text-[var(--danger)]">{error}</div>;
 }
 
-function Note({ children }: { children: React.ReactNode }) {
+function Note({ children }: Readonly<{ children: React.ReactNode }>) {
 	return (
 		<div className="flex items-start gap-2 rounded-[var(--radius-control)] border bg-secondary p-3 text-sm">
 			<CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--success)]" />
@@ -59,12 +59,12 @@ function FilePick({
 	multiple,
 	label,
 	onFiles,
-}: {
+}: Readonly<{
 	accept: string;
 	multiple?: boolean;
 	label: string;
 	onFiles: (files: File[]) => void;
-}) {
+}>) {
 	return (
 		<label className="inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted">
 			<Upload className="h-4 w-4" />

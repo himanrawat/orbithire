@@ -6,6 +6,8 @@ import { isPdf, pdfToText } from "@/lib/import/pdfText";
 import { uploadToR2 } from "@/lib/r2";
 import { DOCUMENT_TABLES, UUID_RE } from "@/lib/documents";
 import type { DocumentType } from "@/lib/types/database";
+import { parseJson } from "@/lib/api";
+import { importPdfPreviewSchema } from "@/lib/schemas/api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,16 +36,9 @@ export async function POST(req: NextRequest) {
 	const contentType = req.headers.get("content-type") || "";
 
 	if (contentType.includes("application/json")) {
-		let body: { filenames?: unknown };
-		try {
-			body = await req.json();
-		} catch {
-			return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-		}
-		const names = Array.isArray(body.filenames)
-			? body.filenames.filter((n): n is string => typeof n === "string" && /\.pdf$/i.test(n)).slice(0, MAX_FILES)
-			: [];
-		if (!names.length) return NextResponse.json({ error: "filenames (PDF) are required" }, { status: 400 });
+		const parsed = await parseJson(req, importPdfPreviewSchema);
+		if (!parsed.success) return parsed.response;
+		const names = parsed.data.filenames.slice(0, MAX_FILES);
 		const companies = await loadUserCompanies(supabase, userId);
 		const existing = await existingImportKeys(supabase, userId);
 		const files = names.map((n) => {

@@ -31,7 +31,7 @@ export function TemplateGallery({
 	selectedId,
 	onSelect,
 	onPreview,
-}: TemplateGalleryProps) {
+}: Readonly<TemplateGalleryProps>) {
 	const [hoveredId, setHoveredId] = useState<string | null>(null);
 	const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
 	const [failedImages, setFailedImages] = useState<Set<string>>(new Set());

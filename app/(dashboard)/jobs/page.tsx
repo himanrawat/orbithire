@@ -64,6 +64,31 @@ function scoreClass(score: number) {
 	return "bg-secondary text-muted-foreground";
 }
 
+function emptyJobsTitle(showHidden: boolean, status: MatchStatus) {
+	if (showHidden) return "No hidden jobs";
+	if (status === "new") return "No new jobs yet";
+	return `No ${STATUS_LABELS[status].toLowerCase()} jobs`;
+}
+
+type JobFilters = {
+	status: MatchStatus;
+	source: string;
+	remote: boolean;
+	minSalary: string;
+	minScore: string;
+	showHidden: boolean;
+};
+
+function buildJobsQuery(filters: JobFilters) {
+	const query = new URLSearchParams({ status: filters.status });
+	if (filters.source) query.set("source", filters.source);
+	if (filters.remote) query.set("remote", "1");
+	if (Number(filters.minSalary) > 0) query.set("min_salary", filters.minSalary);
+	if (Number(filters.minScore) > 0) query.set("min_score", filters.minScore);
+	if (filters.showHidden) query.set("hidden", "1");
+	return query;
+}
+
 export default function JobInboxPage() {
 	// The daily fetch runs at 07:00 IST (01:30 UTC); show it in the viewer's own time zone.
 	const [fetchTime, setFetchTime] = useState("");
@@ -88,12 +113,7 @@ export default function JobInboxPage() {
 	const load = useCallback(async () => {
 		setLoading(true);
 		setError(null);
-		const q = new URLSearchParams({ status });
-		if (source) q.set("source", source);
-		if (remote) q.set("remote", "1");
-		if (Number(minSalary) > 0) q.set("min_salary", String(Number(minSalary)));
-		if (Number(minScore) > 0) q.set("min_score", String(Number(minScore)));
-		if (showHidden) q.set("hidden", "1");
+		const q = buildJobsQuery({ status, source, remote, minSalary, minScore, showHidden });
 		try {
 			const res = await fetch(`/api/jobs?${q}`, { cache: "no-store" });
 			const json = await res.json();
@@ -142,6 +162,9 @@ export default function JobInboxPage() {
 	};
 
 	const jobs = data?.jobs || [];
+	const initialLoading = loading && !data;
+	const noJobs = !initialLoading && jobs.length === 0;
+	const hasJobs = !initialLoading && jobs.length > 0;
 
 	return (
 		<div className="min-h-screen">
@@ -200,7 +223,7 @@ export default function JobInboxPage() {
 					</select>
 					<label className="flex h-11 cursor-pointer items-center gap-2.5 rounded-[var(--radius-control)] border border-input bg-card px-3.5 text-[15px] hover:border-foreground/50">
 						<input type="checkbox" className="size-4 accent-[var(--ink)]" checked={remote} onChange={(e) => setRemote(e.target.checked)} />
-						Remote only
+						<span>Remote only</span>
 					</label>
 					<Input
 						type="number"
@@ -233,20 +256,22 @@ export default function JobInboxPage() {
 					</div>
 				)}
 
-				{loading && !data ? (
+					{initialLoading && (
 					<div className="flex justify-center py-20">
 						<Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
 					</div>
-				) : jobs.length === 0 ? (
+					)}
+					{noJobs && (
 					<Card>
 						<EmptyState
-							title={showHidden ? "No hidden jobs" : status === "new" ? "No new jobs yet" : `No ${STATUS_LABELS[status].toLowerCase()} jobs`}
+								title={emptyJobsTitle(showHidden, status)}
 							description={
 								!showHidden && status === "new" ? "Set up a job search or a company watchlist, then press Fetch now." : undefined
 							}
 						/>
 					</Card>
-				) : (
+					)}
+					{hasJobs && (
 					<div className={cn("grid grid-cols-1 gap-3", loading && "opacity-60")}>
 						{jobs.map((job) => {
 							const salary = formatSalary(job);

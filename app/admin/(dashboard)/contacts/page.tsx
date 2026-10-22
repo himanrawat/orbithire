@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/app/page-header";
 
 async function getContacts(searchParams: { page?: string; status?: string }) {
 	const supabase = createServiceSupabase();
-	const page = parseInt(searchParams.page || "1");
+	const page = Number.parseInt(searchParams.page || "1");
 	const pageSize = 20;
 	const offset = (page - 1) * pageSize;
 	const status = searchParams.status || "all";
@@ -36,9 +36,9 @@ async function getContacts(searchParams: { page?: string; status?: string }) {
 
 export default async function ContactsPage({
 	searchParams,
-}: {
+	}: Readonly<{
 	searchParams: { page?: string; status?: string };
-}) {
+	}>) {
 	const { contacts, total, page, pageSize } = await getContacts(searchParams);
 	const totalPages = Math.ceil(total / pageSize);
 

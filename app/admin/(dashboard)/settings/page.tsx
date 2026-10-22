@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,6 @@ import { Loader2, Save, Shield } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 
 export default function SettingsPage() {
-	const [loading, setLoading] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [currentPassword, setCurrentPassword] = useState("");
 	const [newPassword, setNewPassword] = useState("");
@@ -52,7 +51,7 @@ export default function SettingsPage() {
 			setCurrentPassword("");
 			setNewPassword("");
 			setConfirmPassword("");
-		} catch (error) {
+		} catch {
 			setError("Something went wrong");
 		} finally {
 			setSaving(false);

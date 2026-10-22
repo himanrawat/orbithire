@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Btn } from "@/components/marketing/btn";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { AuthHeading, AuthShell, Field, FormError, Road, Stone, SubmitButton } from "./auth-shell";
+import { CaptchaField, captchaHeaders, resetCaptcha } from "./CaptchaField";
 
 function Aside() {
 	return (
@@ -51,7 +52,7 @@ export function ForgotPasswordForm() {
 		try {
 			const res = await fetch("/api/auth/forgot-password", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: { "Content-Type": "application/json", ...captchaHeaders() },
 				body: JSON.stringify({ email }),
 			});
 			const data = await res.json();
@@ -64,6 +65,7 @@ export function ForgotPasswordForm() {
 		} catch {
 			setError("We couldn't reach the server. Check your connection and try again.");
 		} finally {
+			resetCaptcha();
 			setLoading(false);
 		}
 	};
@@ -113,6 +115,7 @@ export function ForgotPasswordForm() {
 					required
 					disabled={loading}
 				/>
+				<CaptchaField />
 				{error && <FormError>{error}</FormError>}
 				<div className="mt-1">
 					<SubmitButton label="Send reset link" busyLabel="Sending" busy={loading} />
@@ -140,7 +143,7 @@ export function ResetPasswordForm() {
 			} = await supabase.auth.getSession();
 			if (!session && !window.location.hash) setLinkInvalid(true);
 		};
-		checkSession();
+		void checkSession();
 	}, []);
 
 	const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {

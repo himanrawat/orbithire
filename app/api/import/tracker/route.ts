@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getImportUser, loadUserCompanies } from "@/lib/import/server";
 import { planTrackerImport, summarizePlan } from "@/lib/import/tracker";
+import { parseJson } from "@/lib/api";
+import { trackerImportSchema } from "@/lib/schemas/api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,15 +23,9 @@ export async function POST(req: NextRequest) {
 	if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 	const { supabase, userId } = auth;
 
-	let body: { csv?: unknown; mode?: unknown; skip?: unknown };
-	try {
-		body = await req.json();
-	} catch {
-		return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-	}
-	if (typeof body.csv !== "string" || !body.csv.trim()) {
-		return NextResponse.json({ error: "csv is required" }, { status: 400 });
-	}
+	const parsed = await parseJson(req, trackerImportSchema);
+	if (!parsed.success) return parsed.response;
+	const body = parsed.data;
 	if (body.csv.length > MAX_CSV_BYTES) {
 		return NextResponse.json({ error: "CSV is too large (max 2 MB)" }, { status: 413 });
 	}

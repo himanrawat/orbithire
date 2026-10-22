@@ -20,7 +20,7 @@ interface FailedDoc {
  * Documents whose PDF failed (or got stuck), with per-row retry (badge) and
  * "Retry all". Renders nothing when there is nothing to fix.
  */
-export function FailedPdfsPanel({ className }: { className?: string }) {
+export function FailedPdfsPanel({ className }: Readonly<{ className?: string }>) {
 	const [docs, setDocs] = useState<FailedDoc[]>([]);
 	const [busy, setBusy] = useState(false);
 	const [note, setNote] = useState<string | null>(null);

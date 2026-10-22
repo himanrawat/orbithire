@@ -102,7 +102,7 @@ const SECTIONS: LegalSection[] = [
 	},
 ];
 
-export default function PrivacyPage({ searchParams }: { searchParams?: SearchParams }) {
+export default function PrivacyPage({ searchParams }: Readonly<{ searchParams?: SearchParams }>) {
 	return (
 		<MarketingShell redirectQuery={getRedirectQuery(searchParams)}>
 			<LegalPage

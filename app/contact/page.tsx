@@ -18,7 +18,7 @@ const SHORTCUTS = [
 	{ href: "/terms", title: "Terms", blurb: "The agreement for using NextMilestone." },
 ];
 
-export default function ContactPage({ searchParams }: { searchParams?: SearchParams }) {
+export default function ContactPage({ searchParams }: Readonly<{ searchParams?: SearchParams }>) {
 	return (
 		<MarketingShell redirectQuery={getRedirectQuery(searchParams)}>
 			<section aria-labelledby="h1" className="pb-14 pt-10 md:pb-[104px] md:pt-20">

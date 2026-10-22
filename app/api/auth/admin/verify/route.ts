@@ -1,41 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServiceSupabase } from "@/lib/supabaseServer";
-import { cookies } from "next/headers";
+import { requireAdmin } from "@/lib/adminAuth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
 	try {
-		// Force dynamic to allow cookies
-		req;
-		const cookieStore = cookies();
-		const adminToken = cookieStore.get("admin_token");
-
-		if (!adminToken) {
+		// Reading the request keeps this handler dynamic alongside the exported flag.
+		void req.url;
+		const admin = await requireAdmin();
+		if (!admin) {
 			return NextResponse.json(
-				{ error: "No admin session" },
-				{ status: 401 }
-			);
-		}
-
-		const supabase = createServiceSupabase();
-
-		const { data: admin, error } = await supabase
-		.from("admin_users")
-		.select("id, email, name, role, is_active")
-		.eq("id", adminToken.value)
-		.single();
-
-		if (error || !admin) {
-			return NextResponse.json(
-				{ error: "Invalid session" },
-				{ status: 401 }
-			);
-		}
-
-		if (!admin.is_active) {
-			return NextResponse.json(
-				{ error: "Account is deactivated" },
+				{ error: "Invalid or expired admin session" },
 				{ status: 401 }
 			);
 		}

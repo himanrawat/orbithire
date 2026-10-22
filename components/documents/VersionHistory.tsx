@@ -46,7 +46,7 @@ export function VersionHistory({
 	currentContent,
 	refreshKey,
 	onRestored,
-}: VersionHistoryProps) {
+}: Readonly<VersionHistoryProps>) {
 	const [open, setOpen] = useState(false);
 	const [versions, setVersions] = useState<VersionRow[] | null>(null);
 	const [selected, setSelected] = useState<{ version: number; content: Record<string, any> } | null>(null);

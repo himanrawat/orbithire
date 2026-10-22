@@ -27,7 +27,7 @@ export function TypstPreview({
 	paper,
 	debounceMs = 400,
 	className,
-}: TypstPreviewProps) {
+}: Readonly<TypstPreviewProps>) {
 	const [src, setSrc] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);

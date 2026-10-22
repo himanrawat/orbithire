@@ -3,7 +3,8 @@
 // The signed-in app frame: night sidebar, and a paper top bar with notifications, theme and
 // the account menu. Used by the (dashboard) route group, which holds every app screen.
 
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Settings, Sparkles, User } from "lucide-react";
 import { SidebarProvider, SidebarLayout, MobileMenuButton } from "@/components/Sidebar";
@@ -19,6 +20,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Lockup } from "@/components/marketing/logo";
+import { ProfileDataProvider, useProfileData } from "@/components/app/ProfileDataProvider";
 
 type Me = { name: string | null; email: string | null; avatarUrl: string | null };
 
@@ -31,9 +33,12 @@ function initials(name: string | null, email: string | null) {
 function Avatar({ me, size = 32 }: Readonly<{ me: Me; size?: number }>) {
 	if (me.avatarUrl) {
 		return (
-			<img
+			<Image
 				src={me.avatarUrl}
 				alt=""
+				width={size}
+				height={size}
+				unoptimized
 				className="rounded-full object-cover"
 				style={{ width: size, height: size }}
 			/>
@@ -100,26 +105,13 @@ function AccountMenu({ me }: Readonly<{ me: Me }>) {
 const barClass =
 	"sticky top-0 z-30 h-14 items-center border-b bg-background/85 backdrop-blur-[10px] supports-[backdrop-filter]:bg-background/70";
 
-export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
-	const [me, setMe] = useState<Me>({ name: null, email: null, avatarUrl: null });
-
-	useEffect(() => {
-		const load = () =>
-			fetch("/api/profile")
-				.then((res) => res.json())
-				.then((data) => {
-					const p = data.profile ?? {};
-					setMe({ name: p.full_name ?? null, email: p.email ?? null, avatarUrl: p.avatar_url ?? null });
-				})
-				.catch(() => {});
-		const refreshProfile = () => {
-			void load();
-		};
-		refreshProfile();
-		// The profile page fires this after a photo upload or a save
-		window.addEventListener("profile:updated", refreshProfile);
-		return () => window.removeEventListener("profile:updated", refreshProfile);
-	}, []);
+function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
+	const { profile } = useProfileData();
+	const me: Me = {
+		name: profile?.full_name ?? null,
+		email: profile?.email ?? null,
+		avatarUrl: profile?.avatar_url ?? null,
+	};
 
 	return (
 		<SidebarProvider>
@@ -147,5 +139,13 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
 				{children}
 			</SidebarLayout>
 		</SidebarProvider>
+	);
+}
+
+export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
+	return (
+		<ProfileDataProvider>
+			<AppShellContent>{children}</AppShellContent>
+		</ProfileDataProvider>
 	);
 }

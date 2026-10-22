@@ -24,11 +24,11 @@ export function MarketingShell({
 	redirectQuery,
 	structuredData,
 	children,
-}: {
+}: Readonly<{
 	redirectQuery: string;
 	structuredData?: object;
 	children: ReactNode;
-}) {
+}>) {
 	return (
 		<div className={`nm ${brandFonts} min-h-screen overflow-x-clip`}>
 			<a

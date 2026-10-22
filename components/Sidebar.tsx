@@ -42,7 +42,7 @@ export function useSidebar() {
 	return context;
 }
 
-export function SidebarProvider({ children }: { children: ReactNode }) {
+export function SidebarProvider({ children }: Readonly<{ children: ReactNode }>) {
 	const [isExpanded, setIsExpanded] = useState(true);
 	const [isMobileOpen, setIsMobileOpen] = useState(false);
 
@@ -90,7 +90,7 @@ const rowBase =
 	"group relative flex min-h-10 items-center gap-3 rounded-[var(--radius-control)] px-3 text-sm font-medium transition-colors duration-[var(--duration-quick)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--night-ink)]";
 const rowIdle = "text-[var(--night-muted)] hover:bg-white/[0.06] hover:text-[var(--night-ink)]";
 
-function RowLabel({ isExpanded, children }: { isExpanded: boolean; children: ReactNode }) {
+function RowLabel({ isExpanded, children }: Readonly<{ isExpanded: boolean; children: ReactNode }>) {
 	return (
 		<AnimatePresence mode="wait">
 			{isExpanded && (
@@ -111,11 +111,11 @@ function NavLink({
 	item,
 	isExpanded,
 	onClick,
-}: {
+}: Readonly<{
 	item: NavItem;
 	isExpanded: boolean;
 	onClick?: () => void;
-}) {
+}>) {
 	const pathname = usePathname();
 	const isActive =
 		pathname === item.href || pathname.startsWith(item.href + "/");
@@ -302,7 +302,7 @@ export function MobileMenuButton() {
 	);
 }
 
-export function SidebarLayout({ children }: { children: ReactNode }) {
+export function SidebarLayout({ children }: Readonly<{ children: ReactNode }>) {
 	const { isExpanded } = useSidebar();
 
 	return (

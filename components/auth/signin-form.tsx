@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { sanitizeRedirect } from "@/lib/auth-utils";
 import { AuthHeading, AuthShell, Field, FormError, Road, SubmitButton } from "./auth-shell";
+import { CaptchaField, captchaHeaders, resetCaptcha } from "./CaptchaField";
 
 function Aside() {
 	return (
@@ -58,7 +59,7 @@ export function SignInForm() {
 		try {
 			const res = await fetch("/api/auth/signin", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: { "Content-Type": "application/json", ...captchaHeaders() },
 				body: JSON.stringify({ email, password }),
 			});
 
@@ -75,6 +76,7 @@ export function SignInForm() {
 		} catch {
 			setError("We couldn't reach the server. Check your connection and try again.");
 		} finally {
+			resetCaptcha();
 			setLoading(false);
 		}
 	};
@@ -109,6 +111,7 @@ export function SignInForm() {
 					}
 				/>
 
+				<CaptchaField />
 				{error && <FormError>{error}</FormError>}
 
 				<div className="mt-1">

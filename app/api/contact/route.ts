@@ -1,26 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceSupabase } from "@/lib/supabaseServer";
+import { z } from "zod";
+import { parseJson } from "@/lib/api";
+import { enforceRateLimit } from "@/lib/requestSecurity";
+
+const schema = z.object({
+	name: z.string().trim().min(1).max(120),
+	email: z.string().trim().email().max(254).transform((value) => value.toLowerCase()),
+	subject: z.string().trim().min(1).max(200),
+	message: z.string().trim().min(1).max(5000),
+}).strict();
 
 export async function POST(req: NextRequest) {
 	try {
-		const { name, email, subject, message } = await req.json();
-
-		// Validation
-		if (!name || !email || !subject || !message) {
-			return NextResponse.json(
-				{ error: "All fields are required" },
-				{ status: 400 }
-			);
-		}
-
-		// Basic email validation
-		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-		if (!emailRegex.test(email)) {
-			return NextResponse.json(
-				{ error: "Invalid email address" },
-				{ status: 400 }
-			);
-		}
+		const parsed = await parseJson(req, schema);
+		if (!parsed.success) return parsed.response;
+		const { name, email, subject, message } = parsed.data;
+		const limited = await enforceRateLimit(req, {
+			scope: "public.contact",
+			limit: 5,
+			windowSeconds: 60 * 60,
+			identifier: email,
+			captchaAfter: 2,
+			captchaToken: req.headers.get("x-captcha-token"),
+		});
+		if (limited) return limited;
 
 		// Use service-role client to bypass RLS for public contact form submissions
 		const supabase = createServiceSupabase();

@@ -51,11 +51,16 @@ function unauthorized(req: Request, error: "missing_token" | "invalid_token", de
 function siteUrl(req: Request): string {
 	try {
 		const configured = process.env.NEXT_PUBLIC_APP_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL;
-		if (configured) return configured.replace(/\/+$/, "");
-		return serverEnv.siteUrl.replace(/\/+$/, "");
+		return removeTrailingSlashes(configured || serverEnv.siteUrl);
 	} catch {
 		return new URL(req.url).origin;
 	}
+}
+
+function removeTrailingSlashes(value: string) {
+	let end = value.length;
+	while (end > 0 && value[end - 1] === "/") end -= 1;
+	return value.slice(0, end);
 }
 
 /** clientInfo.name from an `initialize` request (single or batched). */
@@ -141,10 +146,10 @@ function methodNotAllowed() {
 	return jsonRpcError(405, -32000, "Method not allowed: this MCP server is stateless, use POST", { Allow: "POST" });
 }
 
-export async function GET() {
+export function GET() {
 	return methodNotAllowed();
 }
 
-export async function DELETE() {
+export function DELETE() {
 	return methodNotAllowed();
 }

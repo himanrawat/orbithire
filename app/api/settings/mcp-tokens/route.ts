@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/jobs/server";
 import { generateToken, normalizeScopes } from "@/lib/mcp/tokens";
+import { parseJson } from "@/lib/api";
+import { mcpTokenCreateSchema } from "@/lib/schemas/api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,10 +33,10 @@ export async function GET() {
 export async function POST(req: NextRequest) {
 	const auth = await requireUser();
 	if (auth.error) return auth.error;
-	const body = await req.json().catch(() => ({}));
-	const name = String(body?.name ?? "").trim().slice(0, 80);
-	if (!name) return NextResponse.json({ error: "Give the token a name (e.g. 'Claude Desktop')" }, { status: 400 });
-	const scopes = normalizeScopes(body?.scopes ?? ["read", "write"]);
+	const parsed = await parseJson(req, mcpTokenCreateSchema);
+	if (!parsed.success) return parsed.response;
+	const name = parsed.data.name;
+	const scopes = normalizeScopes(parsed.data.scopes);
 	if (!scopes.length) return NextResponse.json({ error: "Pick at least one scope" }, { status: 400 });
 
 	const { count } = await auth.supabase

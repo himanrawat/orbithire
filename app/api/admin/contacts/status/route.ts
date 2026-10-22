@@ -1,34 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceSupabase } from "@/lib/supabaseServer";
-import { cookies } from "next/headers";
-
-async function verifyAdmin() {
-	const cookieStore = cookies();
-	const adminToken = cookieStore.get("admin_token");
-
-	if (!adminToken) {
-		return null;
-	}
-
-	const supabase = createServiceSupabase();
-	const { data: admin } = await supabase
-		.from("admin_users")
-		.select("id, email, name")
-		.eq("id", adminToken.value)
-		.eq("is_active", true)
-		.single();
-
-	return admin;
-}
+import { requireAdmin } from "@/lib/adminAuth";
+import { parseJson } from "@/lib/api";
+import { contactStatusSchema } from "@/lib/schemas/admin";
 
 export async function POST(req: NextRequest) {
 	try {
-		const admin = await verifyAdmin();
+		const admin = await requireAdmin();
 		if (!admin) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
 
-		const { contactId, status } = await req.json();
+		const parsed = await parseJson(req, contactStatusSchema);
+		if (!parsed.success) return parsed.response;
+		const { contactId, status } = parsed.data;
 
 		if (!contactId || !status) {
 			return NextResponse.json(

@@ -21,7 +21,7 @@ export function statusClass(status: string | null | undefined) {
 	return (APPLICATION_STATUS[status ?? ""] ?? APPLICATION_STATUS.saved).cls;
 }
 
-export function ApplicationStatusBadge({ status, className }: { status: string; className?: string }) {
+export function ApplicationStatusBadge({ status, className }: Readonly<{ status: string; className?: string }>) {
 	const s = APPLICATION_STATUS[status] ?? APPLICATION_STATUS.saved;
 	return (
 		<span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold leading-5", s.cls, className)}>

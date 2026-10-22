@@ -218,7 +218,10 @@ export function buildMcpServer(ctx: McpContext): McpServer {
 		},
 		async (args) => {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			let q: any = ctx.service.from("job_inbox").select("*").eq("user_id", uid);
+			let q: any = ctx.service
+				.from("job_inbox")
+				.select("id,user_id,job_posting_id,search_id,prefilter_pass,similarity,llm_score,llm_reasons,deal_breakers,status,company_id,seen_at,created_at,updated_at,source,url,title,company,location,is_remote,salary_min,salary_max,currency,salary_interval,posted_at,first_seen_at,last_seen_at,is_active,salary_top")
+				.eq("user_id", uid);
 			const status = args.status ?? "new";
 			if (status !== "any") q = q.eq("status", status);
 			if (args.min_score) q = q.gte("llm_score", args.min_score);

@@ -1,40 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceSupabase } from "@/lib/supabaseServer";
-import { cookies } from "next/headers";
+import { requireAdmin } from "@/lib/adminAuth";
 import bcrypt from "bcryptjs";
-
-async function getAdminSession() {
-	const cookieStore = cookies();
-	const adminToken = cookieStore.get("admin_token");
-
-	if (!adminToken) return null;
-
-	const supabase = createServiceSupabase();
-	const { data: admin } = await supabase
-		.from("admin_users")
-		.select("id, role")
-		.eq("id", adminToken.value)
-		.eq("is_active", true)
-		.single();
-
-	return admin;
-}
+import { parseJson } from "@/lib/api";
+import { adminActionSchema } from "@/lib/schemas/admin";
 
 export async function POST(req: NextRequest) {
 	try {
-		const admin = await getAdminSession();
+		const admin = await requireAdmin("super_admin");
 		if (!admin) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
-		if (admin.role !== "super_admin") {
-			return NextResponse.json(
-				{ error: "Only super admin can manage admins" },
-				{ status: 403 }
-			);
-		}
-
-		const body = await req.json();
-		const action = body.action || "create";
+		const parsed = await parseJson(req, adminActionSchema);
+		if (!parsed.success) return parsed.response;
+		const body = parsed.data;
+		const action = body.action;
 		const supabase = createServiceSupabase();
 
 		if (action === "create") {

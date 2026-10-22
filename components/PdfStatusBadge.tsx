@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Clock, Loader2, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DocumentType, PdfStatus } from "@/lib/types/database";
+import { useAdaptivePolling } from "@/lib/useAdaptivePolling";
 
 export interface PdfStatusInfo {
 	pdf_status: PdfStatus;
@@ -50,7 +51,7 @@ export function PdfStatusBadge({
 	refreshKey,
 	className,
 	showRetry = true,
-}: PdfStatusBadgeProps) {
+}: Readonly<PdfStatusBadgeProps>) {
 	const [status, setStatus] = useState<PdfStatusInfo>({
 		pdf_status: initial?.pdf_status ?? "none",
 		pdf_error: initial?.pdf_error ?? null,
@@ -95,11 +96,11 @@ export function PdfStatusBadge({
 	}, [refreshKey, fetchStatus]);
 
 	const active = status.pdf_status === "queued" || status.pdf_status === "rendering";
-	useEffect(() => {
-		if (!active) return;
-		const t = setInterval(fetchStatus, POLL_MS);
-		return () => clearInterval(t);
-	}, [active, fetchStatus]);
+	useAdaptivePolling(fetchStatus, {
+		enabled: active,
+		intervalMs: POLL_MS,
+		maxIntervalMs: 30_000,
+	});
 
 	const retry = async () => {
 		setRetrying(true);

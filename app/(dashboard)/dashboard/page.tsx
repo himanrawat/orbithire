@@ -104,6 +104,25 @@ const statusColors = Object.fromEntries(
 	Object.entries(APPLICATION_STATUS).map(([k, v]) => [k, v.cls])
 ) as Record<string, string>;
 
+function quotaIconClasses(quota: Quota | null) {
+	if (quota?.has_own_key) {
+		return {
+			background: "bg-[var(--success-soft)]",
+			color: "text-[var(--success)]",
+		};
+	}
+	if (quota?.remaining === 0) {
+		return {
+			background: "bg-[var(--cap-soft)]",
+			color: "text-[var(--cap-ink)]",
+		};
+	}
+	return {
+		background: "bg-[var(--kind-prep-soft)]",
+		color: "text-[var(--kind-prep)]",
+	};
+}
+
 export default function DashboardPage() {
 	const [profile, setProfile] = useState<Profile | null>(null);
 	const [loadingProfile, setLoadingProfile] = useState(false);
@@ -117,19 +136,18 @@ export default function DashboardPage() {
 	const [companies, setCompanies] = useState<Company[]>([]);
 	const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
 	const [followUps, setFollowUps] = useState<FollowUp[]>([]);
-	const [loadingData, setLoadingData] = useState(true);
+	const { background: quotaIconBackground, color: quotaIconColor } =
+		quotaIconClasses(quota);
 
 	useEffect(() => {
 		const loadAllData = async () => {
 			setLoadingProfile(true);
-			setLoadingData(true);
 			const supabase = getSupabaseBrowserClient();
 			const {
 				data: { user },
 			} = await supabase.auth.getUser();
 			if (!user) {
 				setLoadingProfile(false);
-				setLoadingData(false);
 				return;
 			}
 
@@ -333,7 +351,6 @@ export default function DashboardPage() {
 				);
 			}
 
-			// setLoadingData(false); // removed useless assignment
 		};
 
 		void loadAllData();
@@ -532,21 +549,13 @@ export default function DashboardPage() {
 										<div
 											className={cn(
 												"flex h-10 w-10 items-center justify-center rounded-lg",
-												quota?.has_own_key
-													? "bg-[var(--success-soft)]"
-													: quota?.remaining === 0
-													? "bg-[var(--cap-soft)]"
-													: "bg-[var(--kind-prep-soft)]"
+											quotaIconBackground
 											)}
 										>
 											<Zap
 												className={cn(
 													"h-5 w-5",
-													quota?.has_own_key
-														? "text-[var(--success)]"
-														: quota?.remaining === 0
-														? "text-[var(--cap-ink)]"
-														: "text-[var(--kind-prep)]"
+												quotaIconColor
 												)}
 											/>
 										</div>

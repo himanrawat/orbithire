@@ -22,6 +22,7 @@ import {
 	Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAdaptivePolling } from "@/lib/useAdaptivePolling";
 
 type Notification = {
 	id: string;
@@ -59,6 +60,76 @@ function formatTimeAgo(dateString: string): string {
 	return date.toLocaleDateString();
 }
 
+function NotificationContent({
+	loading,
+	notifications,
+	onNotificationClick,
+	onDelete,
+}: Readonly<{
+	loading: boolean;
+	notifications: Notification[];
+	onNotificationClick: (notification: Notification) => void;
+	onDelete: (id: string, event: React.MouseEvent) => Promise<void>;
+}>) {
+	if (loading) {
+		return (
+			<div className="flex items-center justify-center py-8">
+				<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+			</div>
+		);
+	}
+
+	if (notifications.length === 0) {
+		return (
+			<div className="flex flex-col items-center justify-center py-8 text-center">
+				<Bell className="mb-2 h-8 w-8 text-muted-foreground/50" />
+				<p className="text-sm text-muted-foreground">No notifications yet</p>
+			</div>
+		);
+	}
+
+	return (
+		<div className="max-h-[400px] overflow-y-auto">
+			{notifications.map((notification) => (
+				<DropdownMenuItem
+					key={notification.id}
+					className={cn(
+						"group flex cursor-pointer items-start gap-3 px-3 py-3",
+						!notification.read && "bg-[color-mix(in_srgb,var(--cap-soft)_55%,transparent)]"
+					)}
+					onClick={() => onNotificationClick(notification)}
+				>
+					<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary">
+						{notificationIcons[notification.type] || (
+							<Bell className="h-4 w-4 text-muted-foreground" />
+						)}
+					</div>
+					<div className="flex-1 space-y-1">
+						<div className="flex items-start justify-between gap-2">
+							<p className={cn("text-sm leading-tight", !notification.read && "font-medium")}>
+								{notification.title}
+							</p>
+							<button
+								type="button"
+								aria-label={`Delete ${notification.title} notification`}
+								onClick={(event) => void onDelete(notification.id, event)}
+								className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
+							>
+								<Trash2 className="h-3 w-3" />
+							</button>
+						</div>
+						<p className="text-xs text-muted-foreground line-clamp-2">{notification.message}</p>
+						<p className="text-[10px] text-muted-foreground/70">{formatTimeAgo(notification.created_at)}</p>
+					</div>
+					{!notification.read && (
+						<div className="h-2 w-2 shrink-0 rounded-full bg-[var(--cap)]" aria-label="Unread" />
+					)}
+				</DropdownMenuItem>
+			))}
+		</div>
+	);
+}
+
 export function NotificationDropdown() {
 	const router = useRouter();
 	const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -81,12 +152,8 @@ export function NotificationDropdown() {
 		}
 	}, []);
 
-	useEffect(() => {
-		fetchNotifications();
-		// Poll for new notifications every 30 seconds
-		const interval = setInterval(fetchNotifications, 30000);
-		return () => clearInterval(interval);
-	}, [fetchNotifications]);
+	useEffect(() => { void fetchNotifications(); }, [fetchNotifications]);
+	useAdaptivePolling(fetchNotifications, { intervalMs: 30_000, maxIntervalMs: 5 * 60_000 });
 
 	const markAsRead = async (notificationIds: string[]) => {
 		try {
@@ -136,7 +203,7 @@ export function NotificationDropdown() {
 
 	const handleNotificationClick = (notification: Notification) => {
 		if (!notification.read) {
-			markAsRead([notification.id]);
+			void markAsRead([notification.id]);
 		}
 		if (notification.action_url) {
 			router.push(notification.action_url);
@@ -164,7 +231,7 @@ export function NotificationDropdown() {
 							variant="ghost"
 							size="sm"
 							className="h-auto px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
-							onClick={markAllAsRead}
+							onClick={() => void markAllAsRead()}
 						>
 							<CheckCircle2 className="mr-1 h-3 w-3" />
 							Mark all read
@@ -173,62 +240,12 @@ export function NotificationDropdown() {
 				</div>
 				<DropdownMenuSeparator />
 
-				{loading ? (
-					<div className="flex items-center justify-center py-8">
-						<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-					</div>
-				) : notifications.length === 0 ? (
-					<div className="flex flex-col items-center justify-center py-8 text-center">
-						<Bell className="mb-2 h-8 w-8 text-muted-foreground/50" />
-						<p className="text-sm text-muted-foreground">No notifications yet</p>
-					</div>
-				) : (
-					<div className="max-h-[400px] overflow-y-auto">
-						{notifications.map((notification) => (
-							<DropdownMenuItem
-								key={notification.id}
-								className={cn(
-									"flex cursor-pointer items-start gap-3 px-3 py-3",
-									!notification.read && "bg-[color-mix(in_srgb,var(--cap-soft)_55%,transparent)]"
-								)}
-								onClick={() => handleNotificationClick(notification)}
-							>
-								<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary">
-									{notificationIcons[notification.type] || (
-										<Bell className="h-4 w-4 text-muted-foreground" />
-									)}
-								</div>
-								<div className="flex-1 space-y-1">
-									<div className="flex items-start justify-between gap-2">
-										<p
-											className={cn(
-												"text-sm leading-tight",
-												!notification.read && "font-medium"
-											)}
-										>
-											{notification.title}
-										</p>
-										<button
-											onClick={(e) => deleteNotification(notification.id, e)}
-											className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100 [.group:hover_&]:opacity-100"
-										>
-											<Trash2 className="h-3 w-3" />
-										</button>
-									</div>
-									<p className="text-xs text-muted-foreground line-clamp-2">
-										{notification.message}
-									</p>
-									<p className="text-[10px] text-muted-foreground/70">
-										{formatTimeAgo(notification.created_at)}
-									</p>
-								</div>
-								{!notification.read && (
-									<div className="h-2 w-2 shrink-0 rounded-full bg-[var(--cap)]" aria-label="Unread" />
-								)}
-							</DropdownMenuItem>
-						))}
-					</div>
-				)}
+				<NotificationContent
+					loading={loading}
+					notifications={notifications}
+					onNotificationClick={handleNotificationClick}
+					onDelete={deleteNotification}
+				/>
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);

@@ -34,7 +34,7 @@ const STAGE_COPY = {
 	leader: "Stakeholder, hiring and strategy questions, with answers you can practice out loud.",
 };
 
-export default function InterviewPrepPage({ searchParams }: { searchParams?: SearchParams }) {
+export default function InterviewPrepPage({ searchParams }: Readonly<{ searchParams?: SearchParams }>) {
 	const redirectQuery = getRedirectQuery(searchParams);
 	return (
 		<MarketingShell redirectQuery={redirectQuery}>

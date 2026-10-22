@@ -92,7 +92,13 @@ function NextMark() {
 	);
 }
 
-export function Hero({ redirectQuery }: { redirectQuery: string }) {
+function getRoadStoneColor(index: number, stageColor: string) {
+	if (index < 3) return "var(--ink)";
+	if (index === 3) return stageColor;
+	return "var(--ink-faint)";
+}
+
+export function Hero({ redirectQuery }: Readonly<{ redirectQuery: string }>) {
 	const [key, setKey] = useState("experienced");
 	const [swap, setSwap] = useState(false);
 	const s = STAGES[key];
@@ -135,11 +141,8 @@ export function Hero({ redirectQuery }: { redirectQuery: string }) {
 						Setup takes about 2 minutes · every step can be skipped
 					</p>
 
-					<div
-						className="mt-10 grid w-full grid-cols-2 gap-1.5 rounded-[14px] bg-[var(--surface-sunken)] p-1 sm:flex sm:w-fit"
-						role="group"
-						aria-label="Show the plan for a career stage"
-					>
+					<fieldset className="mt-10 grid w-full grid-cols-2 gap-1.5 rounded-[14px] border-0 bg-[var(--surface-sunken)] p-1 sm:flex sm:w-fit">
+						<legend className="sr-only">Show the plan for a career stage</legend>
 						{Object.entries(STAGES).map(([k, v]) => (
 							<button
 								key={k}
@@ -152,7 +155,7 @@ export function Hero({ redirectQuery }: { redirectQuery: string }) {
 								{v.label}
 							</button>
 						))}
-					</div>
+					</fieldset>
 				</div>
 
 				{/* mockups */}
@@ -250,7 +253,7 @@ export function Hero({ redirectQuery }: { redirectQuery: string }) {
 										<div key={i} className="grid w-3 gap-px">
 											<div
 												className="nm-arch h-1.5 transition-colors [transition-duration:420ms]"
-												style={{ background: i < 3 ? "var(--ink)" : i === 3 ? s.color : "var(--ink-faint)" }}
+												style={{ background: getRoadStoneColor(i, s.color) }}
 											/>
 											<div style={{ height: h * 0.6, background: i <= 3 ? "var(--ink)" : "var(--line-strong)" }} />
 										</div>

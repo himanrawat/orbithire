@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { serverEnv } from "@/lib/config";
+import { parseJson } from "@/lib/api";
+import { rankingSettingsUpdateSchema } from "@/lib/schemas/api";
 
 export const runtime = "nodejs";
 // Reads the session from req.cookies, which does not opt out of Next's fetch cache:
@@ -175,7 +177,7 @@ export async function GET(req: NextRequest) {
 
 	const { data, error } = await supabase
 		.from("ranking_settings")
-		.select("*")
+		.select("min_salary,min_salary_currency,home_country,known_languages,needs_visa_sponsorship_abroad,excluded_locations,excluded_companies,daily_llm_limit,digest_enabled,digest_hour,timezone,last_digest_at")
 		.eq("user_id", user.id)
 		.maybeSingle();
 	if (error) {
@@ -200,19 +202,13 @@ export async function PUT(req: NextRequest) {
 		return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 	}
 
-	let body: unknown;
-	try {
-		body = await req.json();
-	} catch {
-		return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-	}
-	if (!body || typeof body !== "object" || Array.isArray(body)) {
-		return NextResponse.json({ error: "Expected an object" }, { status: 400 });
-	}
+	const parsed = await parseJson(req, rankingSettingsUpdateSchema);
+	if (!parsed.success) return parsed.response;
+	const body = parsed.data;
 
 	let update: Record<string, unknown>;
 	try {
-		update = validate(body as Record<string, unknown>);
+		update = validate(body);
 	} catch (e) {
 		return NextResponse.json({ error: (e as Error).message }, { status: 400 });
 	}
@@ -221,7 +217,7 @@ export async function PUT(req: NextRequest) {
 	const { data, error } = await supabase
 		.from("ranking_settings")
 		.upsert({ ...update, user_id: user.id }, { onConflict: "user_id" })
-		.select("*")
+		.select("min_salary,min_salary_currency,home_country,known_languages,needs_visa_sponsorship_abroad,excluded_locations,excluded_companies,daily_llm_limit,digest_enabled,digest_hour,timezone,last_digest_at")
 		.single();
 	if (error) {
 		console.error("ranking settings save error:", error);

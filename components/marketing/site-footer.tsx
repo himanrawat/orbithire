@@ -7,8 +7,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import PushpinTearFooter from "@/components/ui/pushpin-tear-footer";
+import dynamic from "next/dynamic";
 import { Mark } from "./logo";
+
+const PushpinTearFooter = dynamic(() => import("@/components/ui/pushpin-tear-footer"), {
+	ssr: false,
+	loading: () => <div className="min-h-[640px] bg-[#101216]" aria-hidden="true" />,
+});
 
 // Shown by the copy-email button.
 const CONTACT_EMAIL = "info@himanshurawat.in";
@@ -16,7 +21,7 @@ const CONTACT_EMAIL = "info@himanshurawat.in";
 const LIGHT = { sheet: "#101216", sheetInk: "#F4F5F2", paper: "#F4F5F2", paperInk: "#101216" };
 const DARK = { sheet: "#1E2126", sheetInk: "#ECEDE9", paper: "#0D0E11", paperInk: "#ECEDE9" };
 
-export function SiteFooter({ redirectQuery }: { redirectQuery: string }) {
+export function SiteFooter({ redirectQuery }: Readonly<{ redirectQuery: string }>) {
 	const router = useRouter();
 	const { resolvedTheme } = useTheme();
 	const [mounted, setMounted] = useState(false);

@@ -18,7 +18,11 @@ export interface R2Config {
  * Returns null if R2 is not configured.
  */
 export function getR2Config(): R2Config | null {
-	const endpoint = process.env.R2_ENDPOINT;
+	const endpoint =
+		process.env.R2_ENDPOINT ||
+		(process.env.R2_ACCOUNT_ID
+			? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+			: undefined);
 	const bucket = process.env.R2_BUCKET;
 	const accessKeyId = process.env.R2_ACCESS_KEY_ID;
 	const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;

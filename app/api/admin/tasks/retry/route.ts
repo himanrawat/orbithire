@@ -1,35 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { createServiceSupabase } from "@/lib/supabaseServer";
 import { retryTask } from "@/lib/tasks";
-
-async function verifyAdmin() {
-	const cookieStore = cookies();
-	const adminToken = cookieStore.get("admin_token");
-
-	if (!adminToken) {
-		return null;
-	}
-
-	const supabase = createServiceSupabase();
-	const { data: admin } = await supabase
-		.from("admin_users")
-		.select("id, email, name")
-		.eq("id", adminToken.value)
-		.eq("is_active", true)
-		.single();
-
-	return admin;
-}
+import { requireAdmin } from "@/lib/adminAuth";
+import { parseJson } from "@/lib/api";
+import { retryTaskSchema } from "@/lib/schemas/admin";
 
 export async function POST(req: NextRequest) {
 	try {
-		const admin = await verifyAdmin();
+		const admin = await requireAdmin();
 		if (!admin) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
 
-		const { taskId } = await req.json();
+		const parsed = await parseJson(req, retryTaskSchema);
+		if (!parsed.success) return parsed.response;
+		const { taskId } = parsed.data;
 		if (!taskId || typeof taskId !== "string") {
 			return NextResponse.json({ error: "Task ID is required" }, { status: 400 });
 		}

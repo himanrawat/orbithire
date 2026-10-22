@@ -1,7 +1,186 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabaseServer";
+import { parseJson } from "@/lib/api";
+import { companyUpdateSchema } from "@/lib/schemas/api";
+import type { z } from "zod";
 
 export const runtime = "nodejs";
+
+type CompanyUpdate = z.input<typeof companyUpdateSchema>;
+type SupabaseClient = ReturnType<typeof createServerSupabase>;
+type CurrentCompany = {
+	status: string | null;
+	interview_at: string | null;
+	interview_rounds: unknown;
+	status_history: unknown;
+};
+
+const COMPANY_FIELD_MAP = {
+	name: "name",
+	website: "website",
+	industry: "industry",
+	status: "status",
+	jobTitle: "job_title",
+	jobDescription: "job_description",
+	jobUrl: "job_url",
+	recruiterName: "recruiter_name",
+	recruiterEmail: "recruiter_email",
+	salaryRange: "salary_range",
+	notes: "notes",
+	appliedAt: "applied_at",
+	followUpDate: "follow_up_date",
+	interviewAt: "interview_at",
+	interviewRounds: "interview_rounds",
+} as const;
+
+const FOLLOW_UP_CONFIG: Record<string, { days: number; message: string }> = {
+	saved: { days: 2, message: "Submit your application" },
+	applied: { days: 3, message: "Follow up with recruiter" },
+	interviewing: { days: 1, message: "Prepare for interview" },
+	offered: { days: 2, message: "Respond to offer" },
+};
+
+function buildCompanyUpdate(body: CompanyUpdate) {
+	const updateData: Record<string, unknown> = {
+		updated_at: new Date().toISOString(),
+	};
+	const source = body as Record<string, unknown>;
+
+	for (const [inputName, columnName] of Object.entries(COMPANY_FIELD_MAP)) {
+		if (source[inputName] !== undefined) updateData[columnName] = source[inputName];
+	}
+
+	if (body.status === "applied" && !body.appliedAt) {
+		updateData.applied_at = new Date().toISOString();
+	}
+	if (body.status !== undefined && body.status !== "interviewing") {
+		updateData.interview_rounds = [];
+		updateData.interview_at = null;
+	}
+
+	return updateData;
+}
+
+function applyStatusHistory(
+	updateData: Record<string, unknown>,
+	currentCompany: CurrentCompany | null,
+	status: CompanyUpdate["status"]
+) {
+	if (status === undefined || !currentCompany || status === currentCompany.status) return false;
+	const currentHistory = Array.isArray(currentCompany.status_history) ? currentCompany.status_history : [];
+	updateData.status_history = [
+		...currentHistory,
+		{ from: currentCompany.status, to: status, changed_at: new Date().toISOString() },
+	];
+	updateData.follow_up_date = null;
+	return true;
+}
+
+async function cancelActiveFollowUps(supabase: SupabaseClient, companyId: string, userId: string) {
+	const { error } = await supabase
+		.from("follow_ups")
+		.update({ status: "completed" })
+		.eq("company_id", companyId)
+		.eq("user_id", userId)
+		.eq("status", "active");
+
+	if (error) console.error("[Company API] Error cancelling follow-ups on status change:", error);
+}
+
+async function createStatusFollowUp(
+	supabase: SupabaseClient,
+	companyId: string,
+	userId: string,
+	status: CompanyUpdate["status"],
+	previousStatus: string | null | undefined
+) {
+	if (typeof status !== "string" || status === previousStatus) return;
+	const config = FOLLOW_UP_CONFIG[status];
+	if (!config) return;
+
+	const nextReminderAt = new Date();
+	nextReminderAt.setDate(nextReminderAt.getDate() + config.days);
+	const { error } = await supabase.from("follow_ups").insert({
+		user_id: userId,
+		company_id: companyId,
+		sent_at: new Date().toISOString(),
+		sent_method: "portal",
+		next_reminder_at: nextReminderAt.toISOString(),
+		reminder_cadence_days: config.days,
+		reminder_count: 1,
+		max_reminders: 3,
+		status: "active",
+		message: config.message,
+	});
+
+	if (error) console.error("[Company API] Error creating follow-up:", error);
+}
+
+function getPreviousRoundDates(currentCompany: CurrentCompany | null) {
+	if (!Array.isArray(currentCompany?.interview_rounds)) return new Set<string>();
+	return new Set(
+		currentCompany.interview_rounds
+			.map((round) => (typeof round === "object" && round && "date" in round ? String(round.date) : null))
+			.filter((date): date is string => date !== null)
+	);
+}
+
+async function createInterviewFollowUps(
+	supabase: SupabaseClient,
+	companyId: string,
+	userId: string,
+	body: CompanyUpdate,
+	currentCompany: CurrentCompany | null
+) {
+	if (body.status !== "interviewing" || !body.interviewRounds?.length) return;
+	const previousDates = getPreviousRoundDates(currentCompany);
+	const newRounds = body.interviewRounds.filter((round) => !previousDates.has(round.date));
+	if (newRounds.length === 0) return;
+
+	const { data: existingFollowUps } = await supabase
+		.from("follow_ups")
+		.select("next_reminder_at")
+		.eq("company_id", companyId)
+		.eq("user_id", userId);
+	const existingDates = new Set((existingFollowUps ?? []).map((followUp) => followUp.next_reminder_at));
+	const now = new Date();
+	const rows = newRounds
+		.filter((round) => !existingDates.has(new Date(round.date).toISOString()))
+		.map((round) => {
+			const reminderDate = new Date(round.date);
+			reminderDate.setDate(reminderDate.getDate() - 1);
+			return {
+				user_id: userId,
+				company_id: companyId,
+				sent_at: new Date().toISOString(),
+				sent_method: "other",
+				next_reminder_at: (reminderDate > now ? reminderDate : now).toISOString(),
+				reminder_cadence_days: 0,
+				reminder_count: 0,
+				max_reminders: 1,
+				status: "active",
+			};
+		});
+
+	if (rows.length > 0) await supabase.from("follow_ups").insert(rows);
+}
+
+async function deleteInterviewFollowUps(
+	supabase: SupabaseClient,
+	companyId: string,
+	userId: string,
+	status: CompanyUpdate["status"],
+	previousStatus: string | null | undefined
+) {
+	if (status === "interviewing" || previousStatus !== "interviewing") return;
+	await supabase
+		.from("follow_ups")
+		.delete()
+		.eq("company_id", companyId)
+		.eq("user_id", userId)
+		.eq("sent_method", "other")
+		.eq("status", "active");
+}
 
 // GET /api/companies/[id] - Get a single company with its resumes and cover letters
 export async function GET(
@@ -73,57 +252,10 @@ export async function PATCH(
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
 
-		const body = await request.json();
-		const {
-			name,
-			website,
-			industry,
-			status,
-			jobTitle,
-			jobDescription,
-			jobUrl,
-			recruiterName,
-			recruiterEmail,
-			salaryRange,
-			notes,
-			appliedAt,
-			followUpDate,
-			interviewAt,
-			interviewRounds,
-		} = body;
-
-		const updateData: Record<string, any> = {
-			updated_at: new Date().toISOString(),
-		};
-
-		if (name !== undefined) updateData.name = name;
-		if (website !== undefined) updateData.website = website;
-		if (industry !== undefined) updateData.industry = industry;
-		if (status !== undefined) updateData.status = status;
-		if (jobTitle !== undefined) updateData.job_title = jobTitle;
-		if (jobDescription !== undefined)
-			updateData.job_description = jobDescription;
-		if (jobUrl !== undefined) updateData.job_url = jobUrl;
-		if (recruiterName !== undefined) updateData.recruiter_name = recruiterName;
-		if (recruiterEmail !== undefined) updateData.recruiter_email = recruiterEmail;
-		if (salaryRange !== undefined) updateData.salary_range = salaryRange;
-		if (notes !== undefined) updateData.notes = notes;
-		if (appliedAt !== undefined) updateData.applied_at = appliedAt;
-		if (followUpDate !== undefined) updateData.follow_up_date = followUpDate;
-		if (interviewAt !== undefined) updateData.interview_at = interviewAt;
-		if (interviewRounds !== undefined)
-			updateData.interview_rounds = interviewRounds;
-
-		// If status is changing to 'applied', set applied_at if not already set
-		if (status === "applied" && !appliedAt) {
-			updateData.applied_at = new Date().toISOString();
-		}
-
-		// Clear interview rounds when status changes away from 'interviewing'
-		if (status !== undefined && status !== "interviewing") {
-			updateData.interview_rounds = [];
-			updateData.interview_at = null;
-		}
+		const parsed = await parseJson(request, companyUpdateSchema);
+		if (!parsed.success) return parsed.response;
+		const body = parsed.data;
+		const updateData = buildCompanyUpdate(body);
 
 		// Get current company to check if status is changing
 		const { data: currentCompany } = await supabase
@@ -133,43 +265,8 @@ export async function PATCH(
 			.eq("user_id", user.id)
 			.single();
 
-		// Log status change to history
-		if (
-			status !== undefined &&
-			currentCompany &&
-			status !== currentCompany.status
-		) {
-			const currentHistory = currentCompany.status_history || [];
-			const newHistoryEntry = {
-				from: currentCompany.status,
-				to: status,
-				changed_at: new Date().toISOString(),
-			};
-			updateData.status_history = [...currentHistory, newHistoryEntry];
-
-			// Clear follow_up_date when status changes - user knows what's happening
-			updateData.follow_up_date = null;
-
-			// Cancel all active follow-ups for this company when status changes
-			const { error: cancelFollowUpError } = await supabase
-				.from("follow_ups")
-				.update({ status: "completed" })
-				.eq("company_id", params.id)
-				.eq("user_id", user.id)
-				.eq("status", "active");
-
-			if (cancelFollowUpError) {
-				console.error(
-					"[Company API] Error cancelling follow-ups on status change:",
-					cancelFollowUpError
-				);
-			} else {
-				console.log(
-					"[Company API] Cancelled active follow-ups due to status change:",
-					{ from: currentCompany.status, to: status }
-				);
-			}
-		}
+		const statusChanged = applyStatusHistory(updateData, currentCompany, body.status);
+		if (statusChanged) await cancelActiveFollowUps(supabase, params.id, user.id);
 
 		const { data: company, error } = await supabase
 			.from("companies")
@@ -193,143 +290,9 @@ export async function PATCH(
 			);
 		}
 
-		// Create follow-up for status changes (except rejected/withdrawn which need no follow-up)
-		// Follow-up reminders are created for: saved, applied, interviewing, offered
-		const statusesNeedingFollowUp = [
-			"saved",
-			"applied",
-			"interviewing",
-			"offered",
-		];
-		if (
-			status !== undefined &&
-			currentCompany?.status !== status &&
-			statusesNeedingFollowUp.includes(status)
-		) {
-			// Determine reminder cadence based on status
-			let reminderDays = 3;
-			let reminderMessage = "";
-
-			switch (status) {
-				case "saved":
-					reminderDays = 2; // Remind in 2 days to apply
-					reminderMessage = "Submit your application";
-					break;
-				case "applied":
-					reminderDays = 3; // Remind in 3 days to follow up
-					reminderMessage = "Follow up with recruiter";
-					break;
-				case "interviewing":
-					reminderDays = 1; // Remind in 1 day for interview prep
-					reminderMessage = "Prepare for interview";
-					break;
-				case "offered":
-					reminderDays = 2; // Remind in 2 days to respond
-					reminderMessage = "Respond to offer";
-					break;
-			}
-
-			const nextReminderAt = new Date();
-			nextReminderAt.setDate(nextReminderAt.getDate() + reminderDays);
-
-			console.log("[Company API] Creating follow-up for status:", {
-				user_id: user.id,
-				company_id: params.id,
-				previousStatus: currentCompany?.status,
-				newStatus: status,
-				reminderMessage,
-				next_reminder_at: nextReminderAt.toISOString(),
-			});
-
-			const { data: followUpData, error: followUpError } = await supabase
-				.from("follow_ups")
-				.insert({
-					user_id: user.id,
-					company_id: params.id,
-					sent_at: new Date().toISOString(),
-					sent_method: "portal",
-					next_reminder_at: nextReminderAt.toISOString(),
-					reminder_cadence_days: reminderDays,
-					reminder_count: 1,
-					max_reminders: 3,
-					status: "active",
-					message: reminderMessage,
-				})
-				.select()
-				.single();
-
-			if (followUpError) {
-				console.error("[Company API] Error creating follow-up:", followUpError);
-			} else {
-				console.log(
-					"[Company API] Follow-up created successfully:",
-					followUpData
-				);
-			}
-		}
-
-		// Create follow-ups for each interview round if status is interviewing and interviewRounds is set
-		if (
-			status === "interviewing" &&
-			Array.isArray(interviewRounds) &&
-			interviewRounds.length > 0
-		) {
-			// Only create follow-ups for new rounds (not already present in currentCompany)
-			const prevRounds = Array.isArray(currentCompany?.interview_rounds)
-				? currentCompany.interview_rounds
-				: [];
-			const prevDates = new Set(prevRounds.map((r: any) => r.date));
-			for (const round of interviewRounds) {
-				if (round.date && !prevDates.has(round.date)) {
-					// Prevent duplicate follow-ups for the same date
-					const { data: existingFollowUp } = await supabase
-						.from("follow_ups")
-						.select("id")
-						.eq("company_id", params.id)
-						.eq("user_id", user.id)
-						.eq("next_reminder_at", new Date(round.date).toISOString())
-						.maybeSingle();
-					if (!existingFollowUp) {
-						const interviewDate = new Date(round.date);
-						const reminderDate = new Date(interviewDate);
-						reminderDate.setDate(reminderDate.getDate() - 1);
-						const now = new Date();
-						const nextReminderAt = reminderDate > now ? reminderDate : now;
-						await supabase.from("follow_ups").insert({
-							user_id: user.id,
-							company_id: params.id,
-							sent_at: new Date().toISOString(),
-							sent_method: "other",
-							next_reminder_at: nextReminderAt.toISOString(),
-							reminder_cadence_days: 0,
-							reminder_count: 0,
-							max_reminders: 1,
-							status: "active",
-						});
-					}
-				}
-			}
-		}
-
-		// Delete interview-related follow-ups when status changes away from 'interviewing'
-		if (
-			status !== "interviewing" &&
-			currentCompany?.status === "interviewing"
-		) {
-			// Delete follow-ups that were created for interview reminders (sent_method: "other")
-			await supabase
-				.from("follow_ups")
-				.delete()
-				.eq("company_id", params.id)
-				.eq("user_id", user.id)
-				.eq("sent_method", "other")
-				.eq("status", "active");
-
-			console.log(
-				"[Company API] Deleted interview follow-ups for company:",
-				params.id
-			);
-		}
+		await createStatusFollowUp(supabase, params.id, user.id, body.status, currentCompany?.status);
+		await createInterviewFollowUps(supabase, params.id, user.id, body, currentCompany);
+		await deleteInterviewFollowUps(supabase, params.id, user.id, body.status, currentCompany?.status);
 
 		return NextResponse.json({ success: true, company });
 	} catch (error) {

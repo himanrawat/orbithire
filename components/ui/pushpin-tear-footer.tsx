@@ -234,7 +234,7 @@ export type PushpinTearFooterProps = {
 
 const P = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" } as const
 
-function Icon({ name }: { name: IconName | "chevL" | "copy" | "squiggle" | "arrow" | "check" }) {
+function Icon({ name }: Readonly<{ name: IconName | "chevL" | "copy" | "squiggle" | "arrow" | "check" }>) {
   const svg = (children: React.ReactNode, filled?: boolean) => (
     <svg viewBox="0 0 24 24" className="tpf-ico" aria-hidden="true" {...(filled ? { fill: "currentColor" } : P)}>
       {children}
@@ -296,7 +296,7 @@ function KMark() {
 }
 
 /** Live local time with a blinking colon; empty until mounted so SSR never mismatches. */
-function Clock({ zone, label }: { zone: string; label: string }) {
+function Clock({ zone, label }: Readonly<{ zone: string; label: string }>) {
   const [t, setT] = React.useState(["--", "--"])
   React.useEffect(() => {
     let f: Intl.DateTimeFormat
@@ -320,7 +320,7 @@ function Clock({ zone, label }: { zone: string; label: string }) {
 }
 
 /** The pushpin: glossy domed cap, waisted neck, flange, steel needle. Shaded from `base`. */
-function Pin({ base, id }: { base: string; id: string }) {
+function Pin({ base, id }: Readonly<{ base: string; id: string }>) {
   const hi = mixHex(base, "#ffffff", 0.62)
   const mid = base
   const lo = mixHex(base, "#000000", 0.42)
@@ -550,7 +550,7 @@ const DEFAULT_SIDES: IconLink[] = [
   { icon: "doc", label: "terms", href: "#" },
 ]
 
-function A({ href, className, label, children, style }: { href?: string; className?: string; label?: string; children: React.ReactNode; style?: React.CSSProperties }) {
+function A({ href, className, label, children, style }: Readonly<{ href?: string; className?: string; label?: string; children: React.ReactNode; style?: React.CSSProperties }>) {
   const onClick = (e: React.MouseEvent) => {
     if (!href || href === "#") e.preventDefault()
   }
@@ -594,7 +594,7 @@ export default function PushpinTearFooter({
   onSubscribe,
   onRepin,
   className = "",
-}: PushpinTearFooterProps) {
+}: Readonly<PushpinTearFooterProps>) {
   const uid = React.useId().replace(/[^a-zA-Z0-9]/g, "")
   const rootRef = React.useRef<HTMLElement>(null)
   const svgRef = React.useRef<SVGSVGElement>(null)

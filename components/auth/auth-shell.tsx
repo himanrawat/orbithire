@@ -7,7 +7,7 @@ import { useId, useState, type InputHTMLAttributes, type ReactNode } from "react
 import { AlertCircle, ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export function AuthShell({ children, aside }: { children: ReactNode; aside: ReactNode }) {
+export function AuthShell({ children, aside }: Readonly<{ children: ReactNode; aside: ReactNode }>) {
 	return (
 		<div className="nm-wrap grid w-full items-stretch gap-10 py-8 md:py-12 lg:grid-cols-[1fr_1fr] lg:gap-16">
 			<div className="flex items-center justify-center lg:justify-start">
@@ -20,7 +20,7 @@ export function AuthShell({ children, aside }: { children: ReactNode; aside: Rea
 	);
 }
 
-export function AuthHeading({ title, intro }: { title: string; intro: ReactNode }) {
+export function AuthHeading({ title, intro }: Readonly<{ title: string; intro: ReactNode }>) {
 	return (
 		<div className="mb-8">
 			<h1 className="nm-display text-[32px] font-[650] leading-9 tracking-[-0.02em] md:text-[44px] md:leading-[46px] md:tracking-[-0.025em]">
@@ -41,7 +41,7 @@ type FieldProps = InputHTMLAttributes<HTMLInputElement> & {
 const inputClass =
 	"h-12 w-full rounded-[var(--radius-control)] border border-[var(--line-control)] bg-[var(--surface)] px-3.5 text-base text-[var(--ink)] outline-none transition-colors placeholder:text-[var(--ink-muted)] focus:border-[var(--focus)] disabled:opacity-40";
 
-export function Field({ label, hint, optional, action, id, type, className, ...rest }: FieldProps) {
+export function Field({ label, hint, optional, action, id, type, className, ...rest }: Readonly<FieldProps>) {
 	const auto = useId();
 	const fieldId = id ?? auto;
 	const hintId = hint ? `${fieldId}-hint` : undefined;
@@ -86,7 +86,7 @@ export function Field({ label, hint, optional, action, id, type, className, ...r
 	);
 }
 
-export function FormError({ children }: { children: ReactNode }) {
+export function FormError({ children }: Readonly<{ children: ReactNode }>) {
 	return (
 		<div role="alert" className="flex gap-2.5 rounded-[var(--radius-control)] bg-[var(--danger-soft)] p-3 text-[15px] leading-[22px] text-[var(--danger)]">
 			<AlertCircle size={20} strokeWidth={1.75} className="mt-px flex-none" aria-hidden="true" />
@@ -103,14 +103,14 @@ export function SubmitButton({
 	variant = "primary",
 	type = "submit",
 	onClick,
-}: {
+}: Readonly<{
 	label: string;
 	busyLabel: string;
 	busy?: boolean;
 	variant?: "primary" | "secondary";
 	type?: "submit" | "button";
 	onClick?: () => void;
-}) {
+}>) {
 	return (
 		<button
 			type={type}
@@ -140,7 +140,7 @@ export function SubmitButton({
 }
 
 /** The roadside milestone: an arch cap over a stone, the brand's one illustration. */
-export function Stone({ cap = "var(--cap)", label, size = 96 }: { cap?: string; label?: string; size?: number }) {
+export function Stone({ cap = "var(--cap)", label, size = 96 }: Readonly<{ cap?: string; label?: string; size?: number }>) {
 	return (
 		<div className="grid gap-2" style={{ width: size }} aria-hidden="true">
 			<div className="nm-arch" style={{ height: size / 2, background: cap }} />
@@ -156,7 +156,7 @@ export function Stone({ cap = "var(--cap)", label, size = 96 }: { cap?: string; 
 }
 
 /** Past milestones in ink, the next one in its colour, the rest still ahead. */
-export function Road({ next = "var(--cap)", caption }: { next?: string; caption: [string, string] }) {
+export function Road({ next = "var(--cap)", caption }: Readonly<{ next?: string; caption: [string, string] }>) {
 	const heights = [22, 28, 34, 46, 40, 46];
 	return (
 		<div aria-hidden="true">

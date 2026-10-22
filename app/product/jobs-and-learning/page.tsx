@@ -26,7 +26,7 @@ const STAGE_COPY = {
 	leader: "Fewer, better matches for leadership roles, and learning on hiring and strategy.",
 };
 
-export default function JobsAndLearningPage({ searchParams }: { searchParams?: SearchParams }) {
+export default function JobsAndLearningPage({ searchParams }: Readonly<{ searchParams?: SearchParams }>) {
 	const redirectQuery = getRedirectQuery(searchParams);
 	return (
 		<MarketingShell redirectQuery={redirectQuery}>

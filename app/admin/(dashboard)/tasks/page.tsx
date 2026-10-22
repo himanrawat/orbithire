@@ -10,7 +10,7 @@ const PAGE_SIZE = 25;
 
 async function getTasks(searchParams: { page?: string; status?: string; type?: string }) {
 	const supabase = createServiceSupabase();
-	const page = Math.max(parseInt(searchParams.page || "1") || 1, 1);
+	const page = Math.max(Number.parseInt(searchParams.page || "1") || 1, 1);
 	const offset = (page - 1) * PAGE_SIZE;
 	const status = searchParams.status || "all";
 	const type = searchParams.type || "all";
@@ -75,9 +75,9 @@ async function getTasks(searchParams: { page?: string; status?: string; type?: s
 
 export default async function TasksPage({
 	searchParams,
-}: {
+	}: Readonly<{
 	searchParams: { page?: string; status?: string; type?: string };
-}) {
+	}>) {
 	const { tasks, total, page, counts, failedByType, error } = await getTasks(searchParams);
 	const totalPages = Math.max(Math.ceil(total / PAGE_SIZE), 1);
 

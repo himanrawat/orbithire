@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, RefreshCw } from "lucide-react";
+import { useAdaptivePolling } from "@/lib/useAdaptivePolling";
 
 type TaskLite = {
 	id: string;
@@ -40,7 +41,7 @@ function summarize(s: Status | null): string | null {
 	return text;
 }
 
-export function FetchNowButton({ onDone }: { onDone?: () => void }) {
+export function FetchNowButton({ onDone }: Readonly<{ onDone?: () => void }>) {
 	const [status, setStatus] = useState<Status | null>(null);
 	const [message, setMessage] = useState<string | null>(null);
 	const [starting, setStarting] = useState(false);
@@ -65,14 +66,11 @@ export function FetchNowButton({ onDone }: { onDone?: () => void }) {
 		load();
 	}, [load]);
 
-	useEffect(() => {
-		const busy =
-			status?.active ||
-			(status?.rank && (status.rank.status === "queued" || status.rank.status === "running"));
-		if (!busy) return;
-		const t = setInterval(load, 3000);
-		return () => clearInterval(t);
-	}, [status, load]);
+	const busy = Boolean(
+		status?.active ||
+		(status?.rank && (status.rank.status === "queued" || status.rank.status === "running"))
+	);
+	useAdaptivePolling(load, { enabled: busy, intervalMs: 3000, maxIntervalMs: 30_000 });
 
 	const start = async () => {
 		setStarting(true);

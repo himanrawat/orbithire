@@ -1,7 +1,7 @@
 "use client";
 
-import { Cpu, Sparkles, Zap, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 interface ProviderSelectorProps {
 	value: string;
@@ -40,11 +40,10 @@ export function ProviderSelector({
 	value,
 	onChange,
 	disabled = false,
-}: ProviderSelectorProps) {
+}: Readonly<ProviderSelectorProps>) {
 	return (
 		<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
 			{providers.map((provider) => {
-				const Icon = provider.icon;
 				const isSelected = value === provider.id;
 
 				return (
@@ -68,9 +67,11 @@ export function ProviderSelector({
 								!isSelected && "opacity-75"
 							)}
 						>
-							<img
+							<Image
 								src={provider.icon}
 								alt={provider.name}
+								width={48}
+								height={48}
 								className="h-full w-full"
 							/>
 						</div>

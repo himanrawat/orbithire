@@ -8,6 +8,8 @@ import {
 } from "@/lib/documents";
 import { getTypstTemplate } from "@/lib/typstTemplates";
 import { DEFAULT_TYPST_COVER, resolveTemplateId } from "@/lib/templateCatalog";
+import { parseJson } from "@/lib/api";
+import { companyCreateSchema } from "@/lib/schemas/api";
 
 export const runtime = "nodejs";
 
@@ -90,7 +92,9 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
 
-		const body = await request.json();
+		const parsed = await parseJson(request, companyCreateSchema);
+		if (!parsed.success) return parsed.response;
+		const body = parsed.data;
 		const {
 			name,
 			website,

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, requireUser, serverError } from "@/lib/jobs/server";
 import { loadJob } from "@/lib/jobs/loadJob";
+import { parseJson } from "@/lib/api";
+import { jobMatchUpdateSchema } from "@/lib/schemas/api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,10 +36,12 @@ const USER_STATUSES = ["new", "shortlisted", "skipped"] as const;
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
 	const auth = await requireUser();
 	if (auth.error) return auth.error;
-	const body = await req.json().catch(() => ({}));
+	const parsed = await parseJson(req, jobMatchUpdateSchema);
+	if (!parsed.success) return parsed.response;
+	const body = parsed.data;
 
 	// { company_id }: link an application created elsewhere (the /generate flow).
-	if (body?.company_id) {
+	if ("company_id" in body) {
 		const { data: company } = await auth.supabase
 			.from("companies")
 			.select("id, status")
@@ -58,7 +62,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 		return NextResponse.json({ match: data });
 	}
 
-	const status = String(body?.status ?? "");
+	const status = "status" in body ? body.status : "";
 	if (!(USER_STATUSES as readonly string[]).includes(status)) {
 		return badRequest("status must be new, shortlisted or skipped");
 	}

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, parseSearchInput, requireUser, serverError } from "@/lib/jobs/server";
+import { parseJson } from "@/lib/api";
+import { jobSearchUpdateSchema } from "@/lib/schemas/api";
 
 export const runtime = "nodejs";
 
@@ -7,8 +9,9 @@ export const runtime = "nodejs";
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
 	const auth = await requireUser();
 	if (auth.error) return auth.error;
-	const body = await req.json().catch(() => null);
-	if (!body || typeof body !== "object") return badRequest("Invalid JSON body");
+	const parsed = await parseJson(req, jobSearchUpdateSchema);
+	if (!parsed.success) return parsed.response;
+	const body = parsed.data;
 	const { data: input, error: inputError } = parseSearchInput(body, true);
 	if (inputError) return badRequest(inputError);
 	if ("keywords" in input && !(input.keywords as string[]).length) {
@@ -32,7 +35,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 		.update(input)
 		.eq("id", params.id)
 		.eq("user_id", auth.user.id)
-		.select("*")
+		.select("id,user_id,name,keywords,include_keywords,exclude_keywords,locations,sites,sources,country,remote_ok,hours_old,results_wanted,enabled,created_at,updated_at")
 		.maybeSingle();
 	if (error) return serverError("Failed to update search", error);
 	if (!data) return NextResponse.json({ error: "Search not found" }, { status: 404 });

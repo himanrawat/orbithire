@@ -7,7 +7,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 
 // Admin sign in and sign up: the brand's fonts and tokens, with a plain header instead of
 // the marketing navbar.
-export default function AdminAuthLayout({ children }: { children: ReactNode }) {
+export default function AdminAuthLayout({ children }: Readonly<{ children: ReactNode }>) {
 	return (
 		<div className={`nm ${brandFonts} flex min-h-screen flex-col overflow-x-clip`}>
 			<header className="nm-wrap flex h-14 w-full items-center justify-between">

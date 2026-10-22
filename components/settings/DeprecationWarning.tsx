@@ -11,7 +11,7 @@ interface DeprecationWarningProps {
 export function DeprecationWarning({
 	message,
 	onDismiss,
-}: DeprecationWarningProps) {
+}: Readonly<DeprecationWarningProps>) {
 	const [dismissed, setDismissed] = useState(false);
 
 	if (dismissed) return null;

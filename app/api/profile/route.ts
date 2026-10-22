@@ -1,10 +1,13 @@
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { serverEnv } from "@/lib/config";
+import { getR2Client } from "@/lib/r2Object";
+import { validateImageBuffer } from "@/lib/imageValidation";
+import { parseJson } from "@/lib/api";
+import { profileUpdateSchema } from "@/lib/schemas/api";
 
 export const runtime = "nodejs";
 // Reads the session from req.cookies, which does not opt out of Next's fetch cache:
@@ -13,23 +16,6 @@ export const fetchCache = "force-no-store";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-
-const abbreviate = (value: any, max = 96) => {
-	if (!value) return value;
-	const str = `${value}`;
-	if (str.length <= max) return str;
-	const head = str.slice(0, Math.floor(max / 2));
-	const tail = str.slice(-12);
-	return `${head}...${tail}`;
-};
-
-const supabaseHost = () => {
-	try {
-		return new URL(serverEnv.supabaseUrl).host;
-	} catch {
-		return serverEnv.supabaseUrl;
-	}
-};
 
 type WorkExperience = {
 	id?: string;
@@ -71,20 +57,7 @@ type ProfilePayload = {
 	custom_fields?: CustomField[];
 };
 
-const r2Client =
-	serverEnv.r2Endpoint &&
-	serverEnv.r2Bucket &&
-	serverEnv.r2AccessKeyId &&
-	serverEnv.r2SecretAccessKey
-		? new S3Client({
-				region: "auto",
-				endpoint: serverEnv.r2Endpoint,
-				credentials: {
-					accessKeyId: serverEnv.r2AccessKeyId,
-					secretAccessKey: serverEnv.r2SecretAccessKey,
-				},
-		  })
-		: null;
+const r2Client = getR2Client();
 
 function parseDataUrl(dataUrl: string) {
 	const match = /^data:(.+?);base64,(.*)$/i.exec(dataUrl);
@@ -139,19 +112,6 @@ function r2KeyFromUrl(value: string, base: string, bucket: string) {
 	}
 }
 
-function publicUrlForKey(key: string | null) {
-	if (!key) return null;
-	if (key.startsWith("http")) return key;
-
-	const base = (
-		serverEnv.r2PublicBaseUrl ||
-		serverEnv.r2Endpoint ||
-		""
-	).replace(/\/$/, "");
-	if (!base || !serverEnv.r2Bucket) return null;
-	return `${base}/${serverEnv.r2Bucket}/${key}`;
-}
-
 async function uploadDataUrl(dataUrl: string, userId: string) {
 	if (!r2Client || !serverEnv.r2Bucket) return null;
 	const parsed = parseDataUrl(dataUrl);
@@ -164,6 +124,7 @@ async function uploadDataUrl(dataUrl: string, userId: string) {
 	if (parsed.contentType && !ALLOWED_IMAGE_TYPES.has(parsed.contentType)) {
 		throw new Error("Use JPG, PNG, or WEBP images.");
 	}
+	parsed.contentType = validateImageBuffer(parsed.buffer, parsed.contentType).contentType;
 
 	const ext =
 		(parsed.contentType.includes("jpeg") && "jpg") ||
@@ -265,22 +226,7 @@ export async function GET(req: NextRequest) {
 		return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
 	}
 
-	if (!serverEnv.supabaseServiceRoleKey) {
-		return NextResponse.json(
-			{ error: "Missing SUPABASE_SERVICE_ROLE_KEY on server." },
-			{ status: 503 }
-		);
-	}
-
-	const admin = createClient(
-		serverEnv.supabaseUrl,
-		serverEnv.supabaseServiceRoleKey,
-		{
-			auth: { autoRefreshToken: false, persistSession: false },
-		}
-	);
-
-	const { data, error } = await admin
+	const { data, error } = await supabase
 		.from("profiles")
 		.select(
 			"id, email, resume_email, can_change_email, full_name, phone, location, headline, portfolio_url, linkedin_url, avatar_url, skills, experience_summary, extended_profile"
@@ -530,13 +476,9 @@ export async function PATCH(req: NextRequest) {
 		return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
 	}
 
-	const body = await req.json().catch(() => null);
-	if (!body || typeof body !== "object") {
-		return NextResponse.json(
-			{ error: "Invalid request body." },
-			{ status: 400 }
-		);
-	}
+	const parsed = await parseJson(req, profileUpdateSchema);
+	if (!parsed.success) return parsed.response;
+	const body = parsed.data;
 
 	const profile: ProfilePayload = body.profile || {};
 	const customSectionsInput: CustomSection[] | undefined = Array.isArray(
@@ -545,22 +487,7 @@ export async function PATCH(req: NextRequest) {
 		? body.customSections
 		: undefined;
 
-	if (!serverEnv.supabaseServiceRoleKey) {
-		return NextResponse.json(
-			{ error: "Missing SUPABASE_SERVICE_ROLE_KEY on server." },
-			{ status: 503 }
-		);
-	}
-
-	const admin = createClient(
-		serverEnv.supabaseUrl,
-		serverEnv.supabaseServiceRoleKey,
-		{
-			auth: { autoRefreshToken: false, persistSession: false },
-		}
-	);
-
-	const { data: existing } = await admin
+	const { data: existing } = await supabase
 		.from("profiles")
 		.select(
 			"id, email, resume_email, can_change_email, full_name, phone, location, headline, experience_summary, portfolio_url, linkedin_url, avatar_url, skills, extended_profile"
@@ -639,7 +566,7 @@ export async function PATCH(req: NextRequest) {
 		avatarKey,
 		avatarChanged,
 	});
-	return saveProfile(admin, updatePayload);
+	return saveProfile(supabase, updatePayload);
 }
 
 export const POST = PATCH;

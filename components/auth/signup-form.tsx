@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Camera, Check, MailCheck, X } from "lucide-react";
 import { AuthHeading, AuthShell, Field, FormError, Stone, SubmitButton } from "./auth-shell";
+import { CaptchaField, captchaHeaders, resetCaptcha } from "./CaptchaField";
 
 const PROMISES = [
 	["One next step every morning", "With the reason, drawn from your interviews, learning and job matches."],
@@ -49,7 +50,8 @@ export function SignUpForm() {
 	const [resendMessage, setResendMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
 	const redirectParam = searchParams.get("redirect");
-	const signinHref = `/signin${redirectParam ? `?redirect=${encodeURIComponent(redirectParam)}` : ""}`;
+	const redirectQuery = redirectParam ? `?redirect=${encodeURIComponent(redirectParam)}` : "";
+	const signinHref = `/signin${redirectQuery}`;
 
 	const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0];
@@ -79,7 +81,7 @@ export function SignUpForm() {
 		try {
 			const res = await fetch("/api/auth/resend-confirmation", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: { "Content-Type": "application/json", ...captchaHeaders() },
 				body: JSON.stringify({ email }),
 			});
 
@@ -94,6 +96,7 @@ export function SignUpForm() {
 		} catch {
 			setResendMessage({ ok: false, text: "We couldn't reach the server. Check your connection and try again." });
 		} finally {
+			resetCaptcha();
 			setResending(false);
 		}
 	};
@@ -122,7 +125,7 @@ export function SignUpForm() {
 		try {
 			const res = await fetch("/api/auth/signup", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: { "Content-Type": "application/json", ...captchaHeaders() },
 				body: JSON.stringify({
 					email,
 					password,
@@ -143,6 +146,7 @@ export function SignUpForm() {
 		} catch {
 			setError("We couldn't reach the server. Check your connection and try again.");
 		} finally {
+			resetCaptcha();
 			setLoading(false);
 		}
 	};
@@ -165,6 +169,7 @@ export function SignUpForm() {
 				<p className="-mt-4 mb-8 text-[15px] text-[var(--ink-muted)]">Not there after a few minutes? Check your spam folder.</p>
 
 				<div className="grid gap-3">
+					<CaptchaField />
 					<Link href={signinHref} className="nm-btn nm-btn-primary w-full justify-center">
 						<span className="lbl">
 							<span>Go to sign in</span>
@@ -182,14 +187,13 @@ export function SignUpForm() {
 				</div>
 
 				{resendMessage && (
-					<p
-						role="status"
+					<output
 						className={`mt-4 rounded-[var(--radius-control)] p-3 text-[15px] ${
 							resendMessage.ok ? "bg-[var(--success-soft)] text-[var(--success)]" : "bg-[var(--danger-soft)] text-[var(--danger)]"
 						}`}
 					>
 						{resendMessage.text}
-					</p>
+					</output>
 				)}
 			</AuthShell>
 		);
@@ -249,7 +253,7 @@ export function SignUpForm() {
 							{avatar ? (
 								<>
 									{/* eslint-disable-next-line @next/next/no-img-element */}
-									<img src={avatar} alt="Your profile photo" className="nm-arch size-16 object-cover" />
+									<img src={avatar} alt="Your profile" className="nm-arch size-16 object-cover" />
 									<button
 										type="button"
 										onClick={() => setAvatar(null)}
@@ -296,6 +300,7 @@ export function SignUpForm() {
 					/>
 				</fieldset>
 
+				<CaptchaField />
 				{error && <FormError>{error}</FormError>}
 
 				<div className="mt-1">

@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, X, User, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useProfileData } from "@/components/app/ProfileDataProvider";
 
 type ProfileData = {
 	full_name?: string | null;
@@ -56,9 +57,8 @@ interface ProfileCompletionBannerProps {
 export function ProfileCompletionBanner({
 	variant = "banner",
 	className,
-}: ProfileCompletionBannerProps) {
-	const [profile, setProfile] = useState<ProfileData | null>(null);
-	const [loading, setLoading] = useState(true);
+}: Readonly<ProfileCompletionBannerProps>) {
+	const { profile, loading } = useProfileData();
 	const [dismissed, setDismissed] = useState(false);
 
 	useEffect(() => {
@@ -66,19 +66,8 @@ export function ProfileCompletionBanner({
 		const dismissedKey = `profile-banner-dismissed-${variant}`;
 		if (sessionStorage.getItem(dismissedKey) === "true") {
 			setDismissed(true);
-			setLoading(false);
 			return;
 		}
-
-		fetch("/api/profile")
-			.then((res) => res.json())
-			.then((data) => {
-				if (data.profile) {
-					setProfile(data.profile);
-				}
-			})
-			.catch(() => {})
-			.finally(() => setLoading(false));
 	}, [variant]);
 
 	const handleDismiss = () => {
@@ -198,20 +187,7 @@ export function ProfileCompletionBanner({
 
 // Hook for checking profile completion status
 export function useProfileCompletion() {
-	const [profile, setProfile] = useState<ProfileData | null>(null);
-	const [loading, setLoading] = useState(true);
-
-	useEffect(() => {
-		fetch("/api/profile")
-			.then((res) => res.json())
-			.then((data) => {
-				if (data.profile) {
-					setProfile(data.profile);
-				}
-			})
-			.catch(() => {})
-			.finally(() => setLoading(false));
-	}, []);
+	const { profile, loading } = useProfileData();
 
 	const { isComplete, missingFields } = checkProfileCompletion(profile);
 

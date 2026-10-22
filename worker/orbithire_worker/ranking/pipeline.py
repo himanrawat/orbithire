@@ -292,7 +292,7 @@ async def rank_user(conn: AsyncConnection, user_id: UUID | str, cfg: RankingConf
     try:
         settings = await load_settings(conn, user_id)
         user_settings = await _one(conn, "SELECT * FROM user_settings WHERE user_id = %s", (user_id,))
-        quota_row = await _one(conn, "SELECT check_generation_quota(%s) AS q", (user_id,))
+        quota_row = await _one(conn, "SELECT check_generation_quota_server(%s) AS q", (user_id,))
         quota = quota_row["q"] if quota_row else None
         clients = clients_factory(user_settings, quota, cfg)
 

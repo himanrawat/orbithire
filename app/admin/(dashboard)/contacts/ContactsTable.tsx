@@ -63,7 +63,7 @@ const statusColors = {
 	archived: "outline",
 } as const;
 
-export function ContactsTable({ contacts, total, page, totalPages }: ContactsTableProps) {
+export function ContactsTable({ contacts, total, page, totalPages }: Readonly<ContactsTableProps>) {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const [loading, setLoading] = useState(false);

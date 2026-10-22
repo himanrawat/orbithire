@@ -11,13 +11,13 @@ export function SectionHeader({
 	icon,
 	action,
 	className,
-}: {
+}: Readonly<{
 	title: ReactNode;
 	description?: ReactNode;
 	icon?: ReactNode;
 	action?: ReactNode;
 	className?: string;
-}) {
+}>) {
 	return (
 		<div className={cn("mb-4 flex items-start justify-between gap-4", className)}>
 			<div className="min-w-0">
@@ -39,13 +39,13 @@ export function StatTile({
 	label,
 	tone,
 	className,
-}: {
+}: Readonly<{
 	icon?: ReactNode;
 	value: ReactNode;
 	label: ReactNode;
 	tone?: "focus" | "learn" | "prep" | "jobs" | "interview";
 	className?: string;
-}) {
+}>) {
 	return (
 		<div
 			className={cn(
@@ -70,7 +70,7 @@ export function StatTile({
 }
 
 /** The milestone mark: a cap over a stone, the brand's one illustration. */
-export function MilestoneMark({ size = 40, className }: { size?: number; className?: string }) {
+export function MilestoneMark({ size = 40, className }: Readonly<{ size?: number; className?: string }>) {
 	return (
 		<span className={cn("grid gap-[3px]", className)} style={{ width: size * 0.6 }} aria-hidden="true">
 			<span className="nm-arch bg-[var(--cap)]" style={{ height: size * 0.3 }} />
@@ -86,14 +86,14 @@ export function EmptyState({
 	action,
 	icon,
 	className,
-}: {
+}: Readonly<{
 	title: ReactNode;
 	description?: ReactNode;
 	action?: ReactNode;
 	/** replaces the milestone mark when a specific icon reads better */
 	icon?: ReactNode;
 	className?: string;
-}) {
+}>) {
 	return (
 		<div className={cn("flex flex-col items-center px-6 py-12 text-center", className)}>
 			{icon ? (
@@ -111,7 +111,7 @@ export function EmptyState({
 }
 
 /** A placeholder bar while content loads. */
-export function Skeleton({ className }: { className?: string }) {
+export function Skeleton({ className }: Readonly<{ className?: string }>) {
 	return <div aria-hidden="true" className={cn("animate-pulse rounded-[var(--radius-sm)] bg-secondary", className)} />;
 }
 

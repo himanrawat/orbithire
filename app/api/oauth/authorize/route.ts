@@ -44,14 +44,15 @@ export async function POST(req: Request) {
 	} catch {
 		return plainError(400, "Invalid form submission.");
 	}
-	const consent = verifyConsent(form.get("consent")?.toString() ?? null);
+	const consentValue = form.get("consent");
+	const consent = verifyConsent(typeof consentValue === "string" ? consentValue : null);
 	if (!consent) return plainError(400, "This authorization request expired. Start the connection again from your AI app.");
 
 	const supabase = createServerSupabase();
 	const {
 		data: { user },
 	} = await supabase.auth.getUser();
-	if (!user || user.id !== consent.u) {
+	if (user?.id !== consent.u) {
 		return plainError(401, "Your NextMilestone session changed. Start the connection again from your AI app.");
 	}
 

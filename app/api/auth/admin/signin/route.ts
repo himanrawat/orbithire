@@ -1,18 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceSupabase } from "@/lib/supabaseServer";
-import { cookies } from "next/headers";
+import { createAdminSession } from "@/lib/adminAuth";
 import bcrypt from "bcryptjs";
+import { z } from "zod";
+import { parseJson } from "@/lib/api";
+import { enforceRateLimit } from "@/lib/requestSecurity";
+
+const schema = z.object({
+	email: z.string().trim().email().max(254).transform((value) => value.toLowerCase()),
+	password: z.string().min(1).max(256),
+}).strict();
 
 export async function POST(req: NextRequest) {
 	try {
-		const { email, password } = await req.json();
-
-		if (!email || !password) {
-			return NextResponse.json(
-				{ error: "Email and password are required" },
-				{ status: 400 }
-			);
-		}
+		const parsed = await parseJson(req, schema);
+		if (!parsed.success) return parsed.response;
+		const { email, password } = parsed.data;
+		const limited = await enforceRateLimit(req, {
+			scope: "admin.signin",
+			limit: 6,
+			windowSeconds: 30 * 60,
+			identifier: email,
+			captchaAfter: 2,
+			captchaToken: req.headers.get("x-captcha-token"),
+		});
+		if (limited) return limited;
 
 		const supabase = createServiceSupabase();
 
@@ -20,7 +32,7 @@ export async function POST(req: NextRequest) {
 		const { data: admin, error } = await supabase
 			.from("admin_users")
 			.select("id, email, name, password_hash, is_active")
-			.eq("email", email.toLowerCase())
+			.eq("email", email)
 			.single();
 
 		if (error || !admin) {
@@ -31,10 +43,7 @@ export async function POST(req: NextRequest) {
 		}
 
 		if (!admin.is_active) {
-			return NextResponse.json(
-				{ error: "Account is deactivated" },
-				{ status: 401 }
-			);
+			return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
 		}
 
 		// Verify password
@@ -52,15 +61,8 @@ export async function POST(req: NextRequest) {
 			.update({ last_login_at: new Date().toISOString() })
 			.eq("id", admin.id);
 
-		// Set admin session cookie
-		const cookieStore = cookies();
-		cookieStore.set("admin_token", admin.id, {
-			httpOnly: true,
-			secure: process.env.NODE_ENV === "production",
-			sameSite: "lax",
-			path: "/",
-			maxAge: 60 * 60 * 24 * 7, // 7 days
-		});
+		// Store only an opaque random token in the cookie. The database keeps its hash.
+		await createAdminSession(admin.id, req);
 
 		return NextResponse.json({
 			success: true,

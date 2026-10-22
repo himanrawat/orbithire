@@ -1,33 +1,18 @@
-import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
 import { randomUUID } from "node:crypto";
 import {
-	S3Client,
 	PutObjectCommand,
 	GetObjectCommand,
 } from "@aws-sdk/client-s3";
 import { serverEnv } from "@/lib/config";
+import { createServerSupabase } from "@/lib/supabaseServer";
+import { getR2Client, objectBodyToWebStream } from "@/lib/r2Object";
+import { validateImageBuffer } from "@/lib/imageValidation";
 
 export const runtime = "nodejs";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-
-const r2Client =
-	serverEnv.r2Endpoint &&
-	serverEnv.r2Bucket &&
-	serverEnv.r2AccessKeyId &&
-	serverEnv.r2SecretAccessKey
-		? new S3Client({
-				region: "auto",
-				endpoint: serverEnv.r2Endpoint,
-				credentials: {
-					accessKeyId: serverEnv.r2AccessKeyId,
-					secretAccessKey: serverEnv.r2SecretAccessKey,
-				},
-		  })
-		: null;
 
 function resolveExtension(file: Blob & { name?: string }) {
 	const fromType = (file.type || "").toLowerCase();
@@ -43,71 +28,12 @@ function resolveExtension(file: Blob & { name?: string }) {
 }
 
 /**
- * Fetch image from R2 and return as Buffer
- */
-async function fetchPhotoFromR2(
-	key: string
-): Promise<{ buffer: Buffer; contentType: string } | null> {
-	if (!r2Client || !serverEnv.r2Bucket) return null;
-
-	try {
-		const response = await r2Client.send(
-			new GetObjectCommand({
-				Bucket: serverEnv.r2Bucket,
-				Key: key,
-			})
-		);
-
-		if (!response.Body) return null;
-
-		// Convert stream to buffer
-		const chunks: Uint8Array[] = [];
-		for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {
-			chunks.push(chunk);
-		}
-
-		return {
-			buffer: Buffer.concat(chunks),
-			contentType: response.ContentType || "image/jpeg",
-		};
-	} catch (err) {
-		console.error("Failed to fetch photo from R2:", err);
-		return null;
-	}
-}
-
-/**
- * Create Supabase client for server-side operations
- */
-function createSupabaseClient() {
-	const cookieStore = cookies();
-	return createServerClient(serverEnv.supabaseUrl, serverEnv.supabaseAnonKey, {
-		cookies: {
-			getAll: () => cookieStore.getAll(),
-			setAll(cookiesToSet) {
-				cookiesToSet.forEach(({ name, value, options }) => {
-					cookieStore.set({
-						name,
-						value,
-						httpOnly: true,
-						secure: true,
-						sameSite: "lax",
-						domain: serverEnv.authCookieDomain,
-						path: "/",
-						...options,
-					});
-				});
-			},
-		},
-	});
-}
-
-/**
  * GET /api/profile/photo
  * Proxy the authenticated user's profile photo from R2
  * This allows private R2 bucket without signed URLs
  */
 export async function GET() {
+	const r2Client = getR2Client();
 	if (!r2Client || !serverEnv.r2Bucket) {
 		return NextResponse.json(
 			{ error: "File storage is not configured." },
@@ -115,7 +41,7 @@ export async function GET() {
 		);
 	}
 
-	const supabase = createSupabaseClient();
+	const supabase = createServerSupabase();
 
 	const {
 		data: { user },
@@ -144,32 +70,55 @@ export async function GET() {
 	// Skip if it's a URL (legacy data) - can't proxy external URLs
 	const avatarKey = profile.avatar_url;
 	if (avatarKey.startsWith("http")) {
-		// Redirect to the external URL for legacy data
-		return NextResponse.redirect(avatarKey);
+		let url: URL;
+		try {
+			url = new URL(avatarKey);
+		} catch {
+			return NextResponse.json({ error: "Invalid legacy photo URL." }, { status: 404 });
+		}
+		const configuredHosts = (process.env.LEGACY_AVATAR_HOSTS || "")
+			.split(",")
+			.map((host) => host.trim().toLowerCase())
+			.filter(Boolean);
+		if (url.protocol !== "https:" || !configuredHosts.includes(url.hostname.toLowerCase())) {
+			return NextResponse.json({ error: "Legacy photo host is not allowed." }, { status: 404 });
+		}
+		return NextResponse.redirect(url);
 	}
 
-	// Fetch the image from R2
-	const result = await fetchPhotoFromR2(avatarKey);
-
-	if (!result) {
+	let result;
+	try {
+		result = await r2Client.send(
+			new GetObjectCommand({ Bucket: serverEnv.r2Bucket, Key: avatarKey })
+		);
+	} catch (error) {
+		console.error("Failed to fetch photo from R2:", error);
 		return NextResponse.json(
 			{ error: "Failed to fetch photo." },
 			{ status: 500 }
 		);
 	}
+	if (!result.Body) return NextResponse.json({ error: "No profile photo found." }, { status: 404 });
+	if ((result.ContentLength || 0) > MAX_IMAGE_BYTES) {
+		(result.Body as { destroy?: () => void }).destroy?.();
+		return NextResponse.json({ error: "Stored image is too large." }, { status: 413 });
+	}
 
-	// Return the image with proper headers
-	// Convert Buffer to Uint8Array for NextResponse compatibility
-	return new NextResponse(new Uint8Array(result.buffer), {
+	const headers = new Headers({
+		"Content-Type": result.ContentType || "image/jpeg",
+		"Cache-Control": "private, max-age=3600",
+		"X-Content-Type-Options": "nosniff",
+	});
+	if (result.ContentLength !== undefined) headers.set("Content-Length", String(result.ContentLength));
+	if (result.ETag) headers.set("ETag", result.ETag);
+	return new NextResponse(objectBodyToWebStream(result.Body), {
 		status: 200,
-		headers: {
-			"Content-Type": result.contentType,
-			"Cache-Control": "private, max-age=3600", // Cache for 1 hour (private since user-specific)
-		},
+		headers,
 	});
 }
 
 export async function POST(req: NextRequest) {
+	const r2Client = getR2Client();
 	if (!r2Client || !serverEnv.r2Bucket) {
 		return NextResponse.json(
 			{ error: "File storage is not configured." },
@@ -177,7 +126,7 @@ export async function POST(req: NextRequest) {
 		);
 	}
 
-	const supabase = createSupabaseClient();
+	const supabase = createServerSupabase();
 
 	const {
 		data: { user },
@@ -216,10 +165,18 @@ export async function POST(req: NextRequest) {
 		);
 	}
 
-	const contentType = (file.type || "application/octet-stream").toLowerCase();
+	let contentType = (file.type || "application/octet-stream").toLowerCase();
 	if (contentType && !ALLOWED_IMAGE_TYPES.has(contentType)) {
 		return NextResponse.json(
 			{ error: "Use JPG, PNG, or WEBP images." },
+			{ status: 400 }
+		);
+	}
+	try {
+		contentType = validateImageBuffer(buffer, contentType).contentType;
+	} catch (error) {
+		return NextResponse.json(
+			{ error: error instanceof Error ? error.message : "Invalid image." },
 			{ status: 400 }
 		);
 	}

@@ -34,14 +34,14 @@ function Field({
 	multiline,
 	rows,
 	placeholder,
-}: {
+	}: Readonly<{
 	label: string;
 	value: string | undefined;
 	onChange: (v: string) => void;
 	multiline?: boolean;
 	rows?: number;
 	placeholder?: string;
-}) {
+	}>) {
 	const id = useId();
 	return (
 		<div className="space-y-1">
@@ -62,13 +62,13 @@ function EntryList({
 	onChange,
 	empty,
 	render,
-}: {
+	}: Readonly<{
 	title: string;
 	items: Json[];
 	onChange: (items: Json[]) => void;
 	empty: Json;
 	render: (item: Json, set: (patch: Json) => void) => React.ReactNode;
-}) {
+	}>) {
 	return (
 		<div className="space-y-3">
 			<div className="flex items-center justify-between">
@@ -78,7 +78,7 @@ function EntryList({
 				</Button>
 			</div>
 			{items.map((item, i) => (
-				<div key={i} className="relative space-y-2 rounded-lg border bg-background/50 p-3">
+				<div key={String(item.id ?? item._id ?? item.name ?? item.title ?? JSON.stringify(item))} className="relative space-y-2 rounded-lg border bg-background/50 p-3">
 					<button
 						type="button"
 						className="absolute right-2 top-2 text-muted-foreground hover:text-destructive"
@@ -118,9 +118,10 @@ export default function DocumentEditorPage() {
 	const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
 	useEffect(() => {
-		(async () => {
+		void (async () => {
 			try {
-				const res = await fetch(`/api/documents/${id}${typeHint ? `?type=${typeHint}` : ""}`);
+				const typeQuery = typeHint ? `?type=${typeHint}` : "";
+				const res = await fetch(`/api/documents/${id}${typeQuery}`);
 				const data = await res.json();
 				if (!res.ok) throw new Error(data.error || "Failed to load document");
 				const t: DocumentType = data.type;
@@ -151,7 +152,7 @@ export default function DocumentEditorPage() {
 	const staticPdf = row ? row.engine !== "typst" : false;
 
 	const previewData = useMemo(
-		() => ({ ...content, meta: { ...(content.meta || {}), ...(accent ? { accent } : {}), paper } }),
+		() => ({ ...content, meta: { ...content.meta, ...(accent ? { accent } : undefined), paper } }),
 		[content, accent, paper]
 	);
 

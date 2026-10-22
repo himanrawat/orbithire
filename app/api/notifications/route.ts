@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabaseServer";
+import { z } from "zod";
+import { parseJson } from "@/lib/api";
+
+const patchSchema = z.object({
+	notificationIds: z.array(z.string().uuid()).max(100).optional(),
+	markAllRead: z.boolean().optional(),
+}).strict().refine((value) => value.markAllRead || (value.notificationIds?.length ?? 0) > 0, {
+	message: "notificationIds are required unless markAllRead is true",
+});
 
 export const runtime = "nodejs";
 
@@ -18,11 +27,11 @@ export async function GET(request: NextRequest) {
 
 		const { searchParams } = new URL(request.url);
 		const unreadOnly = searchParams.get("unread") === "true";
-		const limit = parseInt(searchParams.get("limit") || "20", 10);
+		const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20", 10) || 20));
 
 		let query = supabase
 			.from("notifications")
-			.select("*")
+			.select("id,type,title,message,resource_type,resource_id,action_url,read,read_at,created_at")
 			.eq("user_id", user.id)
 			.order("created_at", { ascending: false })
 			.limit(limit);
@@ -44,7 +53,7 @@ export async function GET(request: NextRequest) {
 		// Get unread count
 		const { count: unreadCount, error: countError } = await supabase
 			.from("notifications")
-			.select("*", { count: "exact", head: true })
+			.select("id", { count: "exact", head: true })
 			.eq("user_id", user.id)
 			.eq("read", false);
 
@@ -78,8 +87,9 @@ export async function PATCH(request: NextRequest) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
 
-		const body = await request.json();
-		const { notificationIds, markAllRead } = body;
+		const parsed = await parseJson(request, patchSchema);
+		if (!parsed.success) return parsed.response;
+		const { notificationIds, markAllRead } = parsed.data;
 
 		if (markAllRead) {
 			// Mark all notifications as read

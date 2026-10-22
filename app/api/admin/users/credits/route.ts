@@ -1,34 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceSupabase } from "@/lib/supabaseServer";
-import { cookies } from "next/headers";
-
-async function verifyAdmin() {
-	const cookieStore = cookies();
-	const adminToken = cookieStore.get("admin_token");
-
-	if (!adminToken) {
-		return null;
-	}
-
-	const supabase = createServiceSupabase();
-	const { data: admin } = await supabase
-		.from("admin_users")
-		.select("id, email, name")
-		.eq("id", adminToken.value)
-		.eq("is_active", true)
-		.single();
-
-	return admin;
-}
+import { requireAdmin } from "@/lib/adminAuth";
+import { parseJson } from "@/lib/api";
+import { creditsActionSchema } from "@/lib/schemas/admin";
 
 export async function POST(req: NextRequest) {
 	try {
-		const admin = await verifyAdmin();
+		const admin = await requireAdmin();
 		if (!admin) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
 
-		const { userId, action, amount, unlimited, expiresAt } = await req.json();
+		const parsed = await parseJson(req, creditsActionSchema);
+		if (!parsed.success) return parsed.response;
+		const { userId, action } = parsed.data;
 
 		if (!userId || !action) {
 			return NextResponse.json(
@@ -40,7 +25,7 @@ export async function POST(req: NextRequest) {
 		const supabase = createServiceSupabase();
 
 		if (action === "add_credits") {
-			const creditsToAdd = parseInt(amount) || 0;
+			const creditsToAdd = parsed.data.amount;
 			if (creditsToAdd <= 0) {
 				return NextResponse.json(
 					{ error: "Invalid credit amount" },
@@ -48,22 +33,10 @@ export async function POST(req: NextRequest) {
 				);
 			}
 
-			// Get current credits and add
-			const { data: profile } = await supabase
-				.from("profiles")
-				.select("ai_credits")
-				.eq("id", userId)
-				.single();
-
-			const currentCredits = profile?.ai_credits ?? 2;
-
-			const { error } = await supabase
-				.from("profiles")
-				.update({
-					ai_credits: currentCredits + creditsToAdd,
-					updated_at: new Date().toISOString(),
-				})
-				.eq("id", userId);
+			const { data: newBalance, error } = await supabase.rpc("add_ai_credits", {
+				p_user_id: userId,
+				p_amount: creditsToAdd,
+			});
 
 			if (error) {
 				console.error("Error adding credits:", error);
@@ -82,10 +55,15 @@ export async function POST(req: NextRequest) {
 				details: { amount: creditsToAdd },
 			});
 
-			return NextResponse.json({ success: true, creditsAdded: creditsToAdd });
+			return NextResponse.json({
+				success: true,
+				creditsAdded: creditsToAdd,
+				balance: newBalance,
+			});
 		}
 
 		if (action === "set_unlimited") {
+			const { unlimited, expiresAt } = parsed.data;
 			const { error } = await supabase
 				.from("profiles")
 				.update({

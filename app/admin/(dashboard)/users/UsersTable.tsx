@@ -61,12 +61,12 @@ interface User {
 	created_at: string;
 }
 
-interface UsersTableProps {
+type UsersTableProps = Readonly<{
 	users: User[];
 	total: number;
 	page: number;
 	totalPages: number;
-}
+}>;
 
 export function UsersTable({ users, total, page, totalPages }: UsersTableProps) {
 	const router = useRouter();
@@ -136,13 +136,13 @@ export function UsersTable({ users, total, page, totalPages }: UsersTableProps) 
 
 			if (creditAction === "add") {
 				body.action = "add_credits";
-				body.amount = parseInt(creditAmount);
+				body.amount = Number.parseInt(creditAmount);
 			} else {
 				body.action = "set_unlimited";
 				body.unlimited = true;
 				if (unlimitedType === "timed") {
 					const expiresAt = new Date();
-					expiresAt.setDate(expiresAt.getDate() + parseInt(unlimitedDays));
+					expiresAt.setDate(expiresAt.getDate() + Number.parseInt(unlimitedDays));
 					body.expiresAt = expiresAt.toISOString();
 				}
 			}

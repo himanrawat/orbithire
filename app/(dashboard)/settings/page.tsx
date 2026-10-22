@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,9 +36,9 @@ import {
 	Calendar,
 	Receipt,
 	Zap,
-	ChevronLeft,
 	Briefcase,
 	Plug,
+	Upload as ImportIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/app/page-header";
@@ -50,11 +50,25 @@ import { JobSearchSettings } from "@/components/jobs/JobSearchSettings";
 import { RankingSettings } from "@/components/settings/RankingSettings";
 import { AiConnections } from "@/components/settings/AiConnections";
 import { ImportData } from "@/components/settings/ImportData";
-import { Upload as ImportIcon } from "lucide-react";
 import { getProviderModels, type ModelInfo } from "@/lib/ai/providers/registry";
 
 type Provider = "openai" | "groq" | "anthropic" | "gemini" | "custom";
-type Tab = "ai-provider" | "ai-connections" | "job-search" | "account" | "billing" | "integrations" | "import";
+type Tab =
+	| "ai-provider"
+	| "ai-connections"
+	| "job-search"
+	| "account"
+	| "billing"
+	| "integrations"
+	| "import";
+
+const PROVIDER_LABELS: Record<Provider, string> = {
+	openai: "OpenAI",
+	groq: "Groq",
+	anthropic: "Anthropic",
+	gemini: "Google Gemini",
+	custom: "your provider",
+};
 
 const tabs: {
 	id: Tab;
@@ -87,16 +101,57 @@ const tabs: {
 	{ id: "import", label: "Import", icon: <ImportIcon className="h-4 w-4" /> },
 ];
 
-export default function SettingsPage() {
-	const [activeTab, setActiveTab] = useState<Tab>("ai-provider");
+async function updateVerification(verified: boolean) {
+	await fetch("/api/settings", {
+		method: "PATCH",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ verified }),
+	});
+}
 
-	// Deep link: /settings?tab=job-search
+function Show({
+	when,
+	children,
+}: Readonly<{ when: boolean; children: React.ReactNode }>) {
+	return when ? <>{children}</> : null;
+}
+
+function choose<T>(condition: boolean, whenTrue: T, whenFalse: T) {
+	return condition ? whenTrue : whenFalse;
+}
+
+function all(...conditions: boolean[]) {
+	return conditions.every(Boolean);
+}
+
+function any(...conditions: boolean[]) {
+	return conditions.some(Boolean);
+}
+
+function getDisabledTabClass(disabled?: boolean) {
+	return disabled
+		? "cursor-not-allowed opacity-50 hover:text-muted-foreground"
+		: undefined;
+}
+
+function shouldShowDeprecationWarning(
+	warning: string | null,
+	wasAutoUpgraded: boolean,
+	activeTab: Tab
+) {
+	return warning !== null && wasAutoUpgraded && activeTab === "ai-provider";
+}
+
+function useActiveSettingsTab() {
+	const [activeTab, setActiveTab] = useState<Tab>("ai-provider");
 	useEffect(() => {
 		const tab = new URLSearchParams(window.location.search).get("tab");
-		if (tab && tabs.some((t) => t.id === tab)) setActiveTab(tab as Tab);
+		if (tab && tabs.some((item) => item.id === tab)) setActiveTab(tab as Tab);
 	}, []);
+	return [activeTab, setActiveTab] as const;
+}
 
-	// AI Provider state
+function useProviderSettings() {
 	const [provider, setProvider] = useState<Provider>("groq");
 	const [apiKey, setApiKey] = useState("");
 	const [apiKeyPreview, setApiKeyPreview] = useState<string | null>(null);
@@ -111,7 +166,6 @@ export default function SettingsPage() {
 	const [saveSuccess, setSaveSuccess] = useState(false);
 	const [showApiKey, setShowApiKey] = useState(false);
 	const [hasStoredKey, setHasStoredKey] = useState(false);
-	const [connectionVerified, setConnectionVerified] = useState(false);
 	const [removingKey, setRemovingKey] = useState(false);
 	const [deprecationWarning, setDeprecationWarning] = useState<string | null>(
 		null
@@ -124,39 +178,40 @@ export default function SettingsPage() {
 		has_own_key: boolean;
 	} | null>(null);
 
-	// Load saved settings on mount
 	const loadSettings = useCallback(async () => {
 		setLoadingSettings(true);
 		try {
 			const res = await fetch("/api/settings");
-			if (res.ok) {
-				const data = await res.json();
-				setProvider(data.provider || "groq");
-				setHasStoredKey(data.hasApiKey || false);
-				setApiKeyPreview(data.apiKeyPreview || null);
-				setBaseUrl(data.baseUrl || "");
-				setSelectedModel(data.defaultModel || "");
-				setConnectionVerified(data.connectionVerified || false);
-				setDeprecationWarning(data.deprecationWarning || null);
-				setWasAutoUpgraded(data.wasAutoUpgraded || false);
-				setQuota(data.quota || null);
-
-				// Load available models from registry for this provider
-				const models = getProviderModels(data.provider || "groq");
-				setAvailableModels(models);
-			}
-		} catch (err) {
-			console.error("Failed to load settings:", err);
+			if (!res.ok) return;
+			const data = await res.json();
+			const savedProvider = data.provider || "groq";
+			setProvider(savedProvider);
+			setHasStoredKey(data.hasApiKey || false);
+			setApiKeyPreview(data.apiKeyPreview || null);
+			setBaseUrl(data.baseUrl || "");
+			setSelectedModel(data.defaultModel || "");
+			setDeprecationWarning(data.deprecationWarning || null);
+			setWasAutoUpgraded(data.wasAutoUpgraded || false);
+			setQuota(data.quota || null);
+			setAvailableModels(getProviderModels(savedProvider));
+		} catch (loadError) {
+			console.error("Failed to load settings:", loadError);
 		} finally {
 			setLoadingSettings(false);
 		}
 	}, []);
 
 	useEffect(() => {
-		loadSettings();
+		void loadSettings();
 	}, [loadSettings]);
 
-	// Save settings to database
+	useEffect(() => {
+		const models = getProviderModels(provider);
+		setAvailableModels(models);
+		if (selectedModel && !models.some((model) => model.id === selectedModel))
+			setSelectedModel("");
+	}, [provider, selectedModel]);
+
 	async function saveSettings() {
 		setSaving(true);
 		setError(null);
@@ -173,18 +228,16 @@ export default function SettingsPage() {
 				}),
 			});
 			const data = await res.json();
-			if (!res.ok) {
-				throw new Error(data?.error || "Failed to save settings");
-			}
+			if (!res.ok) throw new Error(data?.error || "Failed to save settings");
 			setHasStoredKey(data.hasApiKey);
-			setApiKey(""); // Clear the input after saving
+			setApiKey("");
 			setSaveSuccess(true);
 			setTimeout(() => setSaveSuccess(false), 3000);
-			// Reload settings to get any auto-upgrades
 			await loadSettings();
-		} catch (err: unknown) {
-			const message = err instanceof Error ? err.message : "Failed to save";
-			setError(message);
+		} catch (saveError: unknown) {
+			setError(
+				saveError instanceof Error ? saveError.message : "Failed to save"
+			);
 		} finally {
 			setSaving(false);
 		}
@@ -205,44 +258,22 @@ export default function SettingsPage() {
 				}),
 			});
 			const data = await res.json();
-			if (!res.ok) {
+			if (!res.ok)
 				throw new Error(data?.error || "Failed to connect to provider");
-			}
 			setAvailableModels(data.models || []);
 			setSuccess(true);
-
-			// Update verification status
-			await fetch("/api/settings", {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ verified: true }),
-			});
-			setConnectionVerified(true);
-		} catch (err: unknown) {
-			const message =
-				err instanceof Error ? err.message : "Unable to connect to provider";
-			setError(message);
-			// Update verification status on failure
-			await fetch("/api/settings", {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ verified: false }),
-			});
-			setConnectionVerified(false);
+			await updateVerification(true);
+		} catch (connectionError: unknown) {
+			setError(
+				connectionError instanceof Error
+					? connectionError.message
+					: "Unable to connect to provider"
+			);
+			await updateVerification(false);
 		} finally {
 			setLoading(false);
 		}
 	}
-
-	// Update available models when provider changes
-	useEffect(() => {
-		const models = getProviderModels(provider);
-		setAvailableModels(models);
-		// Clear selected model if it doesn't exist in new provider
-		if (selectedModel && !models.find((m) => m.id === selectedModel)) {
-			setSelectedModel("");
-		}
-	}, [provider, selectedModel]);
 
 	const showBaseUrl = provider === "custom";
 
@@ -263,25 +294,90 @@ export default function SettingsPage() {
 				}),
 			});
 			const data = await res.json();
-			if (!res.ok) {
-				throw new Error(data?.error || "Failed to remove API key");
-			}
-
+			if (!res.ok) throw new Error(data?.error || "Failed to remove API key");
 			setHasStoredKey(false);
 			setApiKey("");
 			setApiKeyPreview(null);
-			setConnectionVerified(false);
 			setSaveSuccess(true);
 			setTimeout(() => setSaveSuccess(false), 3000);
 			await loadSettings();
-		} catch (err: unknown) {
-			const message =
-				err instanceof Error ? err.message : "Failed to remove API key";
-			setError(message);
+		} catch (removeError: unknown) {
+			setError(
+				removeError instanceof Error
+					? removeError.message
+					: "Failed to remove API key"
+			);
 		} finally {
 			setRemovingKey(false);
 		}
 	}
+
+	return {
+		provider,
+		setProvider,
+		apiKey,
+		setApiKey,
+		apiKeyPreview,
+		baseUrl,
+		setBaseUrl,
+		selectedModel,
+		setSelectedModel,
+		availableModels,
+		loading,
+		saving,
+		loadingSettings,
+		error,
+		success,
+		saveSuccess,
+		showApiKey,
+		setShowApiKey,
+		hasStoredKey,
+		removingKey,
+		deprecationWarning,
+		setDeprecationWarning,
+		wasAutoUpgraded,
+		setWasAutoUpgraded,
+		quota,
+		showBaseUrl,
+		saveSettings,
+		testConnection,
+		removeApiKey,
+	};
+}
+
+export default function SettingsPage() {
+	const [activeTab, setActiveTab] = useActiveSettingsTab();
+	const {
+		provider,
+		setProvider,
+		apiKey,
+		setApiKey,
+		apiKeyPreview,
+		baseUrl,
+		setBaseUrl,
+		selectedModel,
+		setSelectedModel,
+		availableModels,
+		loading,
+		saving,
+		loadingSettings,
+		error,
+		success,
+		saveSuccess,
+		showApiKey,
+		setShowApiKey,
+		hasStoredKey,
+		removingKey,
+		deprecationWarning,
+		setDeprecationWarning,
+		wasAutoUpgraded,
+		setWasAutoUpgraded,
+		quota,
+		showBaseUrl,
+		saveSettings,
+		testConnection,
+		removeApiKey,
+	} = useProviderSettings();
 
 	return (
 		<div className="relative min-h-screen">
@@ -299,44 +395,52 @@ export default function SettingsPage() {
 					transition={{ delay: 0.1 }}
 					className="mb-6"
 				>
-					<div role="tablist" aria-label="Settings sections" className={tabListClass}>
+					<div
+						role="tablist"
+						aria-label="Settings sections"
+						className={tabListClass}
+					>
 						{tabs.map((tab) => (
 							<button
 								key={tab.id}
 								role="tab"
 								aria-selected={activeTab === tab.id}
-								onClick={() => !tab.disabled && setActiveTab(tab.id)}
+								onClick={() => setActiveTab(tab.id)}
 								disabled={tab.disabled}
 								className={cn(
 									tabClass(activeTab === tab.id),
 									"[&_svg]:h-4 [&_svg]:w-4",
-									tab.disabled && "cursor-not-allowed opacity-50 hover:text-muted-foreground"
+									getDisabledTabClass(tab.disabled)
 								)}
 							>
 								{tab.icon}
 								{tab.label}
-								{tab.disabled && (
+								<Show when={Boolean(tab.disabled)}>
 									<span className="rounded-full bg-card px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
 										Soon
 									</span>
-								)}
+								</Show>
 							</button>
 						))}
 					</div>
 				</motion.div>
 
 				{/* Deprecation Warning */}
-				{deprecationWarning &&
-					wasAutoUpgraded &&
-					activeTab === "ai-provider" && (
-						<DeprecationWarning
-							message={deprecationWarning}
-							onDismiss={() => {
-								setDeprecationWarning(null);
-								setWasAutoUpgraded(false);
-							}}
-						/>
+				<Show
+					when={shouldShowDeprecationWarning(
+						deprecationWarning,
+						wasAutoUpgraded,
+						activeTab
 					)}
+				>
+					<DeprecationWarning
+						message={deprecationWarning ?? ""}
+						onDismiss={() => {
+							setDeprecationWarning(null);
+							setWasAutoUpgraded(false);
+						}}
+					/>
+				</Show>
 
 				{/* Tab Content */}
 				<motion.div
@@ -345,50 +449,65 @@ export default function SettingsPage() {
 					animate={{ opacity: 1, y: 0 }}
 					transition={{ duration: 0.2 }}
 				>
-					{activeTab === "ai-connections" && <AiConnections />}
-					{activeTab === "import" && <ImportData />}
+					<Show when={activeTab === "ai-connections"}>
+						<AiConnections />
+					</Show>
+					<Show when={activeTab === "import"}>
+						<ImportData />
+					</Show>
 
-					{activeTab === "job-search" && (
+					<Show when={activeTab === "job-search"}>
 						<div className="grid gap-6">
 							<JobSearchSettings />
 							<RankingSettings />
 						</div>
-					)}
+					</Show>
 
 					{/* AI Provider Tab */}
-					{activeTab === "ai-provider" && (
+					<Show when={activeTab === "ai-provider"}>
 						<div className="grid gap-6">
 							{/* Free Generation Usage Card */}
 							<Card
 								className={cn(
-									quota && !quota.has_own_key && quota.remaining === 0
-										? "border-[color-mix(in_srgb,var(--cap)_40%,transparent)] bg-[var(--cap-soft)]"
-										: ""
+									choose(
+										all(
+											Boolean(quota),
+											!quota?.has_own_key,
+											quota?.remaining === 0
+										),
+										"border-[color-mix(in_srgb,var(--cap)_40%,transparent)] bg-[var(--cap-soft)]",
+										""
+									)
 								)}
 							>
 								<CardHeader>
 									<CardTitle className="flex items-center gap-2 text-lg">
 										<Zap className="h-5 w-5" />
 										AI Generation Usage
-										{quota?.has_own_key && (
+										<Show when={Boolean(quota?.has_own_key)}>
 											<span className="ml-auto flex items-center gap-1 rounded-full bg-[var(--success-soft)] px-2 py-0.5 text-xs font-medium text-[var(--success)]">
 												<CheckCircle2 className="h-3 w-3" />
 												Unlimited
 											</span>
-										)}
+										</Show>
 									</CardTitle>
 									<CardDescription>
-										{quota?.has_own_key
-											? "You have your own API key configured - enjoy unlimited AI generations!"
-											: "Track your free AI resume generations. Add your own API key for unlimited usage."}
+										{choose(
+											Boolean(quota?.has_own_key),
+											"You have your own API key configured - enjoy unlimited AI generations!",
+											"Track your free AI resume generations. Add your own API key for unlimited usage."
+										)}
 									</CardDescription>
 								</CardHeader>
 								<CardContent>
-									{loadingSettings ? (
+									<Show when={loadingSettings}>
 										<div className="flex items-center justify-center py-4">
 											<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
 										</div>
-									) : quota?.has_own_key ? (
+									</Show>
+									<Show
+										when={all(!loadingSettings, Boolean(quota?.has_own_key))}
+									>
 										<div className="flex items-center gap-3 rounded-lg bg-[var(--success-soft)] border border-[color-mix(in_srgb,var(--success)_40%,transparent)] p-4">
 											<div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--success-soft)]">
 												<CheckCircle2 className="h-6 w-6 text-[var(--success)]" />
@@ -398,29 +517,34 @@ export default function SettingsPage() {
 													Unlimited Generations Active
 												</p>
 												<p className="text-sm text-muted-foreground">
-													Your API key enables unlimited AI-powered resume
-													and cover letter generation.
+													Your API key enables unlimited AI-powered resume and
+													cover letter generation.
 												</p>
 											</div>
 										</div>
-									) : (
+									</Show>
+									<Show when={all(!loadingSettings, !quota?.has_own_key)}>
 										<div className="space-y-4">
 											<div className="flex items-center justify-between">
 												<div className="flex items-center gap-3">
 													<div
 														className={cn(
 															"flex h-12 w-12 items-center justify-center rounded-full",
-															quota?.remaining === 0
-																? "bg-[var(--cap-soft)]"
-																: "bg-[var(--kind-prep-soft)]"
+															choose(
+																quota?.remaining === 0,
+																"bg-[var(--cap-soft)]",
+																"bg-[var(--kind-prep-soft)]"
+															)
 														)}
 													>
 														<Zap
 															className={cn(
 																"h-6 w-6",
-																quota?.remaining === 0
-																	? "text-[var(--cap-ink)]"
-																	: "text-[var(--kind-prep)]"
+																choose(
+																	quota?.remaining === 0,
+																	"text-[var(--cap-ink)]",
+																	"text-[var(--kind-prep)]"
+																)
 															)}
 														/>
 													</div>
@@ -440,9 +564,11 @@ export default function SettingsPage() {
 													<p
 														className={cn(
 															"text-lg font-semibold",
-															quota?.remaining === 0
-																? "text-[var(--cap-ink)]"
-																: "text-[var(--kind-prep)]"
+															choose(
+																quota?.remaining === 0,
+																"text-[var(--cap-ink)]",
+																"text-[var(--kind-prep)]"
+															)
 														)}
 													>
 														{quota?.remaining ?? 2} remaining
@@ -454,31 +580,31 @@ export default function SettingsPage() {
 												<div
 													className={cn(
 														"h-full rounded-full transition-all duration-500",
-														quota?.remaining === 0
-															? "bg-[var(--cap)]"
-															: "bg-[var(--kind-prep)]"
+														choose(
+															quota?.remaining === 0,
+															"bg-[var(--cap)]",
+															"bg-[var(--kind-prep)]"
+														)
 													)}
 													style={{
 														width: `${Math.min(
 															100,
-															((quota?.used ?? 0) / (quota?.limit ?? 2)) *
-																100
+															((quota?.used ?? 0) / (quota?.limit ?? 2)) * 100
 														)}%`,
 													}}
 												/>
 											</div>
-											{quota?.remaining === 0 && (
+											<Show when={quota?.remaining === 0}>
 												<div className="flex items-center gap-2 rounded-lg bg-[var(--cap-soft)] border border-[color-mix(in_srgb,var(--cap)_40%,transparent)] p-3 text-sm">
 													<AlertCircle className="h-4 w-4 text-[var(--cap-ink)] shrink-0" />
 													<p className="text-[var(--cap-ink)]">
-														You&apos;ve used all free generations. Add your
-														own API key below to continue generating
-														resumes.
+														You&apos;ve used all free generations. Add your own
+														API key below to continue generating resumes.
 													</p>
 												</div>
-											)}
+											</Show>
 										</div>
-									)}
+									</Show>
 								</CardContent>
 							</Card>
 
@@ -490,15 +616,15 @@ export default function SettingsPage() {
 										AI Provider
 									</CardTitle>
 									<CardDescription>
-										Choose your preferred AI provider for generating resumes
-										and cover letters.
+										Choose your preferred AI provider for generating resumes and
+										cover letters.
 									</CardDescription>
 								</CardHeader>
 								<CardContent>
 									<ProviderSelector
 										value={provider}
 										onChange={(p) => setProvider(p as Provider)}
-										disabled={loading || saving}
+										disabled={any(loading, saving)}
 									/>
 								</CardContent>
 							</Card>
@@ -509,53 +635,44 @@ export default function SettingsPage() {
 									<CardTitle className="flex items-center gap-2 text-lg">
 										<Key className="h-5 w-5" />
 										API Configuration
-										{hasStoredKey && (
+										<Show when={hasStoredKey}>
 											<span className="ml-auto flex items-center gap-1 rounded-full bg-[var(--success-soft)] px-2 py-0.5 text-xs font-medium text-[var(--success)]">
 												<CheckCircle2 className="h-3 w-3" />
 												Key Saved
 											</span>
-										)}
+										</Show>
 									</CardTitle>
 									<CardDescription>
-										Enter your API key for{" "}
-										{provider === "openai"
-											? "OpenAI"
-											: provider === "groq"
-											? "Groq"
-											: provider === "anthropic"
-											? "Anthropic"
-											: provider === "gemini"
-											? "Google Gemini"
-											: "your provider"}
-										. Your key is securely stored and used for AI resume
-										generation.
-										{apiKeyPreview && hasStoredKey && (
+										Enter your API key for {PROVIDER_LABELS[provider]}. Your key
+										is securely stored and used for AI resume generation.
+										<Show when={all(Boolean(apiKeyPreview), hasStoredKey)}>
 											<span className="ml-1 font-mono text-xs">
 												(Current: {apiKeyPreview})
 											</span>
-										)}
+										</Show>
 									</CardDescription>
 								</CardHeader>
 								<CardContent className="space-y-4">
-									{loadingSettings ? (
+									<Show when={loadingSettings}>
 										<div className="flex items-center justify-center py-4">
 											<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
 										</div>
-									) : (
+									</Show>
+									<Show when={!loadingSettings}>
 										<>
 											<div className="space-y-2">
 												<Label htmlFor="apiKey">
-													{hasStoredKey ? "Update API Key" : "API Key"}
+													{choose(hasStoredKey, "Update API Key", "API Key")}
 												</Label>
 												<div className="relative">
 													<Input
 														id="apiKey"
-														type={showApiKey ? "text" : "password"}
-														placeholder={
-															hasStoredKey
-																? "Enter new key to update..."
-																: "sk-... your API key"
-														}
+														type={choose(showApiKey, "text", "password")}
+														placeholder={choose(
+															hasStoredKey,
+															"Enter new key to update...",
+															"sk-... your API key"
+														)}
 														value={apiKey}
 														onChange={(e) => setApiKey(e.target.value)}
 														className="pr-12"
@@ -563,26 +680,32 @@ export default function SettingsPage() {
 													<button
 														type="button"
 														onClick={() => setShowApiKey(!showApiKey)}
-														aria-label={showApiKey ? "Hide API key" : "Show API key"}
+														aria-label={choose(
+															showApiKey,
+															"Hide API key",
+															"Show API key"
+														)}
 														aria-pressed={showApiKey}
 														className="absolute right-0.5 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-[var(--radius-control)] text-muted-foreground hover:text-foreground"
 													>
-														{showApiKey ? (
-															<EyeOff className="h-4 w-4" />
-														) : (
+														{choose(
+															showApiKey,
+															<EyeOff className="h-4 w-4" />,
 															<Eye className="h-4 w-4" />
 														)}
 													</button>
 												</div>
 												<p className="text-xs text-muted-foreground">
-													{hasStoredKey
-														? "Your API key is saved. Enter a new key to update it."
-														: "Enter your API key. It will be securely stored for AI generation."}
+													{choose(
+														hasStoredKey,
+														"Your API key is saved. Enter a new key to update it.",
+														"Enter your API key. It will be securely stored for AI generation."
+													)}
 												</p>
 											</div>
 
 											<AnimatePresence>
-												{showBaseUrl && (
+												<Show when={showBaseUrl}>
 													<motion.div
 														initial={{ opacity: 0, height: 0 }}
 														animate={{ opacity: 1, height: "auto" }}
@@ -602,7 +725,7 @@ export default function SettingsPage() {
 															/>
 														</div>
 													</motion.div>
-												)}
+												</Show>
 											</AnimatePresence>
 
 											{/* Model Selection */}
@@ -611,24 +734,25 @@ export default function SettingsPage() {
 													models={availableModels}
 													value={selectedModel}
 													onChange={setSelectedModel}
-													disabled={loading || saving}
+													disabled={any(loading, saving)}
 												/>
 											</div>
 
 											<div className="flex flex-wrap items-center gap-3 pt-2">
 												<Button
 													onClick={saveSettings}
-													disabled={
-														saving || (!apiKey.trim() && !selectedModel)
-													}
+													disabled={any(
+														saving,
+														all(!apiKey.trim(), !selectedModel)
+													)}
 													variant="cap"
 												>
-													{saving ? (
+													{choose(
+														saving,
 														<>
 															<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 															Saving…
-														</>
-													) : (
+														</>,
 														<>
 															<Save className="mr-2 h-4 w-4" />
 															Save settings
@@ -638,15 +762,15 @@ export default function SettingsPage() {
 
 												<Button
 													onClick={testConnection}
-													disabled={loading || !apiKey.trim()}
+													disabled={any(loading, !apiKey.trim())}
 													variant="outline"
 												>
-													{loading ? (
+													{choose(
+														loading,
 														<>
 															<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 															Testing...
-														</>
-													) : (
+														</>,
 														<>
 															<RefreshCw className="mr-2 h-4 w-4" />
 															Test Connection
@@ -656,15 +780,15 @@ export default function SettingsPage() {
 
 												<Button
 													onClick={removeApiKey}
-													disabled={removingKey || !hasStoredKey || saving}
+													disabled={any(removingKey, !hasStoredKey, saving)}
 													variant="destructive"
 												>
-													{removingKey ? (
+													{choose(
+														removingKey,
 														<>
 															<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 															Removing...
-														</>
-													) : (
+														</>,
 														<>
 															<Trash2 className="mr-2 h-4 w-4" />
 															Remove API Key
@@ -673,7 +797,7 @@ export default function SettingsPage() {
 												</Button>
 
 												<AnimatePresence>
-													{error && (
+													<Show when={Boolean(error)}>
 														<motion.div
 															initial={{ opacity: 0, x: -10 }}
 															animate={{ opacity: 1, x: 0 }}
@@ -683,8 +807,8 @@ export default function SettingsPage() {
 															<AlertCircle className="h-4 w-4" />
 															{error}
 														</motion.div>
-													)}
-													{saveSuccess && !error && (
+													</Show>
+													<Show when={all(saveSuccess, !error)}>
 														<motion.div
 															initial={{ opacity: 0, x: -10 }}
 															animate={{ opacity: 1, x: 0 }}
@@ -694,8 +818,8 @@ export default function SettingsPage() {
 															<CheckCircle2 className="h-4 w-4" />
 															Settings saved!
 														</motion.div>
-													)}
-													{success && !error && !saveSuccess && (
+													</Show>
+													<Show when={all(success, !error, !saveSuccess)}>
 														<motion.div
 															initial={{ opacity: 0, x: -10 }}
 															animate={{ opacity: 1, x: 0 }}
@@ -705,18 +829,18 @@ export default function SettingsPage() {
 															<CheckCircle2 className="h-4 w-4" />
 															Connection verified!
 														</motion.div>
-													)}
+													</Show>
 												</AnimatePresence>
 											</div>
 										</>
-									)}
+									</Show>
 								</CardContent>
 							</Card>
 						</div>
-					)}
+					</Show>
 
 					{/* Account Tab */}
-					{activeTab === "account" && (
+					<Show when={activeTab === "account"}>
 						<div className="grid gap-6">
 							{/* Security */}
 							<Card>
@@ -755,9 +879,7 @@ export default function SettingsPage() {
 												<Smartphone className="h-5 w-5 text-muted-foreground" />
 											</div>
 											<div>
-												<p className="font-medium">
-													Two-Factor Authentication
-												</p>
+												<p className="font-medium">Two-Factor Authentication</p>
 												<p className="text-sm text-muted-foreground">
 													Add an extra layer of security to your account
 												</p>
@@ -793,8 +915,7 @@ export default function SettingsPage() {
 											<div>
 												<p className="font-medium">Email Notifications</p>
 												<p className="text-sm text-muted-foreground">
-													Receive updates about your applications and
-													resumes
+													Receive updates about your applications and resumes
 												</p>
 											</div>
 										</div>
@@ -824,8 +945,7 @@ export default function SettingsPage() {
 										<div>
 											<p className="font-medium">Delete Account</p>
 											<p className="text-sm text-muted-foreground">
-												Permanently delete your account and all associated
-												data
+												Permanently delete your account and all associated data
 											</p>
 										</div>
 										<Button variant="destructive" size="sm" disabled>
@@ -838,10 +958,10 @@ export default function SettingsPage() {
 								</CardContent>
 							</Card>
 						</div>
-					)}
+					</Show>
 
 					{/* Billing Tab */}
-					{activeTab === "billing" && (
+					<Show when={activeTab === "billing"}>
 						<div className="grid gap-6">
 							{/* Current Plan */}
 							<Card>
@@ -936,10 +1056,10 @@ export default function SettingsPage() {
 								</CardContent>
 							</Card>
 						</div>
-					)}
+					</Show>
 
 					{/* Integrations Tab */}
-					{activeTab === "integrations" && (
+					<Show when={activeTab === "integrations"}>
 						<div className="grid gap-6">
 							{/* Email Integrations */}
 							<Card>
@@ -957,9 +1077,11 @@ export default function SettingsPage() {
 									<div className="flex items-center justify-between rounded-lg border p-4">
 										<div className="flex items-center gap-3">
 											<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--danger-soft)]">
-												<img
+												<Image
 													src="/gmail.svg"
 													alt="Gmail"
+													width={24}
+													height={24}
 													className="h-6 w-6"
 												/>
 											</div>
@@ -982,9 +1104,11 @@ export default function SettingsPage() {
 									<div className="flex items-center justify-between rounded-lg border p-4">
 										<div className="flex items-center gap-3">
 											<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--info-soft)]">
-												<img
+												<Image
 													src="/outlook.svg"
 													alt="Outlook"
+													width={24}
+													height={24}
 													className="h-6 w-6"
 												/>
 											</div>
@@ -1021,9 +1145,11 @@ export default function SettingsPage() {
 									<div className="flex items-center justify-between rounded-lg border p-4">
 										<div className="flex items-center gap-3">
 											<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--info-soft)]">
-												<img
+												<Image
 													src="/g-calendar.svg"
 													alt="Google Calendar"
+													width={24}
+													height={24}
 													className="h-6 w-6"
 												/>
 											</div>
@@ -1046,9 +1172,11 @@ export default function SettingsPage() {
 									<div className="flex items-center justify-between rounded-lg border p-4">
 										<div className="flex items-center gap-3">
 											<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--info-soft)]">
-												<img
+												<Image
 													src="/outlook-calendar.svg"
 													alt="Outlook Calendar"
+													width={24}
+													height={24}
 													className="h-6 w-6"
 												/>
 											</div>
@@ -1089,6 +1217,7 @@ export default function SettingsPage() {
 													className="h-5 w-5"
 													viewBox="0 0 24 24"
 													fill="#0A66C2"
+													aria-hidden="true"
 												>
 													<path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
 												</svg>
@@ -1110,7 +1239,7 @@ export default function SettingsPage() {
 								</CardContent>
 							</Card>
 						</div>
-					)}
+					</Show>
 				</motion.div>
 			</div>
 		</div>

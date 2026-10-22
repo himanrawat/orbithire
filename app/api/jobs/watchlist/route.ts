@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { badRequest, parseWatchedInput, requireUser, serverError } from "@/lib/jobs/server";
 import { detectAts } from "@/lib/jobs/portals";
+import { parseJson } from "@/lib/api";
+import { watchedCompanyCreateSchema } from "@/lib/schemas/api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,7 +13,7 @@ export async function GET() {
 	if (auth.error) return auth.error;
 	const { data, error } = await auth.supabase
 		.from("watched_companies")
-		.select("*")
+		.select("id,user_id,company,ats,board_token,careers_url,enabled,created_at,updated_at")
 		.eq("user_id", auth.user.id)
 		.order("company", { ascending: true });
 	if (error) return serverError("Failed to load watchlist", error);
@@ -23,8 +25,9 @@ export async function GET() {
 export async function POST(req: NextRequest) {
 	const auth = await requireUser();
 	if (auth.error) return auth.error;
-	const body = await req.json().catch(() => null);
-	if (!body || typeof body !== "object") return badRequest("Invalid JSON body");
+	const parsed = await parseJson(req, watchedCompanyCreateSchema);
+	if (!parsed.success) return parsed.response;
+	const body: Record<string, unknown> = { ...parsed.data };
 	if (body.careers_url && (!body.ats || !body.board_token)) {
 		const d = detectAts(String(body.careers_url));
 		if (d.ats && d.token) {
@@ -37,7 +40,7 @@ export async function POST(req: NextRequest) {
 	const { data, error } = await auth.supabase
 		.from("watched_companies")
 		.insert({ ...input, user_id: auth.user.id })
-		.select("*")
+		.select("id,user_id,company,ats,board_token,careers_url,enabled,created_at,updated_at")
 		.single();
 	if (error) {
 		if (error.code === "23505") return badRequest("This board is already on your watchlist");

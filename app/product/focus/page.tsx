@@ -27,7 +27,7 @@ const STAGE_COPY = {
 	leader: "90 minute blocks for planning, writing and hiring work, protected on the calendar.",
 };
 
-export default function FocusPage({ searchParams }: { searchParams?: SearchParams }) {
+export default function FocusPage({ searchParams }: Readonly<{ searchParams?: SearchParams }>) {
 	const redirectQuery = getRedirectQuery(searchParams);
 	return (
 		<MarketingShell redirectQuery={redirectQuery}>

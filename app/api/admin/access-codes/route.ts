@@ -1,26 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceSupabase } from "@/lib/supabaseServer";
-import { cookies } from "next/headers";
+import { requireAdmin } from "@/lib/adminAuth";
 import crypto from "crypto";
-
-async function verifyAdmin() {
-	const cookieStore = cookies();
-	const adminToken = cookieStore.get("admin_token");
-
-	if (!adminToken) {
-		return null;
-	}
-
-	const supabase = createServiceSupabase();
-	const { data: admin } = await supabase
-		.from("admin_users")
-		.select("id, email, name, role")
-		.eq("id", adminToken.value)
-		.eq("is_active", true)
-		.single();
-
-	return admin;
-}
+import { parseJson } from "@/lib/api";
+import { accessCodeSchema } from "@/lib/schemas/admin";
 
 function generateCode(): string {
 	const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -34,7 +17,7 @@ function generateCode(): string {
 
 export async function GET() {
 	try {
-		const admin = await verifyAdmin();
+		const admin = await requireAdmin();
 		if (!admin) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
@@ -43,7 +26,7 @@ export async function GET() {
 
 		const { data: codes, error } = await supabase
 			.from("admin_access_codes")
-			.select("*")
+			.select("id,code,created_by,used_by,used_at,expires_at,is_active,created_at")
 			.order("created_at", { ascending: false });
 
 		if (error) {
@@ -66,15 +49,13 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
 	try {
-		const admin = await verifyAdmin();
+		const admin = await requireAdmin("super_admin");
 		if (!admin) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
-		if (admin.role !== "super_admin") {
-			return NextResponse.json({ error: "Only super admin can create codes" }, { status: 403 });
-		}
-
-		const { expiresInDays } = await req.json();
+		const parsed = await parseJson(req, accessCodeSchema);
+		if (!parsed.success) return parsed.response;
+		const { expiresInDays } = parsed.data;
 
 		const supabase = createServiceSupabase();
 
@@ -122,12 +103,9 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
 	try {
-		const admin = await verifyAdmin();
+		const admin = await requireAdmin("super_admin");
 		if (!admin) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-		}
-		if (admin.role !== "super_admin") {
-			return NextResponse.json({ error: "Only super admin can delete codes" }, { status: 403 });
 		}
 
 		const { searchParams } = new URL(req.url);

@@ -10,6 +10,8 @@ import {
 	sanitizeProfileValue,
 	type ProfileField,
 } from "@/lib/import/profile";
+import { parseJson } from "@/lib/api";
+import { importProfileSchema } from "@/lib/schemas/api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -79,15 +81,9 @@ export async function POST(req: NextRequest) {
 		return NextResponse.json({ rows: diffProfile(current, proposed) });
 	}
 
-	let body: { fields?: unknown };
-	try {
-		body = await req.json();
-	} catch {
-		return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-	}
-	if (!body.fields || typeof body.fields !== "object" || Array.isArray(body.fields)) {
-		return NextResponse.json({ error: "fields must be an object" }, { status: 400 });
-	}
+	const parsed = await parseJson(req, importProfileSchema);
+	if (!parsed.success) return parsed.response;
+	const body = parsed.data;
 	const update: Record<string, unknown> = {};
 	const extendedPatch: Record<string, unknown> = {};
 	const applied: ProfileField[] = [];

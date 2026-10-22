@@ -99,12 +99,12 @@ function HeaderLink({
 	className,
 	onClick,
 	children,
-}: {
+}: Readonly<{
 	href: string;
 	className?: string;
 	onClick: (event: MouseEvent<HTMLAnchorElement>) => void;
 	children: ReactNode;
-}) {
+}>) {
 	// Native anchors give same-page section links predictable preventDefault semantics. Next's
 	// client navigation can otherwise write the hash after the click handler has removed it.
 	if (href.includes("#")) {
@@ -126,11 +126,11 @@ function PanelCard({
 	item,
 	compact = false,
 	onPick,
-}: {
+}: Readonly<{
 	item: PanelCardItem;
 	compact?: boolean;
 	onPick: (event: MouseEvent<HTMLAnchorElement>, href: string) => void;
-}) {
+}>) {
 	const shell =
 		"group relative flex overflow-hidden rounded-xl border border-[var(--night-line)] bg-white/[0.02] transition-colors hover:border-[var(--line-control)] hover:bg-white/[0.04]";
 
@@ -167,10 +167,10 @@ function PanelCard({
 function DropdownPanel({
 	panel,
 	onPick,
-}: {
+}: Readonly<{
 	panel: MenuPanel;
 	onPick: (event: MouseEvent<HTMLAnchorElement>, href: string) => void;
-}) {
+}>) {
 	if (panel.id === "product") {
 		const [today, prep, focus, jobs] = panel.items;
 		return (
@@ -194,7 +194,7 @@ function DropdownPanel({
 	);
 }
 
-export function SiteHeader({ redirectQuery = "" }: { redirectQuery?: string }) {
+export function SiteHeader({ redirectQuery = "" }: Readonly<{ redirectQuery?: string }>) {
 	const [activeMenu, setActiveMenu] = useState<PanelId | null>(null);
 	const [mobileOpen, setMobileOpen] = useState(false);
 	const [mobileActiveMenu, setMobileActiveMenu] = useState<PanelId | null>(null);

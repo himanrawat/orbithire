@@ -112,6 +112,32 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 	return json as T;
 }
 
+type PortalImportResult = {
+	companiesAdded: number;
+	companiesUpdated: number;
+	companiesSkipped: string[];
+	search: { created: boolean } | null;
+	searchSkipped?: string | null;
+};
+
+function portalImportNotice(result: PortalImportResult) {
+	const prefix =
+		`Imported: ${result.companiesAdded} companies added, ${result.companiesUpdated} updated, ` +
+		`${result.companiesSkipped.length} skipped (no supported ATS board)`;
+	if (result.search) {
+		return `${prefix}; default search ${result.search.created ? "created" : "updated"}.`;
+	}
+	return result.searchSkipped ? `${prefix}. ${result.searchSkipped}` : `${prefix}.`;
+}
+
+function sourceTitle(source: (typeof API_SOURCES)[number]) {
+	if (source.blocked) return `${source.label} can't be read without a browser, so it is skipped`;
+	if (source.scraper) return "Reads public listing pages (no API): opt-in, low volume, may stop working";
+	if (source.env.length) return `Needs ${source.env.join(" + ")} on the server`;
+	if (source.remoteOnly) return "Remote jobs only";
+	return undefined;
+}
+
 export function JobSearchSettings() {
 	const [searches, setSearches] = useState<JobSearch[]>([]);
 	const [companies, setCompanies] = useState<WatchedCompany[]>([]);
@@ -119,7 +145,7 @@ export function JobSearchSettings() {
 	const [error, setError] = useState<string | null>(null);
 	const [notice, setNotice] = useState<string | null>(null);
 
-	const [editing, setEditing] = useState<string | "new" | null>(null);
+	const [editing, setEditing] = useState<string | null>(null);
 	const [form, setForm] = useState<SearchForm>(EMPTY_SEARCH);
 	const [saving, setSaving] = useState(false);
 
@@ -144,7 +170,7 @@ export function JobSearchSettings() {
 	}, []);
 
 	useEffect(() => {
-		load();
+		void load();
 	}, [load]);
 
 	const run = async (fn: () => Promise<unknown>, ok?: string) => {
@@ -203,22 +229,11 @@ export function JobSearchSettings() {
 		const fd = new FormData();
 		fd.append("file", file);
 		await run(async () => {
-			const r = await api<{
-				companiesAdded: number;
-				companiesUpdated: number;
-				companiesSkipped: string[];
-				search: { created: boolean } | null;
-				searchSkipped?: string | null;
-			}>("/api/jobs/import-portals", { method: "POST", body: fd });
-			setNotice(
-				`Imported: ${r.companiesAdded} companies added, ${r.companiesUpdated} updated, ` +
-					`${r.companiesSkipped.length} skipped (no supported ATS board)` +
-					(r.search
-						? `; default search ${r.search.created ? "created" : "updated"}.`
-						: r.searchSkipped
-							? `. ${r.searchSkipped}`
-							: ".")
-			);
+			const result = await api<PortalImportResult>("/api/jobs/import-portals", {
+				method: "POST",
+				body: fd,
+			});
+			setNotice(portalImportNotice(result));
 		});
 		setImporting(false);
 		if (fileRef.current) fileRef.current.value = "";
@@ -287,7 +302,7 @@ export function JobSearchSettings() {
 									<Button
 										size="sm"
 										variant="ghost"
-										onClick={() => run(() => patch(`/api/jobs/searches/${s.id}`, { enabled: !s.enabled }))}
+									onClick={() => void run(() => patch(`/api/jobs/searches/${s.id}`, { enabled: !s.enabled }))}
 									>
 										{s.enabled ? "Pause" : "Enable"}
 									</Button>
@@ -306,7 +321,7 @@ export function JobSearchSettings() {
 										variant="ghost"
 										onClick={() => {
 											if (confirm(`Delete search "${s.name}"?`))
-												run(() => api(`/api/jobs/searches/${s.id}`, { method: "DELETE" }), "Search deleted");
+											void run(() => api(`/api/jobs/searches/${s.id}`, { method: "DELETE" }), "Search deleted");
 										}}
 									>
 										<Trash2 className="h-4 w-4" />
@@ -413,17 +428,7 @@ export function JobSearchSettings() {
 												<label
 													key={src.id}
 													className="flex items-center gap-1.5"
-													title={
-														src.blocked
-															? `${src.label} can't be read without a browser, so it is skipped`
-															: src.scraper
-																? "Reads public listing pages (no API): opt-in, low volume, may stop working"
-																: src.env.length
-																	? `Needs ${src.env.join(" + ")} on the server`
-																	: src.remoteOnly
-																		? "Remote jobs only"
-																		: undefined
-													}
+											title={sourceTitle(src)}
 												>
 													<input
 														type="checkbox"
@@ -485,7 +490,7 @@ export function JobSearchSettings() {
 										checked={form.remote_ok}
 										onChange={(e) => setForm({ ...form, remote_ok: e.target.checked })}
 									/>
-									Include remote jobs
+								<span>Include remote jobs</span>
 								</label>
 								<label className="flex items-center gap-2 pt-6 text-sm">
 									<input
@@ -493,11 +498,11 @@ export function JobSearchSettings() {
 										checked={form.enabled}
 										onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
 									/>
-									Enabled
+								<span>Enabled</span>
 								</label>
 							</div>
 							<div className="flex gap-2">
-								<Button onClick={saveSearch} disabled={saving}>
+							<Button onClick={() => void saveSearch()} disabled={saving}>
 									{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
 									Save search
 								</Button>
@@ -568,15 +573,15 @@ export function JobSearchSettings() {
 												type="checkbox"
 												checked={c.enabled}
 												onChange={() =>
-													run(() => patch(`/api/jobs/watchlist/${c.id}`, { enabled: !c.enabled }))
+												void run(() => patch(`/api/jobs/watchlist/${c.id}`, { enabled: !c.enabled }))
 												}
 											/>
-											enabled
+									<span>enabled</span>
 										</label>
 										<Button
 											size="icon"
 											variant="ghost"
-											onClick={() => run(() => api(`/api/jobs/watchlist/${c.id}`, { method: "DELETE" }))}
+										onClick={() => void run(() => api(`/api/jobs/watchlist/${c.id}`, { method: "DELETE" }))}
 										>
 											<Trash2 className="h-4 w-4" />
 										</Button>
@@ -661,7 +666,7 @@ export function JobSearchSettings() {
 						className="hidden"
 						onChange={(e) => {
 							const f = e.target.files?.[0];
-							if (f) importPortals(f);
+								if (f) void importPortals(f);
 						}}
 					/>
 					<Button variant="outline" disabled={importing} onClick={() => fileRef.current?.click()}>

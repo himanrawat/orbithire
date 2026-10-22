@@ -16,13 +16,13 @@ export function LegalPage({
 	intro,
 	updated,
 	sections,
-}: {
+}: Readonly<{
 	eyebrow: string;
 	title: string;
 	intro: ReactNode;
 	updated: string;
 	sections: LegalSection[];
-}) {
+}>) {
 	return (
 		<>
 			<section aria-labelledby="h1" className="pb-10 pt-10 md:pb-16 md:pt-20">

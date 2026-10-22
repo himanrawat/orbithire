@@ -34,7 +34,7 @@ const STAGE_COPY = {
 	leader: "Milestones worth recording, mentoring requests and long focus blocks for planning work.",
 };
 
-export default function TodayPage({ searchParams }: { searchParams?: SearchParams }) {
+export default function TodayPage({ searchParams }: Readonly<{ searchParams?: SearchParams }>) {
 	const redirectQuery = getRedirectQuery(searchParams);
 	return (
 		<MarketingShell redirectQuery={redirectQuery}>

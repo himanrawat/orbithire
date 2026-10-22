@@ -5,6 +5,7 @@
 import { useId, useState, type FormEvent } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { Field, FormError, SubmitButton } from "@/components/auth/auth-shell";
+import { CaptchaField, captchaHeaders, resetCaptcha } from "@/components/auth/CaptchaField";
 
 export function ContactForm() {
 	const messageId = useId();
@@ -24,7 +25,7 @@ export function ContactForm() {
 		try {
 			const res = await fetch("/api/contact", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: { "Content-Type": "application/json", ...captchaHeaders() },
 				body: JSON.stringify({ name, email, subject, message }),
 			});
 			const data = await res.json();
@@ -40,6 +41,7 @@ export function ContactForm() {
 		} catch {
 			setError("Your message didn't send. Check your connection and try again.");
 		} finally {
+			resetCaptcha();
 			setLoading(false);
 		}
 	};
@@ -96,6 +98,7 @@ export function ContactForm() {
 					className="w-full resize-y rounded-[var(--radius-control)] border border-[var(--line-control)] bg-[var(--surface)] px-3.5 py-3 text-base text-[var(--ink)] outline-none transition-colors placeholder:text-[var(--ink-muted)] focus:border-[var(--focus)] disabled:opacity-40"
 				/>
 			</div>
+			<CaptchaField />
 			{error && <FormError>{error}</FormError>}
 			<SubmitButton label="Send message" busyLabel="Sending…" busy={loading} />
 		</form>

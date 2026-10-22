@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { revokeCurrentAdminSession } from "@/lib/adminAuth";
 
 export async function POST() {
 	try {
-		const cookieStore = cookies();
-		cookieStore.delete("admin_token");
+		await revokeCurrentAdminSession();
 
 		return NextResponse.json({ success: true });
 	} catch (error) {

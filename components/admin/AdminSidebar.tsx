@@ -38,10 +38,10 @@ const rowBase =
 	"relative flex min-h-10 items-center gap-3 rounded-[var(--radius-control)] px-3 text-sm font-medium transition-colors duration-[var(--duration-quick)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--night-ink)]";
 const rowIdle = "text-[var(--night-muted)] hover:bg-white/[0.06] hover:text-[var(--night-ink)]";
 
-interface AdminSidebarProps {
+type AdminSidebarProps = Readonly<{
 	adminName?: string;
 	adminEmail?: string;
-}
+}>;
 
 export function AdminSidebar({ adminName = "Admin", adminEmail }: AdminSidebarProps) {
 	const pathname = usePathname();
@@ -60,7 +60,7 @@ export function AdminSidebar({ adminName = "Admin", adminEmail }: AdminSidebarPr
 				setRole(null);
 			}
 		};
-		fetchRole();
+		void fetchRole();
 	}, []);
 
 	// close the sheet when the route changes

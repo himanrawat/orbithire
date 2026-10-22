@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createProvider, testProviderConfig } from "@/lib/ai/providerFactory";
-import { getProviderModels, type ModelInfo } from "@/lib/ai/providers/registry";
+import { testProviderConfig } from "@/lib/ai/providerFactory";
+import { getProviderModels } from "@/lib/ai/providers/registry";
+import { parseJson } from "@/lib/api";
+import { modelLookupSchema } from "@/lib/schemas/api";
 
 type Provider = "openai" | "groq" | "anthropic" | "gemini" | "custom";
 
@@ -11,10 +13,11 @@ export const runtime = "nodejs";
  * Returns categorized models from our registry
  */
 export async function POST(req: NextRequest) {
-	const body = (await req.json().catch(() => null)) || {};
-	const provider: Provider = body.provider || "openai";
-	const apiKey: string | undefined = body.apiKey;
-	const baseURL: string | undefined = body.baseUrl;
+	const parsed = await parseJson(req, modelLookupSchema);
+	if (!parsed.success) return parsed.response;
+	const provider: Provider = parsed.data.provider ?? "openai";
+	const apiKey = parsed.data.apiKey;
+	const baseURL = parsed.data.baseUrl;
 
 	if (!apiKey) {
 		return NextResponse.json(

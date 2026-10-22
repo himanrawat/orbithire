@@ -27,7 +27,7 @@ const MONTHS = [
 	"December",
 ];
 
-function Calendar({ selected, onSelect, className }: CalendarProps) {
+function Calendar({ selected, onSelect, className }: Readonly<CalendarProps>) {
 	const [viewDate, setViewDate] = React.useState(() => selected || new Date());
 
 	const year = viewDate.getFullYear();

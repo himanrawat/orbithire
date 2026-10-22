@@ -1,5 +1,4 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { serverEnv } from "@/lib/config";
 import {
@@ -9,8 +8,11 @@ import {
 	COVER_LETTER_SYSTEM_PROMPT,
 } from "@/lib/prompts/resume";
 import { createProvider } from "@/lib/ai/providerFactory";
-import { ProviderError, type ProviderInitConfig } from "@/lib/ai/providers/baseProvider";
+import { ProviderError, ProviderErrorType, type ProviderInitConfig } from "@/lib/ai/providers/baseProvider";
 import { decryptApiKey } from "@/lib/encryption";
+import { createServerSupabase, createServiceSupabase } from "@/lib/supabaseServer";
+import { z } from "zod";
+import { parseJson } from "@/lib/api";
 
 export const runtime = "nodejs";
 // Reads the session from req.cookies, which does not opt out of Next's fetch cache:
@@ -76,21 +78,288 @@ async function fetchPhotoAsBase64(
 	}
 }
 
-interface GenerateRequest {
-	jobTitle: string;
-	jobDescription: string;
-	companyName: string;
-	recruiterName?: string;
-	contactEmail?: string;
-	templateId: string;
-	generateCoverLetter?: boolean;
+const generateSchema = z.object({
+	jobTitle: z.string().trim().min(1).max(200),
+	jobDescription: z.string().trim().min(1).max(30_000),
+	companyName: z.string().trim().min(1).max(200),
+	recruiterName: z.string().trim().max(200).optional(),
+	recruiterEmail: z.string().trim().email().max(254).optional(),
+	contactEmail: z.string().trim().email().max(254).optional(),
+	templateId: z.string().trim().min(1).max(100),
+	generateCoverLetter: z.boolean().optional(),
+}).strict();
+
+type ResumePromptProfile = Parameters<typeof buildResumePrompt>[0];
+type CandidateProfile = ResumePromptProfile & {
+	customSections: NonNullable<ResumePromptProfile["customSections"]>;
+};
+type ResumeData = {
+	extractedKeywords?: string[];
+	label?: string;
+	summary?: string;
+	workHighlights?: Record<string, string[]>;
+	skillsOrdered?: string[];
+	customSectionHighlights?: Record<string, string[]>;
+};
+
+type ProfileRecord = {
+	full_name: string | null;
+	email: string | null;
+	phone: string | null;
+	location: string | null;
+	portfolio_url: string | null;
+	linkedin_url: string | null;
+	headline: string | null;
+	experience_summary: string | null;
+	bio: string | null;
+	avatar_url: string | null;
+	skills: string[] | null;
+	certifications: string[] | null;
+	extended_profile: unknown;
+	can_change_email: boolean | null;
+	resume_email: string | null;
+};
+
+type ExtendedProfile = {
+	work_experience?: Array<{
+		company: string;
+		role?: string;
+		title?: string;
+		start_date: string;
+		end_date?: string;
+		location?: string;
+		description?: string;
+	}>;
+	education?: Array<{
+		institution: string;
+		degree?: string;
+		field?: string;
+		area?: string;
+		location?: string;
+		start_date?: string;
+		end_date?: string;
+	}>;
+	customSections?: Array<{
+		title: string;
+		entries?: Array<{
+			title?: string;
+			description?: string;
+			value?: string;
+			url?: string;
+			link?: string;
+		}>;
+	}>;
+};
+
+function parseExtendedProfile(value: unknown): ExtendedProfile {
+	if (!value) return {};
+	if (typeof value === "object") return value as ExtendedProfile;
+	if (typeof value !== "string") return {};
+	try {
+		return JSON.parse(value) as ExtendedProfile;
+	} catch (error) {
+		console.warn("[generate/resume] Failed to parse extended_profile:", error);
+		return {};
+	}
+}
+
+function buildCandidateProfile(profile: ProfileRecord, requestedEmail?: string) {
+	const extended = parseExtendedProfile(profile.extended_profile);
+	const requestEmail = requestedEmail?.trim() || null;
+	const contactEmail = profile.can_change_email
+		? requestEmail || profile.resume_email || profile.email
+		: profile.email;
+	const candidateProfile: CandidateProfile = {
+		name: profile.full_name || "Candidate",
+		email: contactEmail || undefined,
+		phone: profile.phone || undefined,
+		location: profile.location || undefined,
+		portfolio: profile.portfolio_url || undefined,
+		linkedIn: profile.linkedin_url || undefined,
+		headline: profile.headline || undefined,
+		summary: profile.experience_summary || profile.bio || undefined,
+		profilePhotoUrl: profile.avatar_url || undefined,
+		experience: (extended.work_experience ?? []).map((experience) => ({
+			company: experience.company,
+			title: experience.role || experience.title || "",
+			startDate: experience.start_date,
+			endDate: experience.end_date,
+			location: experience.location || undefined,
+			highlights: experience.description
+				? experience.description.split(/[\n•]/).filter((item: string) => item.trim())
+				: [],
+		})),
+		education: (extended.education ?? []).map((education) => ({
+			institution: education.institution,
+			degree: education.degree || "Degree",
+			field: education.field || education.area || education.location || "",
+			startDate: education.start_date,
+			endDate: education.end_date,
+		})),
+		skills: profile.skills || [],
+		certifications: profile.certifications || [],
+		customSections: (extended.customSections ?? []).map((section) => ({
+			title: section.title,
+			entries: (section.entries || []).map((entry) => ({
+				title: entry.title || "",
+				description: entry.description || entry.value || "",
+				url: entry.url || entry.link || "",
+			})),
+		})),
+	};
+	return { candidateProfile, contactEmail };
+}
+
+function profileWorkHighlights(candidateProfile: CandidateProfile) {
+	return Object.fromEntries(
+		candidateProfile.experience.map((experience) => [experience.company, experience.highlights])
+	);
+}
+
+function ensureResumeDefaults(resumeData: ResumeData, candidateProfile: CandidateProfile) {
+	resumeData.workHighlights ??= profileWorkHighlights(candidateProfile);
+	resumeData.skillsOrdered = Array.isArray(resumeData.skillsOrdered)
+		? resumeData.skillsOrdered
+		: candidateProfile.skills;
+	resumeData.extractedKeywords = Array.isArray(resumeData.extractedKeywords)
+		? resumeData.extractedKeywords
+		: [];
+}
+
+function ensureExperienceHighlights(resumeData: ResumeData, candidateProfile: CandidateProfile) {
+	const missing: string[] = [];
+	for (const experience of candidateProfile.experience) {
+		const highlights = resumeData.workHighlights?.[experience.company];
+		if (highlights?.length) continue;
+		missing.push(experience.company);
+		resumeData.workHighlights ??= {};
+		resumeData.workHighlights[experience.company] = experience.highlights;
+	}
+	if (missing.length) {
+		console.warn("[generate/resume] Missing AI highlights for companies, used profile highlights:", missing);
+	}
+}
+
+function ensureCustomHighlights(resumeData: ResumeData, candidateProfile: CandidateProfile) {
+	const fallbacks: string[] = [];
+	resumeData.customSectionHighlights ??= {};
+	for (const section of candidateProfile.customSections || []) {
+		const highlights = [...(resumeData.customSectionHighlights[section.title] || [])];
+		section.entries.forEach((entry, index) => {
+			if (highlights[index]) return;
+			fallbacks.push(`${section.title}#${index + 1}`);
+			highlights[index] = entry.description || entry.title || "";
+		});
+		resumeData.customSectionHighlights[section.title] = highlights;
+	}
+	if (fallbacks.length) {
+		console.warn("[generate/resume] Missing AI highlights for custom sections, used profile entries:", fallbacks);
+	}
+}
+
+function parseResumeData(content: string, candidateProfile: CandidateProfile, jobTitle: string): ResumeData {
+	try {
+		const cleanedContent = content.replace(/```json\n?/gi, "").replace(/```\n?/g, "").trim();
+		const resumeData = JSON.parse(cleanedContent) as ResumeData;
+		ensureResumeDefaults(resumeData, candidateProfile);
+		ensureExperienceHighlights(resumeData, candidateProfile);
+		ensureCustomHighlights(resumeData, candidateProfile);
+		return resumeData;
+	} catch (error) {
+		console.error("Failed to parse resume JSON:", error, content);
+		return {
+			extractedKeywords: [],
+			summary: candidateProfile.summary || "",
+			label: jobTitle,
+			workHighlights: profileWorkHighlights(candidateProfile),
+			skillsOrdered: candidateProfile.skills,
+			customSectionHighlights: {},
+		};
+	}
+}
+
+async function generateCoverLetterText(
+	provider: Awaited<ReturnType<typeof createProvider>>,
+	model: string,
+	candidateProfile: CandidateProfile,
+	resumeData: ResumeData,
+	jobDescription: string,
+	jobTitle: string,
+	companyName: string,
+	recruiterName?: string
+) {
+	const topExperiences = candidateProfile.experience
+		.flatMap((experience) => experience.highlights.slice(0, 2))
+		.slice(0, 4);
+	const prompt = buildCoverLetterPrompt(
+		{ ...candidateProfile, topExperiences },
+		jobDescription,
+		jobTitle,
+		companyName,
+		recruiterName,
+		{ extractedKeywords: resumeData.extractedKeywords || [] }
+	);
+	const completion = await withProviderTimeout(provider.generateCompletion({
+		model,
+		systemPrompt: COVER_LETTER_SYSTEM_PROMPT,
+		userPrompt: prompt,
+		temperature: 0.5,
+		maxTokens: 1200,
+		responseFormat: "text",
+	}));
+	return completion.content.replace(/^```[a-z]*\n?/i, "").replace(/\n?```$/i, "").trim();
+}
+
+async function generationErrorResponse(
+	error: unknown,
+	creditReservationId: string | null,
+	hasUsableGeneration: boolean,
+	aiConfig: ProviderInitConfig
+) {
+	console.error("AI generation error:", error);
+	if (!(error instanceof ProviderError)) {
+		return NextResponse.json({ error: "Failed to generate content. Please try again." }, { status: 500 });
+	}
+	if (creditReservationId && !hasUsableGeneration) {
+		try {
+			const { error: refundError } = await createServiceSupabase().rpc("refund_generation_credit", {
+				p_reservation_id: creditReservationId,
+			});
+			if (refundError) console.error("Credit refund error:", refundError);
+		} catch (refundError) {
+			console.error("Credit refund error:", refundError);
+		}
+	}
+	const usesPlatformKey =
+		aiConfig.apiKey === process.env.GROQ_API_KEY || aiConfig.apiKey === process.env.OPENAI_API_KEY;
+	const message = usesPlatformKey
+		? "The built-in AI service is unavailable right now. Add your own API key in Settings → AI Provider, or try again later."
+		: [error.message, error.suggestion].filter(Boolean).join(" ");
+	return NextResponse.json({ error: message, type: error.type }, { status: 502 });
+}
+
+async function withProviderTimeout<T>(promise: Promise<T>, timeoutMs = 60_000) {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	try {
+		return await Promise.race([
+			promise,
+			new Promise<never>((_, reject) => {
+				timer = setTimeout(
+					() => reject(new ProviderError(ProviderErrorType.CONNECTION_FAILED, "AI provider timed out.")),
+					timeoutMs
+				);
+			}),
+		]);
+	} finally {
+		if (timer) clearTimeout(timer);
+	}
 }
 
 /**
  * Get AI configuration from user settings, falling back to environment variables
  */
 async function getAIConfig(
-	supabase: ReturnType<typeof createServerClient>,
+	supabase: ReturnType<typeof createServerSupabase>,
 	userId: string
 ): Promise<ProviderInitConfig | null> {
 	// First try to get user's saved settings
@@ -101,87 +370,37 @@ async function getAIConfig(
 		.single();
 
 	const provider = settings?.ai_provider || "groq";
-	// Decrypt the API key if it exists
-	let apiKey = settings?.ai_api_key_encrypted
+	const apiKey = settings?.ai_api_key_encrypted
 		? decryptApiKey(settings.ai_api_key_encrypted)
 		: null;
-	let baseURL = settings?.ai_base_url || undefined;
-	let model = settings?.ai_default_model || null;
+	const baseURL = settings?.ai_base_url || undefined;
+	const model = settings?.ai_default_model || undefined;
+	const defaultModels: Record<string, string> = {
+		groq: "llama-3.3-70b-versatile",
+		openai: "gpt-4o-mini",
+		anthropic: "claude-3-5-sonnet-20241022",
+		gemini: "gemini-1.5-flash",
+	};
 
-	// If user has their own key, use it
 	if (apiKey) {
-		// Set defaults for model if not specified
-		if (!model) {
-			if (provider === "groq") model = "llama-3.3-70b-versatile";
-			else if (provider === "openai") model = "gpt-4o-mini";
-			else if (provider === "anthropic") model = "claude-3-5-sonnet-20241022";
-			else if (provider === "gemini") model = "gemini-1.5-flash";
-		}
-
-		return {
-			provider,
-			apiKey,
-			baseURL,
-			model,
-		};
+		return { provider, apiKey, baseURL, model: model || defaultModels[provider] };
 	}
 
-	// Fall back to environment variables
-	if (provider === "groq" && process.env.GROQ_API_KEY) {
-		return {
-			provider: "groq",
-			apiKey: process.env.GROQ_API_KEY,
-			baseURL: "https://api.groq.com/openai/v1",
-			model: model || "llama-3.3-70b-versatile",
-		};
-	}
-
-	if (provider === "openai" && process.env.OPENAI_API_KEY) {
-		return {
-			provider: "openai",
-			apiKey: process.env.OPENAI_API_KEY,
-			baseURL: process.env.OPENAI_BASE_URL || undefined,
-			model: model || "gpt-4o-mini",
-		};
-	}
-
-	// Generic fallbacks
-	if (process.env.OPENAI_API_KEY) {
-		return {
-			provider: "openai",
-			apiKey: process.env.OPENAI_API_KEY,
-			baseURL: process.env.OPENAI_BASE_URL || undefined,
-			model: "gpt-4o-mini",
-		};
-	}
-
-	if (process.env.GROQ_API_KEY) {
-		return {
-			provider: "groq",
-			apiKey: process.env.GROQ_API_KEY,
-			baseURL: "https://api.groq.com/openai/v1",
-			model: "llama-3.3-70b-versatile",
-		};
-	}
-
-	return null;
+	const environmentConfigs: Record<string, ProviderInitConfig | null> = {
+		groq: process.env.GROQ_API_KEY ? {
+			provider: "groq", apiKey: process.env.GROQ_API_KEY,
+			baseURL: "https://api.groq.com/openai/v1", model: model || defaultModels.groq,
+		} : null,
+		openai: process.env.OPENAI_API_KEY ? {
+			provider: "openai", apiKey: process.env.OPENAI_API_KEY,
+			baseURL: process.env.OPENAI_BASE_URL || undefined, model: model || defaultModels.openai,
+		} : null,
+	};
+	return environmentConfigs[provider] || environmentConfigs.openai || environmentConfigs.groq || null;
 }
 
 export async function POST(req: NextRequest) {
-	// Authenticate user
-	const supabase = createServerClient(
-		serverEnv.supabaseUrl,
-		serverEnv.supabaseAnonKey,
-		{
-			cookies: {
-				get(name: string) {
-					return req.cookies.get(name)?.value;
-				},
-				set() {},
-				remove() {},
-			},
-		}
-	);
+	const supabase = createServerSupabase();
 
 	const {
 		data: { user },
@@ -193,12 +412,9 @@ export async function POST(req: NextRequest) {
 	}
 
 	// Parse request body
-	let body: GenerateRequest;
-	try {
-		body = await req.json();
-	} catch {
-		return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-	}
+	const parsed = await parseJson(req, generateSchema);
+	if (!parsed.success) return parsed.response;
+	const body = parsed.data;
 
 	const {
 		jobTitle,
@@ -209,17 +425,10 @@ export async function POST(req: NextRequest) {
 		generateCoverLetter = true,
 	} = body;
 
-	if (!jobTitle || !jobDescription || !companyName) {
-		return NextResponse.json(
-			{ error: "jobTitle, jobDescription, and companyName are required" },
-			{ status: 400 }
-		);
-	}
-
 	// Fetch user profile
 	const { data: profile, error: profileError } = await supabase
 		.from("profiles")
-		.select("*")
+		.select("full_name,email,phone,location,portfolio_url,linkedin_url,headline,experience_summary,bio,avatar_url,skills,certifications,extended_profile,can_change_email,resume_email")
 		.eq("id", user.id)
 		.single();
 
@@ -230,109 +439,10 @@ export async function POST(req: NextRequest) {
 		);
 	}
 
-	// Check generation quota using Supabase function
-	const { data: quotaData, error: quotaError } = await supabase.rpc(
-		"check_generation_quota",
-		{ p_user_id: user.id }
+	const { candidateProfile, contactEmail: contactEmailEffective } = buildCandidateProfile(
+		profile as ProfileRecord,
+		contactEmail
 	);
-
-	if (quotaError) {
-		console.error("Quota check error:", quotaError);
-		// Don't block on quota check errors, just log and continue
-	} else if (quotaData && !quotaData.can_generate) {
-		return NextResponse.json(
-			{
-				error: "Free generation limit reached. Please add your own API key in Settings to continue.",
-				quotaExceeded: true,
-				quota: {
-					used: quotaData.used,
-					limit: quotaData.limit,
-					remaining: quotaData.remaining,
-				},
-			},
-			{ status: 403 }
-		);
-	}
-
-	// Track if user is using free tier (for incrementing count after success)
-	const isUsingFreeTier = quotaData?.reason === "free_tier" || quotaData?.reason === "new_user";
-
-	// Parse extended profile data from extended_profile JSON
-	let extendedData: {
-		work_experience?: any[];
-		education?: any[];
-		custom_fields?: any[];
-		customSections?: any[];
-	} = {};
-
-	if (profile.extended_profile) {
-		if (typeof profile.extended_profile === "string") {
-			try {
-				extendedData = JSON.parse(profile.extended_profile);
-			} catch (e) {
-				console.warn("[generate/resume] Failed to parse extended_profile:", e);
-			}
-		} else if (typeof profile.extended_profile === "object") {
-			extendedData = profile.extended_profile;
-		}
-	}
-
-	// Use work experience from extended_profile JSON
-	const workExperience = extendedData.work_experience || [];
-
-	// Use education from extended_profile JSON
-	const education = extendedData.education || [];
-
-	// Use custom sections (e.g., Projects) from extended_profile JSON
-	const customSections = extendedData.customSections || [];
-
-	const contactEmailFromRequest =
-		typeof contactEmail === "string" && contactEmail.trim()
-			? contactEmail.trim()
-			: null;
-	const contactEmailEffective = profile.can_change_email
-		? contactEmailFromRequest || profile.resume_email || profile.email
-		: profile.email;
-
-	// Prepare profile for prompts (matches ResumeProfile interface)
-	const candidateProfile = {
-		name: profile.full_name || "Candidate",
-		email: contactEmailEffective || undefined,
-		phone: profile.phone || undefined,
-		location: profile.location || undefined,
-		portfolio: profile.portfolio_url || undefined,
-		linkedIn: profile.linkedin_url || undefined,
-		headline: profile.headline || undefined,
-		summary: profile.experience_summary || profile.bio || undefined,
-			profilePhotoUrl: profile.avatar_url || undefined,
-		experience: workExperience.map((exp: any) => ({
-			company: exp.company,
-			title: exp.role || exp.title,
-			startDate: exp.start_date,
-			endDate: exp.end_date,
-			location: exp.location || undefined,
-			highlights: exp.description
-				? exp.description.split(/\n|•/).filter((s: string) => s.trim())
-				: [],
-		})),
-		education: education.map((edu: any) => ({
-			institution: edu.institution,
-			degree: edu.degree || "Degree",
-			field: edu.field || edu.area || edu.location || "",
-			startDate: edu.start_date,
-			endDate: edu.end_date,
-		})),
-		skills: profile.skills || [],
-		certifications: profile.certifications || [],
-	customSections: customSections.map((section: any) => ({
-		title: section.title,
-		entries: (section.entries || []).map((entry: any) => ({
-			title: entry.title || "",
-			description: entry.description || entry.value || "",
-			url: entry.url || entry.link || "",
-		})),
-	})),
-};
 
 	// Get AI configuration from user settings or environment
 	const aiConfig = await getAIConfig(supabase, user.id);
@@ -351,6 +461,37 @@ export async function POST(req: NextRequest) {
 	// Create provider instance using factory
 	const provider = await createProvider(aiConfig);
 	const model = aiConfig.model || "gpt-4o-mini";
+	let creditReservationId: string | null = null;
+	let hasUsableGeneration = false;
+
+	// Eligibility and credit consumption happen in one locked database transaction.
+	const { data: reservation, error: reservationError } = await supabase.rpc(
+		"reserve_generation_credit"
+	);
+
+	if (reservationError || !reservation) {
+		console.error("Credit reservation error:", reservationError);
+		return NextResponse.json(
+			{ error: "Unable to reserve a generation credit. Please try again." },
+			{ status: 503 }
+		);
+	}
+
+	if (!reservation.reserved) {
+		return NextResponse.json(
+			{
+				error: "Generation credit limit reached. Add your own API key in Settings to continue.",
+				quotaExceeded: true,
+				quota: { remaining: reservation.remaining ?? 0 },
+			},
+			{ status: 403 }
+		);
+	}
+
+	creditReservationId = reservation.charged
+		? reservation.reservation_id
+		: null;
+	const photoPromise = fetchPhotoAsBase64(profile.avatar_url);
 
 	try {
 		// ============================================
@@ -390,7 +531,7 @@ export async function POST(req: NextRequest) {
 			skills: candidateProfile.skills,
 			customSections: candidateProfile.customSections.map((section) => ({
 				title: section.title,
-				entries: section.entries.map((entry: any) => ({
+				entries: section.entries.map((entry) => ({
 					title: entry.title,
 					hasUrl: !!entry.url,
 					descriptionPreview: entry.description?.slice(0, 60) || ""
@@ -400,15 +541,16 @@ export async function POST(req: NextRequest) {
 		console.log("=".repeat(80));
 
 		// Use provider abstraction for completion
-		const resumeCompletion = await provider.generateCompletion({
+		const resumeCompletion = await withProviderTimeout(provider.generateCompletion({
 			model,
 			systemPrompt: RESUME_SYSTEM_PROMPT,
 			userPrompt: resumePrompt,
 			temperature: 0.3,
 			maxTokens: 4500,
 			responseFormat: "json",
-		});
+		}));
 		const resumeContent = resumeCompletion.content;
+		hasUsableGeneration = resumeContent.trim().length > 0;
 
 		// LOG 2: Raw AI response
 		console.log("\n" + "=".repeat(80));
@@ -421,184 +563,20 @@ export async function POST(req: NextRequest) {
 		console.log(resumeContent.substring(Math.max(0, resumeContent.length - 500)));
 		console.log("=".repeat(80));
 
-		// Parse resume response with fallbacks
-		let resumeData: {
-			extractedKeywords?: string[];
-			label?: string;
-			summary?: string;
-			workHighlights?: Record<string, string[]>;
-			skillsOrdered?: string[];
-			customSectionHighlights?: Record<string, string[]>;
-		} = {};
-
-		try {
-			// Clean markdown fences if present
-			const cleanedContent = resumeContent
-				.replace(/```json\n?/gi, "")
-				.replace(/```\n?/g, "")
-				.trim();
-			resumeData = JSON.parse(cleanedContent);
-
-			// LOG 3: Successfully parsed AI output
-			console.log("\n" + "=".repeat(80));
-			console.log("✅ PARSED AI OUTPUT - Resume Data Structure");
-			console.log("=".repeat(80));
-			console.log(JSON.stringify({
-				extractedKeywords: resumeData.extractedKeywords,
-				label: resumeData.label,
-				summary: resumeData.summary?.substring(0, 200) + "...",
-				workHighlights: Object.keys(resumeData.workHighlights || {}).reduce((acc, company) => {
-					acc[company] = {
-						highlightsCount: resumeData.workHighlights?.[company]?.length || 0,
-						firstHighlight: resumeData.workHighlights?.[company]?.[0]?.substring(0, 100) + "..."
-					};
-					return acc;
-				}, {} as Record<string, any>),
-				skillsOrdered: resumeData.skillsOrdered,
-				customSectionHighlights: resumeData.customSectionHighlights
-			}, null, 2));
-			console.log("=".repeat(80));
-
-			// Validate essential fields exist
-			if (
-				!resumeData.workHighlights ||
-				typeof resumeData.workHighlights !== "object"
-			) {
-				console.warn("Missing workHighlights, building from profile");
-				resumeData.workHighlights = {};
-				for (const exp of candidateProfile.experience) {
-					resumeData.workHighlights[exp.company] = exp.highlights;
-				}
-			}
-
-			if (
-				!resumeData.skillsOrdered ||
-				!Array.isArray(resumeData.skillsOrdered)
-			) {
-				resumeData.skillsOrdered = candidateProfile.skills;
-			}
-
-			if (
-				!resumeData.extractedKeywords ||
-				!Array.isArray(resumeData.extractedKeywords)
-			) {
-				resumeData.extractedKeywords = [];
-			}
-
-			// Ensure each experience has highlights; fall back to profile highlights if missing
-			const missingExperience: string[] = [];
-			for (const exp of candidateProfile.experience) {
-				const aiHighlights = resumeData.workHighlights?.[exp.company];
-				if (!aiHighlights || aiHighlights.length === 0) {
-					missingExperience.push(exp.company);
-					if (!resumeData.workHighlights) resumeData.workHighlights = {};
-					resumeData.workHighlights[exp.company] = exp.highlights;
-				}
-			}
-			if (missingExperience.length) {
-				console.warn(
-					"[generate/resume] Missing AI highlights for companies, used profile highlights:",
-					missingExperience
-				);
-			}
-
-			// Ensure custom section highlights align with provided sections/entries
-			const customFallbacks: string[] = [];
-			if (!resumeData.customSectionHighlights) {
-				resumeData.customSectionHighlights = {};
-			}
-			for (const section of candidateProfile.customSections || []) {
-				const aiSectionHighlights =
-					resumeData.customSectionHighlights[section.title] || [];
-				const ensuredHighlights = [...aiSectionHighlights];
-				(section.entries || []).forEach((entry: any, index: number) => {
-					if (!ensuredHighlights[index]) {
-						customFallbacks.push(`${section.title}#${index + 1}`);
-						ensuredHighlights[index] = entry.description || entry.title || "";
-					}
-				});
-				resumeData.customSectionHighlights[section.title] = ensuredHighlights;
-			}
-			if (customFallbacks.length) {
-				console.warn(
-					"[generate/resume] Missing AI highlights for custom sections, used profile entries:",
-					customFallbacks
-				);
-			}
-		} catch (parseError: unknown) {
-			const errorMessage =
-				parseError instanceof Error
-					? parseError.message
-					: "Unknown parse error";
-			console.error(
-				"Failed to parse resume JSON:",
-				errorMessage,
-				resumeContent
-			);
-
-			// Build complete fallback from profile data
-			const fallbackHighlights: Record<string, string[]> = {};
-			for (const exp of candidateProfile.experience) {
-				fallbackHighlights[exp.company] = exp.highlights;
-			}
-
-			resumeData = {
-				extractedKeywords: [],
-				summary: candidateProfile.summary || "",
-				label: jobTitle,
-				workHighlights: fallbackHighlights,
-				skillsOrdered: candidateProfile.skills,
-				customSectionHighlights: {},
-			};
-		}
+		const resumeData = parseResumeData(resumeContent, candidateProfile, jobTitle);
 
 		// ============================================
 		// PHASE 2: Generate cover letter with extracted keywords
 		// ============================================
-		let coverLetter = "";
-		if (generateCoverLetter) {
-			const topExperiences = candidateProfile.experience
-				.flatMap((exp) => exp.highlights.slice(0, 2))
-				.slice(0, 4);
-
-			// Pass extracted keywords to cover letter for consistent terminology
-			const coverLetterPrompt = buildCoverLetterPrompt(
-				{
-					...candidateProfile,
-					topExperiences,
-				},
-				jobDescription,
-				jobTitle,
-				companyName,
-				recruiterName,
-				{ extractedKeywords: resumeData.extractedKeywords || [] }
-			);
-
-			const coverLetterCompletion = await provider.generateCompletion({
-				model,
-				systemPrompt: COVER_LETTER_SYSTEM_PROMPT,
-				userPrompt: coverLetterPrompt,
-				temperature: 0.5,
-				maxTokens: 1200,
-				responseFormat: "text",
-			});
-
-			coverLetter = coverLetterCompletion.content;
-
-			// Clean any markdown formatting from cover letter
-			coverLetter = coverLetter
-				.replace(/^```[a-z]*\n?/i, "")
-				.replace(/\n?```$/i, "")
-				.trim();
-		}
+		const coverLetter = generateCoverLetter
+			? await generateCoverLetterText(
+					provider, model, candidateProfile, resumeData, jobDescription,
+					jobTitle, companyName, recruiterName
+				)
+			: "";
 
 		// Fetch profile photo as base64 for embedding in resume HTML
-		const imageBase64 = await fetchPhotoAsBase64(profile.avatar_url);
-
-		// Increment free generation count if user is on free tier
-		if (isUsingFreeTier) {
-			await supabase.rpc("increment_free_generation", { p_user_id: user.id });
-		}
+		const imageBase64 = await photoPromise;
 
 		return NextResponse.json({
 			success: true,
@@ -626,20 +604,6 @@ export async function POST(req: NextRequest) {
 			},
 		});
 	} catch (error) {
-		console.error("AI generation error:", error);
-		if (error instanceof ProviderError) {
-			// Tell the user why (bad key, rate limit, ...) instead of a generic failure.
-			const platformKey =
-				aiConfig.apiKey === process.env.GROQ_API_KEY ||
-				aiConfig.apiKey === process.env.OPENAI_API_KEY;
-			const message = platformKey
-				? "The built-in AI service is unavailable right now. Add your own API key in Settings → AI Provider, or try again later."
-				: [error.message, error.suggestion].filter(Boolean).join(" ");
-			return NextResponse.json({ error: message, type: error.type }, { status: 502 });
-		}
-		return NextResponse.json(
-			{ error: "Failed to generate content. Please try again." },
-			{ status: 500 }
-		);
+		return generationErrorResponse(error, creditReservationId, hasUsableGeneration, aiConfig);
 	}
 }

@@ -1,26 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { createServiceSupabase } from "@/lib/supabaseServer";
 import { enqueueTask } from "@/lib/tasks";
-
-async function verifyAdmin() {
-	const cookieStore = cookies();
-	const adminToken = cookieStore.get("admin_token");
-
-	if (!adminToken) {
-		return null;
-	}
-
-	const supabase = createServiceSupabase();
-	const { data: admin } = await supabase
-		.from("admin_users")
-		.select("id, email, name")
-		.eq("id", adminToken.value)
-		.eq("is_active", true)
-		.single();
-
-	return admin;
-}
+import { requireAdmin } from "@/lib/adminAuth";
+import { parseJson } from "@/lib/api";
+import { enqueueTaskSchema } from "@/lib/schemas/admin";
 
 /**
  * Enqueue a test task from the admin panel (Phase 0 acceptance check).
@@ -28,12 +11,14 @@ async function verifyAdmin() {
  */
 export async function POST(req: NextRequest) {
 	try {
-		const admin = await verifyAdmin();
+		const admin = await requireAdmin();
 		if (!admin) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
 
-		const body = await req.json().catch(() => ({}));
+		const parsed = await parseJson(req, enqueueTaskSchema);
+		if (!parsed.success) return parsed.response;
+		const body = parsed.data;
 		if ((body.type ?? "noop") !== "noop") {
 			return NextResponse.json({ error: "Only noop tasks can be enqueued here" }, { status: 400 });
 		}

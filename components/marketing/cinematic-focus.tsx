@@ -72,7 +72,7 @@ function useReducedMotion() {
 	return reduced;
 }
 
-function Phone({ still }: { still?: boolean }) {
+function Phone({ still }: Readonly<{ still?: boolean }>) {
 	return (
 		<div className="bezel relative flex h-[580px] w-[280px] flex-col rounded-[3rem] will-change-transform">
 			<div className="hw-btn absolute -left-[3px] top-[120px] h-[25px] w-[3px] rounded-l-md" aria-hidden="true" />
@@ -179,7 +179,7 @@ function CardCopy() {
 	);
 }
 
-function Closing({ redirectQuery }: { redirectQuery: string }) {
+function Closing({ redirectQuery }: Readonly<{ redirectQuery: string }>) {
 	return (
 		<>
 			<div className="nm-grain mx-auto mb-8 grid w-[96px] gap-2 [--grain-o:.5]" aria-hidden="true">
@@ -207,7 +207,7 @@ function Closing({ redirectQuery }: { redirectQuery: string }) {
 	);
 }
 
-export function CinematicFocus({ redirectQuery }: { redirectQuery: string }) {
+export function CinematicFocus({ redirectQuery }: Readonly<{ redirectQuery: string }>) {
 	const still = useReducedMotion();
 	const containerRef = useRef<HTMLDivElement>(null);
 	const mainCardRef = useRef<HTMLDivElement>(null);

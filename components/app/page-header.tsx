@@ -13,7 +13,7 @@ export function PageHeader({
 	back,
 	actions,
 	className,
-}: {
+}: Readonly<{
 	title: ReactNode;
 	description?: ReactNode;
 	/** a lucide icon element, shown in a soft tile beside the title */
@@ -21,7 +21,7 @@ export function PageHeader({
 	back?: { href: string; label: string };
 	actions?: ReactNode;
 	className?: string;
-}) {
+}>) {
 	return (
 		<header className={cn("mb-8", className)}>
 			{back && (

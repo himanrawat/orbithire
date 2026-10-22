@@ -4,6 +4,18 @@ import { createClient } from "@supabase/supabase-js";
 import { serverEnv } from "@/lib/config";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { randomUUID } from "node:crypto";
+import { z } from "zod";
+import { parseJson } from "@/lib/api";
+import { enforceRateLimit } from "@/lib/requestSecurity";
+import { validateImageBuffer } from "@/lib/imageValidation";
+
+const schema = z.object({
+	email: z.string().trim().email().max(254).transform((value) => value.toLowerCase()),
+	password: z.string().min(8).max(256),
+	name: z.string().trim().min(1).max(120),
+	phone: z.string().trim().max(40).nullable().optional(),
+	avatar: z.string().max(7_500_000).nullable().optional(),
+}).strict();
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -43,6 +55,8 @@ async function uploadAvatar(dataUrl: string, userId: string) {
 	if (parsed.contentType && !ALLOWED_IMAGE_TYPES.has(parsed.contentType)) {
 		throw new Error("Use JPG, PNG, or WEBP images.");
 	}
+	const image = validateImageBuffer(parsed.buffer, parsed.contentType);
+	parsed.contentType = image.contentType;
 
 	const ext =
 		(parsed.contentType.includes("jpeg") && "jpg") ||
@@ -66,29 +80,18 @@ async function uploadAvatar(dataUrl: string, userId: string) {
 
 export async function POST(req: NextRequest) {
 	try {
-		const { email, password, name, phone, avatar } = await req.json();
-
-		// Basic validation
-		if (!email || !password) {
-			return NextResponse.json(
-				{ error: "Email and password are required" },
-				{ status: 400 }
-			);
-		}
-
-		if (!name?.trim()) {
-			return NextResponse.json(
-				{ error: "Name is required" },
-				{ status: 400 }
-			);
-		}
-
-		if (password.length < 6) {
-			return NextResponse.json(
-				{ error: "Password must be at least 6 characters" },
-				{ status: 400 }
-			);
-		}
+		const parsed = await parseJson(req, schema);
+		if (!parsed.success) return parsed.response;
+		const { email, password, name, phone, avatar } = parsed.data;
+		const limited = await enforceRateLimit(req, {
+			scope: "auth.signup",
+			limit: 5,
+			windowSeconds: 60 * 60,
+			identifier: email,
+			captchaAfter: 2,
+			captchaToken: req.headers.get("x-captcha-token"),
+		});
+		if (limited) return limited;
 
 		const supabase = createServerSupabase();
 		const { data, error } = await supabase.auth.signUp({
@@ -101,20 +104,12 @@ export async function POST(req: NextRequest) {
 			},
 		});
 
-		if (error) {
-			return NextResponse.json({ error: error.message }, { status: 400 });
-		}
+		if (error) console.error("Signup provider error:", error.message);
 
-		// Supabase returns a user with empty identities if email already exists (security measure)
-		if (data.user && data.user.identities?.length === 0) {
-			return NextResponse.json(
-				{ error: "An account with this email already exists. Please sign in instead." },
-				{ status: 409 }
-			);
-		}
+		const isNewUser = !!data.user && data.user.identities?.length !== 0 && !error;
 
 		// Create profile record if user was created successfully
-		if (data.user && serverEnv.supabaseServiceRoleKey) {
+		if (isNewUser && data.user && serverEnv.supabaseServiceRoleKey) {
 			const admin = createClient(
 				serverEnv.supabaseUrl,
 				serverEnv.supabaseServiceRoleKey,
@@ -162,7 +157,6 @@ export async function POST(req: NextRequest) {
 		return NextResponse.json({
 			success: true,
 			message: "Check your email for confirmation link",
-			user: data.user,
 		});
 	} catch {
 		return NextResponse.json(

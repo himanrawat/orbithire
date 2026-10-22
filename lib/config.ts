@@ -29,7 +29,12 @@ export const serverEnv = {
 		return process.env.SUPABASE_SERVICE_ROLE_KEY;
 	},
 	get r2Endpoint() {
-		return process.env.R2_ENDPOINT || process.env.R2_PUBLIC_BASE_URL;
+		return (
+			process.env.R2_ENDPOINT ||
+			(process.env.R2_ACCOUNT_ID
+				? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+				: undefined)
+		);
 	},
 	get r2Bucket() {
 		return process.env.R2_BUCKET;
@@ -41,7 +46,7 @@ export const serverEnv = {
 		return process.env.R2_SECRET_ACCESS_KEY;
 	},
 	get r2PublicBaseUrl() {
-		return process.env.R2_PUBLIC_BASE_URL || process.env.R2_ENDPOINT;
+		return process.env.R2_PUBLIC_BASE_URL;
 	},
 	// In production, require SITE_URL to be set. In development, allow localhost fallback.
 	get siteUrl() {
@@ -70,6 +75,11 @@ export const serverEnv = {
 	get maxUploadBytes() {
 		return (
 			parseInt(process.env.MAX_UPLOAD_BYTES || "", 10) || defaultMaxUploadBytes
+		);
+	},
+	get maxProxyBytes() {
+		return (
+			parseInt(process.env.MAX_PROXY_OBJECT_BYTES || "", 10) || 50 * 1024 * 1024
 		);
 	},
 };

@@ -153,7 +153,8 @@ async function main() {
 		const noTok = await post({});
 		check("no token → 401 + WWW-Authenticate", noTok.status === 401 && /^Bearer /.test(noTok.headers.get("www-authenticate") || ""), noTok.headers.get("www-authenticate") || "");
 		const badTok = await post({ Authorization: `Bearer ${revoked.token}` });
-		check("revoked token → 401 invalid_token", badTok.status === 401 && /invalid_token/.test(badTok.headers.get("www-authenticate") || ""), (await badTok.json()).error?.message);
+		const badTokenBody = (await badTok.json()) as { error?: { message?: string } };
+		check("revoked token → 401 invalid_token", badTok.status === 401 && /invalid_token/.test(badTok.headers.get("www-authenticate") || ""), badTokenBody.error?.message);
 		const junk = await post({ Authorization: "Bearer orb_nope" });
 		check("malformed token → 401", junk.status === 401);
 		const get = await fetch(MCP_URL, { headers: { Authorization: `Bearer ${rw.token}` } });

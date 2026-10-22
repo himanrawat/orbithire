@@ -25,7 +25,7 @@ type Admin = {
 	created_at: string;
 };
 
-export function AdminsPanel({ admins }: { admins: Admin[] }) {
+export function AdminsPanel({ admins }: Readonly<{ admins: Admin[] }>) {
 	const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [targetAdmin, setTargetAdmin] = useState<Admin | null>(null);

@@ -7,6 +7,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AuthHeading, AuthShell, Field, FormError, Stone, SubmitButton } from "./auth-shell";
+import { CaptchaField, captchaHeaders, resetCaptcha } from "./CaptchaField";
 
 const DUTIES: [string, string][] = [
 	["Users", "Look people up, fix emails and credits."],
@@ -51,7 +52,7 @@ export function AdminSignInForm() {
 		try {
 			const res = await fetch("/api/auth/admin/signin", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: { "Content-Type": "application/json", ...captchaHeaders() },
 				body: JSON.stringify({ email, password }),
 			});
 			const data = await res.json();
@@ -65,6 +66,7 @@ export function AdminSignInForm() {
 		} catch {
 			setError("We couldn't reach the server. Check your connection and try again.");
 		} finally {
+			resetCaptcha();
 			setLoading(false);
 		}
 	};
@@ -95,6 +97,7 @@ export function AdminSignInForm() {
 					required
 					disabled={loading}
 				/>
+				<CaptchaField />
 				{error && <FormError>{error}</FormError>}
 				<div className="mt-1">
 					<SubmitButton label="Sign in" busyLabel="Signing in" busy={loading} />
@@ -136,7 +139,7 @@ export function AdminSignUpForm() {
 		try {
 			const res = await fetch("/api/auth/admin/signup", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: { "Content-Type": "application/json", ...captchaHeaders() },
 				body: JSON.stringify({ name, email, password, accessCode }),
 			});
 			const data = await res.json();
@@ -149,6 +152,7 @@ export function AdminSignUpForm() {
 		} catch {
 			setError("We couldn't reach the server. Check your connection and try again.");
 		} finally {
+			resetCaptcha();
 			setLoading(false);
 		}
 	};
@@ -195,6 +199,7 @@ export function AdminSignUpForm() {
 					required
 					disabled={loading}
 				/>
+				<CaptchaField />
 				{error && <FormError>{error}</FormError>}
 				<div className="mt-1">
 					<SubmitButton label="Create admin account" busyLabel="Creating account" busy={loading} />

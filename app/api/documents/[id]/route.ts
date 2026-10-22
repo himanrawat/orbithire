@@ -10,6 +10,8 @@ import {
 import { getTypstTemplate } from "@/lib/typstTemplates";
 import { ACCENT_RE, resolveTemplateId } from "@/lib/templateCatalog";
 import type { DocumentType } from "@/lib/types/database";
+import { parseJson } from "@/lib/api";
+import { documentUpdateSchema } from "@/lib/schemas/api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,12 +54,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 	const doc = await findOwnedDocument(supabase, params.id, user.id, typeHint(req));
 	if (!doc) return NextResponse.json({ error: "Document not found" }, { status: 404 });
 
-	let body: Record<string, unknown>;
-	try {
-		body = await req.json();
-	} catch {
-		return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-	}
+	const parsed = await parseJson(req, documentUpdateSchema);
+	if (!parsed.success) return parsed.response;
+	const body = parsed.data;
 	const content = body.content_json;
 	if (!content || typeof content !== "object" || Array.isArray(content)) {
 		return NextResponse.json({ error: "content_json must be an object" }, { status: 400 });
