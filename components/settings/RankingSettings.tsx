@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { nativeSelectClass } from "@/components/app/blocks";
 
 /**
  * Settings → Job ranking & digest. Standalone; mount it in the Settings page
@@ -177,8 +178,8 @@ export function RankingSettings({ className }: { className?: string }) {
 	}
 	if (!data) {
 		return (
-			<div className={cn("flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-sm", className)}>
-				<AlertCircle className="h-4 w-4 text-red-500" />
+			<div className={cn("flex items-center gap-2 rounded-lg border border-[color-mix(in_srgb,var(--danger)_40%,transparent)] bg-[var(--danger-soft)] p-3 text-sm", className)}>
+				<AlertCircle className="h-4 w-4 text-[var(--danger)]" />
 				<span>{message?.text || "Could not load ranking settings"}</span>
 			</div>
 		);
@@ -304,7 +305,7 @@ export function RankingSettings({ className }: { className?: string }) {
 							onChange={(e) => update("dailyLlmLimit", Math.max(0, Math.floor(Number(e.target.value) || 0)))}
 						/>
 						<p className="text-xs text-muted-foreground">
-							Uses your own API key when you have one. Without one, OrbitHire&apos;s key scores up to 15 jobs a day while
+							Uses your own API key when you have one. Without one, NextMilestone&apos;s key scores up to 15 jobs a day while
 							you still have free generations. 0 turns AI scoring off.
 						</p>
 					</div>
@@ -339,7 +340,7 @@ export function RankingSettings({ className }: { className?: string }) {
 								disabled={!data.digestEnabled}
 								value={data.digestHour}
 								onChange={(e) => update("digestHour", Number(e.target.value))}
-								className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								className={nativeSelectClass}
 							>
 								{Array.from({ length: 24 }, (_, h) => (
 									<option key={h} value={h}>
@@ -376,7 +377,7 @@ export function RankingSettings({ className }: { className?: string }) {
 					<span
 						className={cn(
 							"flex items-center gap-1 text-sm",
-							message.type === "success" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+							message.type === "success" ? "text-[var(--success)]" : "text-[var(--danger)]"
 						)}
 					>
 						{message.type === "success" ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}

@@ -15,7 +15,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { GridBackground } from "@/components/ui/aceternity";
 import {
 	Dialog,
 	DialogContent,
@@ -33,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import { APPLICATION_STATUS, statusClass } from "@/components/app/status";
 import { PdfStatusBadge, type PdfStatusInfo } from "@/components/PdfStatusBadge";
 import type { PdfStatus } from "@/lib/types/database";
 import {
@@ -151,22 +151,22 @@ const statusOptions: {
 	{
 		value: "applied",
 		label: "Applied",
-		color: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+		color: "bg-[var(--info-soft)] text-[var(--info)]",
 	},
 	{
 		value: "interviewing",
 		label: "Interviewing",
-		color: "bg-green-500/10 text-green-600 dark:text-green-400",
+		color: "bg-[var(--success-soft)] text-[var(--success)]",
 	},
 	{
 		value: "offered",
 		label: "Offered",
-		color: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+		color: "bg-[var(--kind-prep-soft)] text-[var(--kind-prep)]",
 	},
 	{
 		value: "rejected",
 		label: "Rejected",
-		color: "bg-red-500/10 text-red-600 dark:text-red-400",
+		color: "bg-[var(--danger-soft)] text-[var(--danger)]",
 	},
 	{
 		value: "withdrawn",
@@ -489,17 +489,13 @@ export default function CompanyDetailPage({
 		});
 	};
 
-	const getStatusColor = (status: string) => {
-		return (
-			statusOptions.find((s) => s.value === status)?.color || "bg-secondary"
-		);
-	};
+	const getStatusColor = (status: string) => statusClass(status);
 
 	// Loading state
 	if (isLoading) {
 		return (
 			<div className="flex min-h-screen items-center justify-center">
-				<Loader2 className="h-8 w-8 animate-spin text-primary" />
+				<Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
 			</div>
 		);
 	}
@@ -508,7 +504,6 @@ export default function CompanyDetailPage({
 	if (error || !company) {
 		return (
 			<div className="min-h-screen">
-				<GridBackground />
 				<div className="relative px-6 py-8">
 					<Button variant="ghost" asChild className="mb-4">
 						<Link href="/companies">
@@ -533,16 +528,16 @@ export default function CompanyDetailPage({
 
 	return (
 		<div className="min-h-screen">
-			<GridBackground />
 
-			<div className="relative px-6 py-8">
+			<div className="relative mx-auto max-w-6xl px-4 py-8 md:px-8">
 				{/* Back button */}
-				<Button variant="ghost" asChild className="mb-4">
-					<Link href="/companies">
-						<ChevronLeft className="mr-2 h-4 w-4" />
-						Back to Applications
-					</Link>
-				</Button>
+				<Link
+					href="/companies"
+					className="-ml-1 mb-4 inline-flex min-h-9 items-center gap-1 rounded-[var(--radius-sm)] px-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+				>
+					<ChevronLeft className="h-4 w-4" />
+					Back to applications
+				</Link>
 
 				{/* Header */}
 				<motion.div
@@ -552,15 +547,15 @@ export default function CompanyDetailPage({
 				>
 					<div className="space-y-2">
 						<div className="flex items-center gap-3">
-							<div className="flex h-14 w-14 items-center justify-center rounded-xl bg-muted text-2xl font-bold">
+							<div className="flex h-14 w-14 flex-none items-center justify-center rounded-[var(--radius-md)] bg-secondary font-display text-2xl font-[680]">
 								{company.name.charAt(0)}
 							</div>
 							<div>
-								<h1 className="flex items-center gap-3 text-3xl font-bold tracking-tight">
+								<h1 className="font-display text-[28px] font-[680] leading-[34px] tracking-[-0.02em] md:text-[34px] md:leading-10">
 									{company.name}
 								</h1>
 								{company.job_title && (
-									<p className="text-lg text-muted-foreground">
+									<p className="text-[17px] text-muted-foreground">
 										{company.job_title}
 									</p>
 								)}
@@ -569,7 +564,7 @@ export default function CompanyDetailPage({
 						<div className="flex flex-wrap items-center gap-3">
 							<span
 								className={cn(
-									"rounded-full px-3 py-1 text-sm font-medium capitalize",
+									"rounded-full px-3 py-1 text-sm font-semibold capitalize",
 									getStatusColor(company.status)
 								)}
 							>
@@ -601,13 +596,13 @@ export default function CompanyDetailPage({
 									<X className="mr-2 h-4 w-4" />
 									Cancel
 								</Button>
-								<Button onClick={handleSave} disabled={isSaving}>
+								<Button variant="cap" onClick={handleSave} disabled={isSaving}>
 									{isSaving ? (
 										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 									) : (
 										<Check className="mr-2 h-4 w-4" />
 									)}
-									Save Changes
+									Save changes
 								</Button>
 							</>
 						) : (
@@ -617,7 +612,8 @@ export default function CompanyDetailPage({
 									Edit
 								</Button>
 								<Button
-									variant="destructive"
+									variant="outline"
+									className="text-[var(--danger)] hover:text-[var(--danger)]"
 									onClick={() => setShowDeleteModal(true)}
 								>
 									<Trash2 className="mr-2 h-4 w-4" />
@@ -632,7 +628,7 @@ export default function CompanyDetailPage({
 					{/* Main content */}
 					<div className="space-y-6 lg:col-span-2">
 						{/* Application Details */}
-						<Card className="border-border/50 bg-card/80 backdrop-blur">
+						<Card>
 							<CardHeader>
 								<CardTitle className="flex items-center gap-2">
 									<Building2 className="h-5 w-5" />
@@ -983,13 +979,13 @@ export default function CompanyDetailPage({
 													sorted[0];
 												if (!nextRound) return null;
 												return (
-													<div className="rounded-lg border border-green-500/30 bg-green-500/10 p-4">
+													<div className="rounded-lg border border-[color-mix(in_srgb,var(--success)_40%,transparent)] bg-[var(--success-soft)] p-4">
 														<p className="text-sm text-muted-foreground mb-2">
 															Next Interview Scheduled
 														</p>
 														<div className="flex items-center gap-2">
 															<Calendar className="h-4 w-4" />
-															<span className="font-medium text-green-600 dark:text-green-400">
+															<span className="font-medium text-[var(--success)]">
 																{nextRound.date
 																	? new Date(nextRound.date).toLocaleString(
 																			"en-US",
@@ -1044,7 +1040,7 @@ export default function CompanyDetailPage({
 
 						{/* Resume */}
 						{company.resumes.length > 0 && (
-							<Card className="border-border/50 bg-card/80 backdrop-blur">
+							<Card>
 								<CardHeader>
 									<CardTitle className="flex items-center gap-2">
 										<FileText className="h-5 w-5" />
@@ -1112,7 +1108,7 @@ export default function CompanyDetailPage({
 
 						{/* Cover Letter */}
 						{company.cover_letters.length > 0 && (
-							<Card className="border-border/50 bg-card/80 backdrop-blur">
+							<Card>
 								<CardHeader>
 									<CardTitle className="flex items-center gap-2">
 										<Mail className="h-5 w-5" />
@@ -1202,7 +1198,7 @@ export default function CompanyDetailPage({
 					{/* Sidebar */}
 					<div className="space-y-6">
 						{/* Quick Stats */}
-						<Card className="border-border/50 bg-card/80 backdrop-blur">
+						<Card>
 							<CardHeader>
 								<CardTitle className="text-lg">Quick Stats</CardTitle>
 							</CardHeader>
@@ -1247,7 +1243,7 @@ export default function CompanyDetailPage({
 						</Card>
 
 						{/* Quick Actions */}
-						<Card className="border-border/50 bg-card/80 backdrop-blur">
+						<Card>
 							<CardHeader>
 								<CardTitle className="text-lg">Quick Actions</CardTitle>
 							</CardHeader>
@@ -1282,7 +1278,7 @@ export default function CompanyDetailPage({
 						</Card>
 
 						{/* Timeline */}
-						<Card className="border-border/50 bg-card/80 backdrop-blur">
+						<Card>
 							<CardHeader>
 								<CardTitle className="text-lg">Timeline</CardTitle>
 								<CardDescription>Application history</CardDescription>
@@ -1313,24 +1309,8 @@ export default function CompanyDetailPage({
 									{company.status_history &&
 										company.status_history.length > 0 &&
 										company.status_history.map((entry, idx) => {
-											const getStatusDotColor = (status: string) => {
-												switch (status) {
-													case "saved":
-														return "bg-secondary";
-													case "applied":
-														return "bg-blue-500";
-													case "interviewing":
-														return "bg-green-500";
-													case "offered":
-														return "bg-purple-500";
-													case "rejected":
-														return "bg-red-500";
-													case "withdrawn":
-														return "bg-muted-foreground";
-													default:
-														return "bg-primary";
-												}
-											};
+											const getStatusDotColor = (status: string) =>
+												APPLICATION_STATUS[status]?.dot ?? "bg-muted-foreground";
 											const isLast = idx === company.status_history!.length - 1;
 											return (
 												<div

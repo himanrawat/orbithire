@@ -49,9 +49,9 @@ export function TemplateGallery({
 	return (
 		<div className="space-y-4">
 			<div className="flex items-center justify-between flex-wrap gap-2">
-				<h3 className="text-lg font-semibold">{title}</h3>
+				<h3 className="font-display text-lg font-[650] tracking-[-0.01em]">{title}</h3>
 				<p className="text-sm text-muted-foreground">
-					Click to select • Hover for full preview
+					Click to select · hover for a full preview
 				</p>
 			</div>
 
@@ -66,26 +66,25 @@ export function TemplateGallery({
 						<motion.div
 							key={template.id}
 							className={cn(
-								"group relative cursor-pointer rounded-xl border-2 bg-card transition-all duration-200",
+								"group relative cursor-pointer rounded-[var(--radius-md)] border bg-card transition-[border-color,box-shadow] duration-[var(--duration-base)]",
 								isSelected
-									? "border-primary shadow-lg shadow-primary/20"
-									: "border-border hover:border-primary/50"
+									? "border-foreground shadow-[var(--shadow-lift)] ring-1 ring-foreground"
+									: "border-border hover:border-input hover:shadow-[var(--shadow-lift)]"
 							)}
 							onClick={() => onSelect(template.id)}
 							onMouseEnter={() => setHoveredId(template.id)}
 							onMouseLeave={() => setHoveredId(null)}
-							whileHover={{ scale: 1.02 }}
-							whileTap={{ scale: 0.98 }}
+							whileTap={{ scale: 0.99 }}
 						>
 							{/* Selected indicator */}
 							{isSelected && (
-								<div className="absolute -right-2 -top-2 z-10 rounded-full bg-primary p-1">
-									<CheckCircle2 className="h-4 w-4 text-primary-foreground" />
+								<div className="absolute -right-2 -top-2 z-10 rounded-full bg-[var(--cap)] p-1">
+									<CheckCircle2 className="h-4 w-4 text-[var(--on-cap)]" />
 								</div>
 							)}
 
 							{/* Preview thumbnail - static image from R2 */}
-							<div className="relative aspect-[8.5/11] overflow-hidden rounded-t-lg bg-white">
+							<div className="relative aspect-[8.5/11] overflow-hidden rounded-t-[calc(var(--radius-md)-1px)] bg-white">
 								{/* Loading spinner - shown until image loads */}
 								{!isLoaded && (
 									<div className="absolute inset-0 flex items-center justify-center">
@@ -131,7 +130,7 @@ export function TemplateGallery({
 												e.stopPropagation();
 												onPreview(template.id);
 											}}
-											className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-lg transition hover:bg-gray-100"
+											className="flex items-center gap-2 rounded-[var(--radius-control)] bg-white px-4 py-2 text-sm font-semibold text-[#101216] shadow-[var(--shadow-float)] transition hover:bg-secondary"
 										>
 											<Eye className="h-4 w-4" />
 											Full Preview
@@ -144,7 +143,7 @@ export function TemplateGallery({
 							<div className="space-y-2 p-3">
 								<div className="flex items-center justify-between">
 									<h4 className="font-semibold text-sm">{template.name}</h4>
-									<span className="rounded-full bg-muted px-2 py-0.5 text-xs">
+									<span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-muted-foreground">
 										{template.style}
 									</span>
 								</div>
@@ -155,7 +154,7 @@ export function TemplateGallery({
 									{template.tags.slice(0, 3).map((tag: string) => (
 										<span
 											key={tag}
-											className="rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary"
+											className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground"
 										>
 											{tag}
 										</span>

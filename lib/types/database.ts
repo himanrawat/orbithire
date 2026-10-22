@@ -1,5 +1,5 @@
 /**
- * CVLeap AI Database Schema Types
+ * NextMilestone database schema types
  * These types mirror the Supabase database tables
  */
 

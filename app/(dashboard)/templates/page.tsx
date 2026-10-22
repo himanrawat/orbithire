@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Loader2, Sparkles } from "lucide-react";
+import { LayoutTemplate, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TemplateGallery } from "@/components/TemplateGallery";
+import { PageHeader } from "@/components/app/page-header";
 import type { TemplateInfo } from "@/lib/templateCatalog";
 
 /** Template gallery: Typst resume and cover letter templates. */
@@ -22,7 +23,7 @@ export default function TemplatesPage() {
 	if (!templates) {
 		return (
 			<div className="flex min-h-[50vh] items-center justify-center">
-				<Loader2 className="h-8 w-8 animate-spin text-primary" />
+				<Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
 			</div>
 		);
 	}
@@ -36,22 +37,21 @@ export default function TemplatesPage() {
 	};
 
 	return (
-		<div className="container mx-auto max-w-6xl space-y-10 px-4 py-8">
-			<div className="flex flex-wrap items-end justify-between gap-4">
-				<div>
-					<h1 className="text-3xl font-bold">Templates</h1>
-					<p className="mt-1 text-muted-foreground">
-						Every template renders a fast, ATS-checked PDF in the background. Pick one when you generate a
-						resume or cover letter, or switch templates any time in the document editor.
-					</p>
-				</div>
-				<Button asChild>
-					<Link href="/generate">
-						<Sparkles className="mr-2 h-4 w-4" />
-						Generate a resume
-					</Link>
-				</Button>
-			</div>
+		<div className="mx-auto max-w-6xl space-y-10 px-4 py-8 md:px-8">
+			<PageHeader
+				icon={<LayoutTemplate />}
+				title="Templates"
+				description="Every template renders a fast, ATS-checked PDF in the background. Pick one when you generate a resume or cover letter, or switch any time in the document editor."
+				actions={
+					<Button variant="cap" asChild>
+						<Link href="/generate">
+							<Sparkles className="h-4 w-4" />
+							Generate a resume
+						</Link>
+					</Button>
+				}
+				className="mb-0"
+			/>
 			<TemplateGallery title="Resume templates" templates={asGallery(resumes)} selectedId={selected} onSelect={setSelected} onPreview={open} />
 			<TemplateGallery title="Cover letter templates" templates={asGallery(letters)} selectedId={selected} onSelect={setSelected} onPreview={open} />
 		</div>

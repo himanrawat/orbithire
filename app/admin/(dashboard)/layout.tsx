@@ -39,8 +39,8 @@ export default async function AdminDashboardLayout({
 	return (
 		<div className="min-h-screen bg-background">
 			<AdminSidebar adminName={session.name} adminEmail={session.email} />
-			<main className="lg:pl-64 transition-all duration-300">
-				<div className="container py-8 px-4 lg:px-8">{children}</div>
+			<main className="lg:pl-64">
+				<div className="mx-auto max-w-7xl px-4 py-8 md:px-8">{children}</div>
 			</main>
 		</div>
 	);

@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, FileText, MessageSquare, TrendingUp } from "lucide-react";
 import { createServiceSupabase } from "@/lib/supabaseServer";
+import { PageHeader } from "@/components/app/page-header";
 
 async function getStats() {
 	const supabase = createServiceSupabase();
@@ -58,12 +59,7 @@ export default async function AdminDashboardPage() {
 
 	return (
 		<div className="space-y-8">
-			<div>
-				<h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-				<p className="text-muted-foreground">
-					Overview of your platform statistics and recent activity.
-				</p>
-			</div>
+			<PageHeader title="Dashboard" description="Overview of your platform statistics and recent activity." className="mb-0" />
 
 			{/* Stats Cards */}
 			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -73,7 +69,7 @@ export default async function AdminDashboardPage() {
 						<Users className="h-4 w-4 text-muted-foreground" />
 					</CardHeader>
 					<CardContent>
-						<div className="text-2xl font-bold">{stats.totalUsers}</div>
+						<div className="font-mono text-2xl font-semibold tabular-nums">{stats.totalUsers}</div>
 						<p className="text-xs text-muted-foreground">
 							+{stats.newUsersThisWeek} this week
 						</p>
@@ -86,7 +82,7 @@ export default async function AdminDashboardPage() {
 						<FileText className="h-4 w-4 text-muted-foreground" />
 					</CardHeader>
 					<CardContent>
-						<div className="text-2xl font-bold">{stats.totalResumes}</div>
+						<div className="font-mono text-2xl font-semibold tabular-nums">{stats.totalResumes}</div>
 						<p className="text-xs text-muted-foreground">Generated all time</p>
 					</CardContent>
 				</Card>
@@ -97,7 +93,7 @@ export default async function AdminDashboardPage() {
 						<MessageSquare className="h-4 w-4 text-muted-foreground" />
 					</CardHeader>
 					<CardContent>
-						<div className="text-2xl font-bold">{stats.newContacts}</div>
+						<div className="font-mono text-2xl font-semibold tabular-nums">{stats.newContacts}</div>
 						<p className="text-xs text-muted-foreground">Unread contact submissions</p>
 					</CardContent>
 				</Card>
@@ -108,7 +104,7 @@ export default async function AdminDashboardPage() {
 						<TrendingUp className="h-4 w-4 text-muted-foreground" />
 					</CardHeader>
 					<CardContent>
-						<div className="text-2xl font-bold">
+						<div className="font-mono text-2xl font-semibold tabular-nums">
 							{stats.totalUsers > 0
 								? `+${Math.round((stats.newUsersThisWeek / stats.totalUsers) * 100)}%`
 								: "0%"}
@@ -172,8 +168,8 @@ export default async function AdminDashboardPage() {
 											<span
 												className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
 													contact.status === "new"
-														? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-														: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+														? "bg-[var(--info-soft)] text-[var(--info)]"
+														: "bg-secondary text-foreground"
 												}`}
 											>
 												{contact.status}

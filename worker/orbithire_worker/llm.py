@@ -170,43 +170,67 @@ def _user_key(row: dict[str, Any] | None, cfg: RankingConfig) -> str | None:
         return None
 
 
+def _user_scorer(key: str | None, provider: str, base_url: str | None,
+                 user_model: str | None, cfg: RankingConfig) -> Scorer | None:
+    if key and provider == "anthropic":
+        return AnthropicScorer(key, cfg.ranking_anthropic_model, "user")
+    if key and provider == "openai":
+        return OpenAIChatScorer(
+            key, cfg.ranking_openai_model, "user", provider="openai", base_url=base_url)
+    if key and provider == "groq":
+        return OpenAIChatScorer(
+            key, user_model or cfg.ranking_groq_model, "user", provider="groq",
+            base_url=base_url or GROQ_BASE_URL)
+    if key and provider == "custom" and base_url and user_model:
+        return OpenAIChatScorer(
+            key, user_model, "user", provider="custom", base_url=base_url)
+    return None
+
+
+def _platform_scorer(quota: dict[str, Any] | None,
+                     cfg: RankingConfig) -> tuple[Scorer | None, str]:
+    allowed = cfg.ranking_platform_llm == "always" or (
+        cfg.ranking_platform_llm == "quota"
+        and bool((quota or {}).get("can_generate", True))
+    )
+    if not allowed:
+        reason = quota and quota.get("reason")
+        return None, (
+            "platform LLM disabled "
+            f"(RANKING_PLATFORM_LLM={cfg.ranking_platform_llm}, quota={reason})"
+        )
+    if cfg.anthropic_api_key:
+        return AnthropicScorer(
+            cfg.anthropic_api_key, cfg.ranking_anthropic_model, "platform"), ""
+    if cfg.openai_api_key:
+        return OpenAIChatScorer(
+            cfg.openai_api_key, cfg.ranking_openai_model, "platform"), ""
+    return None, "no LLM key configured"
+
+
+def _resolve_embedder(key: str | None, provider: str, base_url: str | None,
+                      cfg: RankingConfig) -> Embedder | None:
+    if key and provider == "openai" and not base_url:
+        return OpenAIEmbedder(key, cfg.embedding_model, "user")
+    if cfg.openai_api_key:
+        return OpenAIEmbedder(cfg.openai_api_key, cfg.embedding_model, "platform")
+    return None
+
+
 def resolve_clients(user_settings: dict[str, Any] | None, quota: dict[str, Any] | None,
                     cfg: RankingConfig) -> Clients:
-    provider = (user_settings or {}).get("ai_provider") or "groq"
-    base_url = (user_settings or {}).get("ai_base_url") or None
-    user_model = (user_settings or {}).get("ai_default_model") or None
+    settings = user_settings or {}
+    provider = settings.get("ai_provider") or "groq"
+    base_url = settings.get("ai_base_url") or None
+    user_model = settings.get("ai_default_model") or None
     key = _user_key(user_settings, cfg)
 
-    scorer: Scorer | None = None
+    scorer = _user_scorer(key, provider, base_url, user_model, cfg)
     platform_cap: int | None = None
     note = ""
-    if key and provider == "anthropic":
-        scorer = AnthropicScorer(key, cfg.ranking_anthropic_model, "user")
-    elif key and provider == "openai":
-        scorer = OpenAIChatScorer(key, cfg.ranking_openai_model, "user", provider="openai", base_url=base_url)
-    elif key and provider == "groq":
-        scorer = OpenAIChatScorer(key, user_model or cfg.ranking_groq_model, "user", provider="groq",
-                                  base_url=base_url or GROQ_BASE_URL)
-    elif key and provider == "custom" and base_url and user_model:
-        scorer = OpenAIChatScorer(key, user_model, "user", provider="custom", base_url=base_url)
-
     if scorer is None:
-        allowed = cfg.ranking_platform_llm == "always" or (
-            cfg.ranking_platform_llm == "quota" and bool((quota or {}).get("can_generate", True)))
-        if not allowed:
-            note = f"platform LLM disabled (RANKING_PLATFORM_LLM={cfg.ranking_platform_llm}, quota={quota and quota.get('reason')})"
-        elif cfg.anthropic_api_key:
-            scorer = AnthropicScorer(cfg.anthropic_api_key, cfg.ranking_anthropic_model, "platform")
-        elif cfg.openai_api_key:
-            scorer = OpenAIChatScorer(cfg.openai_api_key, cfg.ranking_openai_model, "platform")
-        else:
-            note = "no LLM key configured"
-        if scorer is not None:
-            platform_cap = cfg.ranking_platform_daily_limit
+        scorer, note = _platform_scorer(quota, cfg)
+        platform_cap = cfg.ranking_platform_daily_limit if scorer else None
 
-    embedder: Embedder | None = None
-    if key and provider == "openai" and not base_url:
-        embedder = OpenAIEmbedder(key, cfg.embedding_model, "user")
-    elif cfg.openai_api_key:
-        embedder = OpenAIEmbedder(cfg.openai_api_key, cfg.embedding_model, "platform")
+    embedder = _resolve_embedder(key, provider, base_url, cfg)
     return Clients(scorer, embedder, platform_cap, note)

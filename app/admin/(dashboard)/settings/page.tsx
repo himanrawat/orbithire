@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Save, Shield } from "lucide-react";
+import { PageHeader } from "@/components/app/page-header";
 
 export default function SettingsPage() {
 	const [loading, setLoading] = useState(false);
@@ -60,12 +61,7 @@ export default function SettingsPage() {
 
 	return (
 		<div className="space-y-6">
-			<div>
-				<h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-				<p className="text-muted-foreground">
-					Manage your admin account settings.
-				</p>
-			</div>
+			<PageHeader title="Settings" description="Manage your admin account settings." className="mb-0" />
 
 			{/* Change Password */}
 			<Card>
@@ -111,12 +107,12 @@ export default function SettingsPage() {
 							/>
 						</div>
 						{error && (
-							<div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+							<div className="rounded-[var(--radius-control)] bg-[var(--danger-soft)] p-3 text-sm text-[var(--danger)]">
 								{error}
 							</div>
 						)}
 						{success && (
-							<div className="rounded-md bg-green-100 p-3 text-sm text-green-800 dark:bg-green-900 dark:text-green-300">
+							<div className="rounded-md bg-[var(--success-soft)] p-3 text-sm text-[var(--success)]">
 								{success}
 							</div>
 						)}

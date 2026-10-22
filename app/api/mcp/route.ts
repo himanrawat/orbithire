@@ -1,5 +1,5 @@
 /**
- * /api/mcp – OrbitHire MCP server (Model Context Protocol), Phase 4.
+ * /api/mcp – NextMilestone MCP server (Model Context Protocol), Phase 4.
  *
  * Transport: Streamable HTTP in STATELESS mode via the SDK's web-standard
  * transport (no session ids; every POST builds a fresh server + transport and
@@ -38,7 +38,7 @@ function unauthorized(req: Request, error: "missing_token" | "invalid_token", de
 	// RFC 6750 §3: no error code when the request simply lacked credentials.
 	// RFC 9728 §5.1: resource_metadata points MCP clients at OAuth discovery.
 	const parts = [
-		`realm="OrbitHire MCP"`,
+		`realm="NextMilestone MCP"`,
 		`resource_metadata="${resourceMetadataUrlFor(req)}"`,
 		`scope="${SUPPORTED_SCOPES.join(" ")}"`,
 	];

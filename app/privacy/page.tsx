@@ -1,110 +1,117 @@
+import type { Metadata } from "next";
 import Link from "next/link";
-import { NavBar } from "@/components/NavBar";
-import { ArrowLeft } from "lucide-react";
-import { Suspense } from "react";
+import { MarketingShell, getRedirectQuery, pageMetadata, type SearchParams } from "@/components/marketing/marketing-shell";
+import { LegalPage, type LegalSection } from "@/components/marketing/legal-page";
 
-export default function PrivacyPage() {
+export const metadata: Metadata = pageMetadata(
+	"/privacy",
+	"Privacy policy | NextMilestone",
+	"What NextMilestone stores, why, how it's protected, and how to export or delete your data.",
+);
+
+// Change this when the policy text changes, not on every deploy.
+const UPDATED = "22 October 2026";
+
+const SECTIONS: LegalSection[] = [
+	{
+		id: "collect",
+		title: "Information we collect",
+		body: (
+			<>
+				<p>We collect information you provide directly to us, including:</p>
+				<ul>
+					<li>Account information (name, email address, password)</li>
+					<li>Profile information (work experience, education, skills)</li>
+					<li>Resume content and job descriptions you upload</li>
+					<li>Company and job application tracking data</li>
+				</ul>
+			</>
+		),
+	},
+	{
+		id: "use",
+		title: "How we use your information",
+		body: (
+			<>
+				<p>We use the information we collect to:</p>
+				<ul>
+					<li>Provide, maintain, and improve our services</li>
+					<li>Generate AI-powered resumes and cover letters</li>
+					<li>Send you notifications and reminders</li>
+					<li>Respond to your comments and questions</li>
+					<li>Protect against fraudulent or illegal activity</li>
+				</ul>
+			</>
+		),
+	},
+	{
+		id: "security",
+		title: "Data security",
+		body: (
+			<p>
+				We implement appropriate technical and organizational measures to protect your personal information against
+				unauthorized access, alteration, disclosure, or destruction. Your data is encrypted in transit and at rest.
+			</p>
+		),
+	},
+	{
+		id: "retention",
+		title: "Data retention",
+		body: (
+			<p>
+				We retain your personal information for as long as your account is active or as needed to provide you services.
+				You can request deletion of your account and associated data at any time through your account settings.
+			</p>
+		),
+	},
+	{
+		id: "third-parties",
+		title: "Third-party services",
+		body: (
+			<p>
+				We may use third-party services for authentication, payment processing, and AI capabilities. These services have
+				their own privacy policies governing the use of your information.
+			</p>
+		),
+	},
+	{
+		id: "rights",
+		title: "Your rights",
+		body: (
+			<>
+				<p>You have the right to:</p>
+				<ul>
+					<li>Access your personal data</li>
+					<li>Correct inaccurate data</li>
+					<li>Request deletion of your data</li>
+					<li>Export your data in a portable format</li>
+					<li>Opt out of marketing communications</li>
+				</ul>
+			</>
+		),
+	},
+	{
+		id: "contact",
+		title: "Contact us",
+		body: (
+			<p>
+				If you have any questions about this Privacy Policy, please contact us through{" "}
+				<Link href="/contact">our contact page</Link>.
+			</p>
+		),
+	},
+];
+
+export default function PrivacyPage({ searchParams }: { searchParams?: SearchParams }) {
 	return (
-		<div className="relative min-h-screen bg-background">
-			<Suspense fallback={null}>
-				<NavBar />
-			</Suspense>
-
-			<main className="container max-w-4xl py-12">
-				<Link
-					href="/"
-					className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-8"
-				>
-					<ArrowLeft className="mr-2 h-4 w-4" />
-					Back to home
-				</Link>
-
-				<h1 className="text-4xl font-bold tracking-tight mb-8">Privacy Policy</h1>
-
-				<div className="prose prose-gray dark:prose-invert max-w-none">
-					<p className="text-muted-foreground text-lg mb-8">
-						Last updated: {new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-					</p>
-
-					<section className="mb-8">
-						<h2 className="text-2xl font-semibold mb-4">1. Information We Collect</h2>
-						<p className="text-muted-foreground mb-4">
-							We collect information you provide directly to us, including:
-						</p>
-						<ul className="list-disc pl-6 text-muted-foreground space-y-2">
-							<li>Account information (name, email address, password)</li>
-							<li>Profile information (work experience, education, skills)</li>
-							<li>Resume content and job descriptions you upload</li>
-							<li>Company and job application tracking data</li>
-						</ul>
-					</section>
-
-					<section className="mb-8">
-						<h2 className="text-2xl font-semibold mb-4">2. How We Use Your Information</h2>
-						<p className="text-muted-foreground mb-4">
-							We use the information we collect to:
-						</p>
-						<ul className="list-disc pl-6 text-muted-foreground space-y-2">
-							<li>Provide, maintain, and improve our services</li>
-							<li>Generate AI-powered resumes and cover letters</li>
-							<li>Send you notifications and reminders</li>
-							<li>Respond to your comments and questions</li>
-							<li>Protect against fraudulent or illegal activity</li>
-						</ul>
-					</section>
-
-					<section className="mb-8">
-						<h2 className="text-2xl font-semibold mb-4">3. Data Security</h2>
-						<p className="text-muted-foreground">
-							We implement appropriate technical and organizational measures to protect your personal
-							information against unauthorized access, alteration, disclosure, or destruction. Your data
-							is encrypted in transit and at rest.
-						</p>
-					</section>
-
-					<section className="mb-8">
-						<h2 className="text-2xl font-semibold mb-4">4. Data Retention</h2>
-						<p className="text-muted-foreground">
-							We retain your personal information for as long as your account is active or as needed to
-							provide you services. You can request deletion of your account and associated data at any
-							time through your account settings.
-						</p>
-					</section>
-
-					<section className="mb-8">
-						<h2 className="text-2xl font-semibold mb-4">5. Third-Party Services</h2>
-						<p className="text-muted-foreground">
-							We may use third-party services for authentication, payment processing, and AI capabilities.
-							These services have their own privacy policies governing the use of your information.
-						</p>
-					</section>
-
-					<section className="mb-8">
-						<h2 className="text-2xl font-semibold mb-4">6. Your Rights</h2>
-						<p className="text-muted-foreground mb-4">
-							You have the right to:
-						</p>
-						<ul className="list-disc pl-6 text-muted-foreground space-y-2">
-							<li>Access your personal data</li>
-							<li>Correct inaccurate data</li>
-							<li>Request deletion of your data</li>
-							<li>Export your data in a portable format</li>
-							<li>Opt out of marketing communications</li>
-						</ul>
-					</section>
-
-					<section className="mb-8">
-						<h2 className="text-2xl font-semibold mb-4">7. Contact Us</h2>
-						<p className="text-muted-foreground">
-							If you have any questions about this Privacy Policy, please contact us at{" "}
-							<Link href="/contact" className="text-primary hover:underline">
-								our contact page
-							</Link>
-							.
-						</p>
-					</section>
-				</div>
-			</main>
-		</div>
+		<MarketingShell redirectQuery={getRedirectQuery(searchParams)}>
+			<LegalPage
+				eyebrow="Privacy"
+				title="Privacy policy."
+				intro="What NextMilestone stores, why we store it, and how you can take it with you or delete it."
+				updated={UPDATED}
+				sections={SECTIONS}
+			/>
+		</MarketingShell>
 	);
 }

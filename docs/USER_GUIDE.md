@@ -1,6 +1,6 @@
-# OrbitHire user guide
+# NextMilestone user guide
 
-OrbitHire collects new jobs for you every morning, ranks them against your profile, and
+NextMilestone collects new jobs for you every morning, ranks them against your profile, and
 keeps every application with its tailored resume, cover letter and follow-ups in one place.
 
 - [1. Set up your profile](#1-set-up-your-profile)
@@ -100,14 +100,14 @@ the right, template picker, accent colour and paper size.
 
 ## 7. Using Claude or ChatGPT (MCP)
 
-OrbitHire is also an MCP server, so Claude (Desktop, Claude.ai, Claude Code) or ChatGPT can
+NextMilestone is also an MCP server, so Claude (Desktop, Claude.ai, Claude Code) or ChatGPT can
 read your profile and inbox, tailor documents in *your* AI subscription, and save them
-straight into OrbitHire (as new versions you review, with the PDF rendered by OrbitHire).
+straight into NextMilestone (as new versions you review, with the PDF rendered by NextMilestone).
 
 **Setup: Settings → AI connections.** The server endpoint is `https://<your-domain>/api/mcp`
 (Streamable HTTP).
 
-- **claude.ai and ChatGPT** connect by signing in to OrbitHire (OAuth). No token to copy.
+- **claude.ai and ChatGPT** connect by signing in to NextMilestone (OAuth). No token to copy.
 - **Claude Desktop and Claude Code** use a personal access token: create one in Settings →
   AI connections (scope *read* or *read + write*). It is shown **once** (`orb_…`); copy it
   right away. Every request sends `Authorization: Bearer orb_…`.
@@ -116,30 +116,30 @@ straight into OrbitHire (as new versions you review, with the PDF rendered by Or
 
 1. In claude.ai open **Settings → Connectors** and click **Add custom connector** (on
    Team / Enterprise plans an owner adds it in the organization's connector settings).
-2. Name: *OrbitHire*. URL: `https://<your-domain>/api/mcp`. Leave the advanced OAuth
+2. Name: *NextMilestone*. URL: `https://<your-domain>/api/mcp`. Leave the advanced OAuth
    client ID / secret empty. Click **Add**.
-3. Click **Connect**. A window opens on OrbitHire: sign in if asked, check that the app is
+3. Click **Connect**. A window opens on NextMilestone: sign in if asked, check that the app is
    **Claude** and it sends you back to **claude.ai**, then click **Allow access**. Keep
    *write* ticked if Claude should save resumes and cover letters; untick it for read-only.
-4. In a chat, turn OrbitHire on in the tools menu and ask e.g. "Tailor my resume for the
-   top job in my OrbitHire inbox".
+4. In a chat, turn NextMilestone on in the tools menu and ask e.g. "Tailor my resume for the
+   top job in my NextMilestone inbox".
 
 ### ChatGPT (developer mode connector)
 
 1. In ChatGPT open **Settings → Apps & Connectors → Advanced settings** and turn on
    **Developer mode** (available on Plus, Pro and business plans).
-2. In **Apps & Connectors** click **Create**. Name: *OrbitHire*; MCP server URL:
+2. In **Apps & Connectors** click **Create**. Name: *NextMilestone*; MCP server URL:
    `https://<your-domain>/api/mcp`; authentication: **OAuth**. Tick that you trust the app
    and create it.
-3. ChatGPT opens the OrbitHire sign-in and consent screen: approve access (the redirect
+3. ChatGPT opens the NextMilestone sign-in and consent screen: approve access (the redirect
    goes to **chatgpt.com**).
-4. In a new chat choose **Developer mode** in the + menu, enable OrbitHire and ask for your
+4. In a new chat choose **Developer mode** in the + menu, enable NextMilestone and ask for your
    top jobs. ChatGPT asks you to confirm each write action.
 
 Connected apps appear under **Connected apps** in Settings → AI connections with their
 access level and when they were last used; **Disconnect** cuts access immediately. An app
 stays signed in (it refreshes its access in the background) until you disconnect it or it
-is unused for 60 days. Both connectors need OrbitHire to be reachable over public HTTPS.
+is unused for 60 days. Both connectors need NextMilestone to be reachable over public HTTPS.
 
 ### Claude Desktop and Claude Code (access token)
 
@@ -149,10 +149,10 @@ is unused for 60 days. Both connectors need OrbitHire to be reachable over publi
   ```json
   {
     "mcpServers": {
-      "orbithire": {
+      "nextmilestone": {
         "command": "npx",
-        "args": ["-y", "mcp-remote", "https://<your-domain>/api/mcp", "--header", "Authorization:${ORBITHIRE_AUTH}"],
-        "env": { "ORBITHIRE_AUTH": "Bearer orb_YOUR_TOKEN" }
+        "args": ["-y", "mcp-remote", "https://<your-domain>/api/mcp", "--header", "Authorization:${NEXTMILESTONE_AUTH}"],
+        "env": { "NEXTMILESTONE_AUTH": "Bearer orb_YOUR_TOKEN" }
       }
     }
   }
@@ -161,7 +161,7 @@ is unused for 60 days. Both connectors need OrbitHire to be reachable over publi
 - **Claude Code**:
 
   ```bash
-  claude mcp add --transport http orbithire https://<your-domain>/api/mcp \
+  claude mcp add --transport http nextmilestone https://<your-domain>/api/mcp \
     --header "Authorization: Bearer orb_YOUR_TOKEN"
   ```
 
@@ -211,6 +211,6 @@ import as a command.
 | Live preview says "Preview service is not available" | Same: the worker is down. Saving still works; the PDF renders once it's back. |
 | No new jobs | Check Settings → Job search has at least one search or watchlist company; use Fetch now. |
 | Jobs not scored | AI scoring needs an API key (yours or the platform's) and is capped per day. |
-| claude.ai / ChatGPT: "Unknown application" or "Invalid redirect" on the OrbitHire consent page | Remove the connector in the AI app and add it again (it registers itself anew). |
+| claude.ai / ChatGPT: "Unknown application" or "Invalid redirect" on the NextMilestone consent page | Remove the connector in the AI app and add it again (it registers itself anew). |
 | claude.ai / ChatGPT can't connect at all | The URL must be `https://<your-domain>/api/mcp` over public HTTPS; the server must forward `X-Forwarded-Host` / `X-Forwarded-Proto` (or set `OAUTH_ISSUER`). |
-| AI app says OrbitHire is read-only | You unticked *write* on the consent screen: disconnect it in Settings → AI connections and connect again. |
+| AI app says NextMilestone is read-only | You unticked *write* on the consent screen: disconnect it in Settings → AI connections and connect again. |

@@ -11,7 +11,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import { GridBackground } from "@/components/ui/aceternity";
 import {
 	FileText,
 	Plus,
@@ -29,6 +28,9 @@ import {
 	Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/app/page-header";
+import { StatTile } from "@/components/app/blocks";
+import { APPLICATION_STATUS } from "@/components/app/status";
 import { getSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { ProfileCompletionBanner } from "@/components/ProfileCompletionBanner";
 import { FailedPdfsPanel } from "@/components/documents/FailedPdfsPanel";
@@ -98,14 +100,9 @@ const getFollowUpMessage = (status: string): string => {
 	}
 };
 
-const statusColors: Record<string, string> = {
-	saved: "bg-secondary text-secondary-foreground",
-	applied: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-	interviewing: "bg-green-500/10 text-green-600 dark:text-green-400",
-	offered: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
-	rejected: "bg-red-500/10 text-red-600 dark:text-red-400",
-	withdrawn: "bg-muted text-muted-foreground",
-};
+const statusColors = Object.fromEntries(
+	Object.entries(APPLICATION_STATUS).map(([k, v]) => [k, v.cls])
+) as Record<string, string>;
 
 export default function DashboardPage() {
 	const [profile, setProfile] = useState<Profile | null>(null);
@@ -461,52 +458,34 @@ export default function DashboardPage() {
 
 	return (
 		<div className="min-h-screen">
-			<GridBackground />
 
-			<div className="relative px-6 py-8">
-				{/* Header */}
-				<motion.div
-					initial={{ opacity: 0, y: 20 }}
-					animate={{ opacity: 1, y: 0 }}
-					className="mb-8"
-				>
-					<h1 className="text-3xl font-bold tracking-tight">
-						Welcome back, {firstName}
-					</h1>
-					<p className="mt-1 text-muted-foreground">
-						Track your applications, manage resumes, and stay on top of
-						follow-ups.
-					</p>
+			<div className="relative mx-auto max-w-7xl px-4 py-8 md:px-8">
+				<motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+					<PageHeader
+						title={`Welcome back, ${firstName}`}
+						description="Track your applications, manage resumes and stay on top of follow-ups."
+						actions={
+							<>
+								<Button variant="cap" asChild>
+									<Link href="/generate">
+										<Sparkles className="h-4 w-4" />
+										Generate resume
+									</Link>
+								</Button>
+								<Button variant="outline" asChild>
+									<Link href="/companies/new">
+										<Plus className="h-4 w-4" />
+										New application
+									</Link>
+								</Button>
+							</>
+						}
+					/>
 				</motion.div>
 
 				{/* Profile Completion Banner */}
 				<ProfileCompletionBanner variant="banner" />
 				<FailedPdfsPanel className="mb-6" />
-
-				{/* Quick Actions Bar */}
-				<motion.div
-					initial={{ opacity: 0, y: 20 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ delay: 0.1 }}
-					className="mb-8"
-				>
-					<Card className="border-border/50 bg-card/80 backdrop-blur">
-						<CardContent className="flex flex-wrap items-center gap-3 p-4">
-							<Button asChild>
-								<Link href="/generate">
-									<Sparkles className="mr-2 h-4 w-4" />
-									Generate Resume
-								</Link>
-							</Button>
-							<Button variant="outline" asChild>
-								<Link href="/companies/new">
-									<Plus className="mr-2 h-4 w-4" />
-									New Company
-								</Link>
-							</Button>
-						</CardContent>
-					</Card>
-				</motion.div>
 
 				<div className="grid gap-6 lg:grid-cols-3">
 					{/* Main Content */}
@@ -516,63 +495,19 @@ export default function DashboardPage() {
 							initial={{ opacity: 0, y: 20 }}
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ delay: 0.2 }}
-							className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+							className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4"
 						>
-							<Card className="border-border/50 bg-card/80 backdrop-blur">
+							<StatTile icon={<FileText />} tone="learn" value={stats.totalResumes} label="Resumes" />
+							<StatTile icon={<FileText />} tone="prep" value={stats.totalCoverLetters} label="Cover letters" />
+							<StatTile icon={<Bell />} tone="interview" value={stats.activeFollowUps} label="Active follow-ups" />
+							{/* <Card>
 								<CardContent className="p-4">
 									<div className="flex items-center gap-3">
-										<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-											<FileText className="h-5 w-5 text-primary" />
+										<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--kind-interview-soft)]">
+											<Clock className="h-5 w-5 text-[var(--kind-interview)]" />
 										</div>
 										<div>
-											<p className="text-2xl font-bold">{stats.totalResumes}</p>
-											<p className="text-xs text-muted-foreground">Resumes</p>
-										</div>
-									</div>
-								</CardContent>
-							</Card>
-							<Card className="border-border/50 bg-card/80 backdrop-blur">
-								<CardContent className="p-4">
-									<div className="flex items-center gap-3">
-										<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-											<FileText className="h-5 w-5 text-primary" />
-										</div>
-										<div>
-											<p className="text-2xl font-bold">
-												{stats.totalCoverLetters}
-											</p>
-											<p className="text-xs text-muted-foreground">
-												Cover Letters
-											</p>
-										</div>
-									</div>
-								</CardContent>
-							</Card>
-							<Card className="border-border/50 bg-card/80 backdrop-blur">
-								<CardContent className="p-4">
-									<div className="flex items-center gap-3">
-										<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-											<Bell className="h-5 w-5 text-primary" />
-										</div>
-										<div>
-											<p className="text-2xl font-bold">
-												{stats.activeFollowUps}
-											</p>
-											<p className="text-xs text-muted-foreground">
-												Active Follow-ups
-											</p>
-										</div>
-									</div>
-								</CardContent>
-							</Card>
-							{/* <Card className="border-border/50 bg-card/80 backdrop-blur">
-								<CardContent className="p-4">
-									<div className="flex items-center gap-3">
-										<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500/10">
-											<Clock className="h-5 w-5 text-orange-500" />
-										</div>
-										<div>
-											<p className="text-2xl font-bold">
+											<p className="font-mono text-2xl font-semibold tabular-nums">
 												{stats.pendingReminders}
 											</p>
 											<p className="text-xs text-muted-foreground">
@@ -585,11 +520,11 @@ export default function DashboardPage() {
 							{/* Free AI Generations Card */}
 							<Card
 								className={cn(
-									"border-border/50 bg-card/80 backdrop-blur",
+									"",
 									quota &&
 										!quota.has_own_key &&
 										quota.remaining === 0 &&
-										"border-amber-500/50"
+										"border-[color-mix(in_srgb,var(--cap)_40%,transparent)]"
 								)}
 							>
 								<CardContent className="p-4">
@@ -598,34 +533,34 @@ export default function DashboardPage() {
 											className={cn(
 												"flex h-10 w-10 items-center justify-center rounded-lg",
 												quota?.has_own_key
-													? "bg-green-500/10"
+													? "bg-[var(--success-soft)]"
 													: quota?.remaining === 0
-													? "bg-amber-500/10"
-													: "bg-purple-500/10"
+													? "bg-[var(--cap-soft)]"
+													: "bg-[var(--kind-prep-soft)]"
 											)}
 										>
 											<Zap
 												className={cn(
 													"h-5 w-5",
 													quota?.has_own_key
-														? "text-green-500"
+														? "text-[var(--success)]"
 														: quota?.remaining === 0
-														? "text-amber-500"
-														: "text-purple-500"
+														? "text-[var(--cap-ink)]"
+														: "text-[var(--kind-prep)]"
 												)}
 											/>
 										</div>
 										<div>
 											{quota?.has_own_key ? (
 												<>
-													<p className="text-2xl font-bold">∞</p>
+													<p className="font-mono text-2xl font-semibold tabular-nums">∞</p>
 													<p className="text-xs text-muted-foreground">
 														Unlimited (Own Key)
 													</p>
 												</>
 											) : (
 												<>
-													<p className="text-2xl font-bold">
+													<p className="font-mono text-2xl font-semibold tabular-nums">
 														{quota?.remaining ?? 2}/{quota?.limit ?? 2}
 													</p>
 													<p className="text-xs text-muted-foreground">
@@ -645,7 +580,7 @@ export default function DashboardPage() {
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ delay: 0.3 }}
 						>
-							<Card className="border-border/50 bg-card/80 backdrop-blur">
+							<Card>
 								<CardHeader className="flex flex-row items-center justify-between">
 									<div>
 										<CardTitle className="flex items-center gap-2">
@@ -729,7 +664,7 @@ export default function DashboardPage() {
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ delay: 0.4 }}
 						>
-							<Card className="border-border/50 bg-card/80 backdrop-blur">
+							<Card>
 								<CardHeader className="flex flex-row items-center justify-between">
 									<div>
 										<CardTitle className="flex items-center gap-2">
@@ -808,7 +743,7 @@ export default function DashboardPage() {
 								animate={{ opacity: 1, y: 0 }}
 								transition={{ delay: 0.2 }}
 							>
-								<Card className="border-border/50 bg-card/80 backdrop-blur">
+								<Card>
 									<CardHeader>
 										<CardTitle className="flex items-center gap-2 text-lg">
 											<User className="h-5 w-5" />
@@ -840,9 +775,9 @@ export default function DashboardPage() {
 												>
 													<span className="capitalize">{label}</span>
 													{completed ? (
-														<CheckCircle2 className="h-4 w-4 text-green-500" />
+														<CheckCircle2 className="h-4 w-4 text-[var(--success)]" />
 													) : (
-														<AlertCircle className="h-4 w-4 text-orange-500" />
+														<AlertCircle className="h-4 w-4 text-[var(--kind-interview)]" />
 													)}
 												</div>
 											))}
@@ -861,7 +796,7 @@ export default function DashboardPage() {
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ delay: 0.3 }}
 						>
-							<Card className="border-border/50 bg-card/80 backdrop-blur">
+							<Card>
 								<CardHeader>
 									<CardTitle className="flex items-center gap-2 text-lg">
 										<Bell className="h-5 w-5" />
@@ -895,7 +830,7 @@ export default function DashboardPage() {
 														{followUp.message}
 													</p>
 													{followUp.interviewAt ? (
-														<div className="mt-1 flex items-center gap-1 text-sm font-medium text-green-600 dark:text-green-400">
+														<div className="mt-1 flex items-center gap-1 text-sm font-medium text-[var(--success)]">
 															<Calendar className="h-3 w-3" />
 															<span>
 																Interview:{" "}
@@ -965,7 +900,7 @@ export default function DashboardPage() {
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ delay: 0.4 }}
 						>
-							<Card className="border-border/50 bg-card/80 backdrop-blur">
+							<Card>
 								<CardHeader>
 									<CardTitle className="flex items-center gap-2 text-lg">
 										<TrendingUp className="h-5 w-5" />

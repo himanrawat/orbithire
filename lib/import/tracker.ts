@@ -1,5 +1,5 @@
 /**
- * ai-job-search `job_search_tracker.csv` -> OrbitHire `companies` (applications).
+ * ai-job-search `job_search_tracker.csv` -> NextMilestone `companies` (applications).
  *
  * Pure functions (no I/O) so the API route, the UI preview and the test script
  * share them. The Python CLI (worker/orbithire_worker/import_legacy.py) mirrors

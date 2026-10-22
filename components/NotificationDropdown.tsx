@@ -36,12 +36,12 @@ type Notification = {
 };
 
 const notificationIcons: Record<string, React.ReactNode> = {
-	resume_created: <FileText className="h-4 w-4 text-blue-500" />,
-	resume_downloaded: <FileText className="h-4 w-4 text-green-500" />,
-	interview_reminder: <Calendar className="h-4 w-4 text-purple-500" />,
-	follow_up_reminder: <Clock className="h-4 w-4 text-orange-500" />,
-	application_update: <Building2 className="h-4 w-4 text-indigo-500" />,
-	system: <Sparkles className="h-4 w-4 text-gray-500" />,
+	resume_created: <FileText className="h-4 w-4 text-[var(--kind-jobs)]" />,
+	resume_downloaded: <FileText className="h-4 w-4 text-[var(--success)]" />,
+	interview_reminder: <Calendar className="h-4 w-4 text-[var(--kind-interview)]" />,
+	follow_up_reminder: <Clock className="h-4 w-4 text-[var(--cap-ink)]" />,
+	application_update: <Building2 className="h-4 w-4 text-[var(--info)]" />,
+	system: <Sparkles className="h-4 w-4 text-muted-foreground" />,
 };
 
 function formatTimeAgo(dateString: string): string {
@@ -147,10 +147,10 @@ export function NotificationDropdown() {
 	return (
 		<DropdownMenu open={open} onOpenChange={setOpen}>
 			<DropdownMenuTrigger asChild>
-				<Button variant="ghost" size="icon" className="relative">
+				<Button variant="ghost" size="icon" className="relative" aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}>
 					<Bell className="h-5 w-5" />
 					{unreadCount > 0 && (
-						<span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
+						<span className="nm-mono absolute right-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[var(--cap)] px-1 text-[10px] font-semibold text-[var(--on-cap)]" aria-hidden="true">
 							{unreadCount > 9 ? "9+" : unreadCount}
 						</span>
 					)}
@@ -158,7 +158,7 @@ export function NotificationDropdown() {
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="w-80">
 				<div className="flex items-center justify-between px-3 py-2">
-					<span className="font-semibold">Notifications</span>
+					<span className="font-display text-base font-[650]">Notifications</span>
 					{unreadCount > 0 && (
 						<Button
 							variant="ghost"
@@ -189,11 +189,11 @@ export function NotificationDropdown() {
 								key={notification.id}
 								className={cn(
 									"flex cursor-pointer items-start gap-3 px-3 py-3",
-									!notification.read && "bg-muted/50"
+									!notification.read && "bg-[color-mix(in_srgb,var(--cap-soft)_55%,transparent)]"
 								)}
 								onClick={() => handleNotificationClick(notification)}
 							>
-								<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
+								<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary">
 									{notificationIcons[notification.type] || (
 										<Bell className="h-4 w-4 text-muted-foreground" />
 									)}
@@ -223,7 +223,7 @@ export function NotificationDropdown() {
 									</p>
 								</div>
 								{!notification.read && (
-									<div className="h-2 w-2 shrink-0 rounded-full bg-primary" />
+									<div className="h-2 w-2 shrink-0 rounded-full bg-[var(--cap)]" aria-label="Unread" />
 								)}
 							</DropdownMenuItem>
 						))}

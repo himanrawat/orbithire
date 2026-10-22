@@ -1,5 +1,6 @@
 import { createServiceSupabase } from "@/lib/supabaseServer";
 import { UsersTable } from "./UsersTable";
+import { PageHeader } from "@/components/app/page-header";
 
 async function getUsers(searchParams: { page?: string; search?: string }) {
 	const supabase = createServiceSupabase();
@@ -43,12 +44,7 @@ export default async function UsersPage({
 
 	return (
 		<div className="space-y-6">
-			<div>
-				<h1 className="text-3xl font-bold tracking-tight">Users</h1>
-				<p className="text-muted-foreground">
-					Manage user accounts, credits, and permissions.
-				</p>
-			</div>
+			<PageHeader title="Users" description="Manage user accounts, credits, and permissions." className="mb-0" />
 
 			<UsersTable
 				users={users}

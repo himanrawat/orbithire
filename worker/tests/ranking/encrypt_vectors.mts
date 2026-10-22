@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 // Generates cross-language test vectors with the app's real lib/encryption.ts.
 // Usage (Node >= 23, which strips TS types natively):
 //   node worker/tests/ranking/encrypt_vectors.mts "$PWD/lib/encryption.ts" > worker/tests/ranking/fixtures/encryption_vectors.json

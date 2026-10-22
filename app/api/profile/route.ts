@@ -106,34 +106,37 @@ function normalizeR2Key(value: string | null | undefined) {
 		""
 	).replace(/\/$/, "");
 	const bucket = serverEnv.r2Bucket || "";
-
-	if (trimmed.startsWith("http") && base) {
-		try {
-			const parsed = new URL(trimmed);
-			const baseUrl = new URL(base);
-			if (parsed.host === baseUrl.host) {
-				const basePath = baseUrl.pathname.replace(/^\/+/, "");
-				const path = parsed.pathname.replace(/^\/+/, "");
-				const withoutBase =
-					basePath && path.startsWith(`${basePath}/`)
-						? path.slice(basePath.length + 1)
-						: path;
-				const withoutBucket =
-					bucket && withoutBase.startsWith(`${bucket}/`)
-						? withoutBase.slice(bucket.length + 1)
-						: withoutBase;
-				return withoutBucket.split("?")[0] || null;
-			}
-		} catch {
-			// Fall through to return the trimmed value.
-		}
-	}
+	const keyFromUrl = r2KeyFromUrl(trimmed, base, bucket);
+	if (keyFromUrl !== undefined) return keyFromUrl;
 
 	if (bucket && trimmed.startsWith(`${bucket}/`)) {
 		return trimmed.slice(bucket.length + 1);
 	}
 
 	return trimmed;
+}
+
+function r2KeyFromUrl(value: string, base: string, bucket: string) {
+	if (!value.startsWith("http") || !base) return undefined;
+	try {
+		const parsed = new URL(value);
+		const baseUrl = new URL(base);
+		if (parsed.host !== baseUrl.host) return undefined;
+
+		const basePath = baseUrl.pathname.replace(/^\/+/, "");
+		const path = parsed.pathname.replace(/^\/+/, "");
+		const withoutBase =
+			basePath && path.startsWith(`${basePath}/`)
+				? path.slice(basePath.length + 1)
+				: path;
+		const withoutBucket =
+			bucket && withoutBase.startsWith(`${bucket}/`)
+				? withoutBase.slice(bucket.length + 1)
+				: withoutBase;
+		return withoutBucket.split("?")[0] || null;
+	} catch {
+		return undefined;
+	}
 }
 
 function publicUrlForKey(key: string | null) {
@@ -189,8 +192,9 @@ async function uploadDataUrl(dataUrl: string, userId: string) {
 function getProxyPhotoUrl(key: string | null): string | null {
 	if (!key) return null;
 	if (key.startsWith("http")) return key; // Already a full URL (legacy data)
-	// Return the proxy API endpoint - this never expires
-	return "/api/profile/photo";
+	// Return the proxy API endpoint - this never expires. Every upload gets a
+	// new key, so versioning by it busts the browser cache when the photo changes.
+	return `/api/profile/photo?v=${encodeURIComponent(key.split("/").pop() || key)}`;
 }
 
 const normalizeString = (value: any) => {
@@ -203,20 +207,54 @@ const normalizeString = (value: any) => {
 
 const isDifferent = (a: any, b: any) => JSON.stringify(a) !== JSON.stringify(b);
 
-export async function GET(req: NextRequest) {
-	const supabase = createServerClient(
-		serverEnv.supabaseUrl,
-		serverEnv.supabaseAnonKey,
-		{
-			cookies: {
-				get(name: string) {
-					return req.cookies.get(name)?.value;
-				},
-				set() {},
-				remove() {},
+function createReadOnlySupabase(req: NextRequest) {
+	return createServerClient(serverEnv.supabaseUrl, serverEnv.supabaseAnonKey, {
+		cookies: {
+			getAll: () => req.cookies.getAll(),
+			setAll: () => {},
+		},
+	});
+}
+
+function createWritableSupabase() {
+	const cookieStore = cookies();
+	return createServerClient(serverEnv.supabaseUrl, serverEnv.supabaseAnonKey, {
+		cookies: {
+			getAll: () => cookieStore.getAll(),
+			setAll(cookiesToSet) {
+				cookiesToSet.forEach(({ name, value, options }) => {
+					cookieStore.set({
+						name,
+						value,
+						httpOnly: true,
+						secure: true,
+						sameSite: "lax",
+						domain: serverEnv.authCookieDomain,
+						path: "/",
+						...options,
+					});
+				});
 			},
+		},
+	});
+}
+
+function parseExtendedProfile(value: unknown, logParseFailure = false): Record<string, any> {
+	if (!value) return {};
+	if (typeof value === "object") return value as Record<string, any>;
+	if (typeof value !== "string") return {};
+	try {
+		return JSON.parse(value);
+	} catch (error) {
+		if (logParseFailure) {
+			console.warn("[profile/get] failed to parse extended_profile", error);
 		}
-	);
+		return {};
+	}
+}
+
+export async function GET(req: NextRequest) {
+	const supabase = createReadOnlySupabase(req);
 
 	const {
 		data: { user },
@@ -261,19 +299,7 @@ export async function GET(req: NextRequest) {
 		);
 	}
 
-	let extended: any = {};
-	if (data.extended_profile) {
-		if (typeof data.extended_profile === "string") {
-			try {
-				extended = JSON.parse(data.extended_profile);
-			} catch (err) {
-				console.warn("[profile/get] failed to parse extended_profile", err);
-				extended = {};
-			}
-		} else if (typeof data.extended_profile === "object") {
-			extended = data.extended_profile;
-		}
-	}
+	const extended = parseExtendedProfile(data.extended_profile, true);
 
 	const extendedAvatar =
 		extended && typeof extended === "object" ? extended.avatar_url : undefined;
@@ -309,43 +335,191 @@ export async function GET(req: NextRequest) {
 	);
 }
 
-export async function PATCH(req: NextRequest) {
-	const supabase = createServerClient(
-		serverEnv.supabaseUrl,
-		serverEnv.supabaseAnonKey,
-		{
-			cookies: {
-				get(name: string) {
-					return cookies().get(name)?.value;
-				},
-				set(name: string, value: string, options: any) {
-					cookies().set({
-						name,
-						value,
-						httpOnly: true,
-						secure: true,
-						sameSite: "lax",
-						domain: serverEnv.authCookieDomain,
-						path: "/",
-						...options,
-					});
-				},
-				remove(name: string, options: any) {
-					cookies().set({
-						name,
-						value: "",
-						expires: new Date(0),
-						httpOnly: true,
-						secure: true,
-						sameSite: "lax",
-						domain: serverEnv.authCookieDomain,
-						path: "/",
-						...options,
-					});
-				},
-			},
+function buildProfileState(existing: any, userEmail: string | undefined) {
+	const existingAvatar = normalizeR2Key(existing?.avatar_url);
+	const existingExtended = parseExtendedProfile(existing?.extended_profile);
+	const lockedEmail =
+		normalizeString(existing?.email) ?? normalizeString(userEmail) ?? null;
+	const baseExtended = {
+		work_experience: existingExtended.work_experience || [],
+		education: existingExtended.education || [],
+		custom_fields: existingExtended.custom_fields || [],
+		customSections: existingExtended.customSections || [],
+		github_url: existingExtended.github_url || "",
+		avatar_url: existingExtended.avatar_url ?? existingAvatar ?? null,
+	};
+	const baseProfile = {
+		email: lockedEmail,
+		resume_email: normalizeString(existing?.resume_email) ?? null,
+		full_name: normalizeString(existing?.full_name),
+		phone: normalizeString(existing?.phone),
+		location: normalizeString(existing?.location),
+		website: normalizeString(existing?.portfolio_url),
+		linkedin_url: normalizeString(existing?.linkedin_url),
+		bio: normalizeString(
+			existing?.experience_summary ?? existing?.headline ?? null
+		),
+		skills: Array.isArray(existing?.skills) ? existing.skills : [],
+	};
+	return { existingAvatar, lockedEmail, baseExtended, baseProfile };
+}
+
+function applyProfileInput(
+	target: Record<string, any>,
+	profile: ProfilePayload,
+	canChangeEmail: boolean
+) {
+	const fields: Array<[keyof ProfilePayload, string]> = [
+		["full_name", "full_name"],
+		["phone", "phone"],
+		["location", "location"],
+		["website", "website"],
+		["linkedin_url", "linkedin_url"],
+		["bio", "bio"],
+	];
+	fields.forEach(([inputField, targetField]) => {
+		const value = normalizeString(profile[inputField]);
+		if (value !== undefined) target[targetField] = value;
+	});
+	if (Array.isArray(profile.skills)) target.skills = profile.skills;
+
+	const resumeEmail = normalizeString(profile.resume_email);
+	if (canChangeEmail && resumeEmail !== undefined) {
+		target.resume_email = resumeEmail || null;
+	}
+}
+
+function applyExtendedInput(
+	target: Record<string, any>,
+	profile: ProfilePayload,
+	customSections: CustomSection[] | undefined
+) {
+	if (profile.work_experience !== undefined) {
+		target.work_experience = profile.work_experience || [];
+	}
+	if (profile.education !== undefined) target.education = profile.education || [];
+	if (profile.custom_fields !== undefined) {
+		target.custom_fields = profile.custom_fields || [];
+	}
+	if (profile.github_url !== undefined) target.github_url = profile.github_url || "";
+	if (customSections !== undefined) target.customSections = customSections;
+}
+
+async function resolveAvatarUpdate(
+	avatarValue: string | null | undefined,
+	existingAvatar: string | null,
+	userId: string
+) {
+	if (avatarValue === undefined) {
+		return { avatarKey: existingAvatar, avatarChanged: false };
+	}
+	if (avatarValue === null || avatarValue === "") {
+		return { avatarKey: null, avatarChanged: true };
+	}
+	if (typeof avatarValue !== "string") {
+		return { avatarKey: existingAvatar, avatarChanged: false };
+	}
+
+	const candidate = avatarValue.trim();
+	if (candidate.startsWith("data:")) {
+		try {
+			const uploaded = await uploadDataUrl(candidate, userId);
+			return uploaded
+				? { avatarKey: uploaded, avatarChanged: true }
+				: { avatarKey: existingAvatar, avatarChanged: false };
+		} catch (error) {
+			console.error("Failed to upload photo from data URL:", error);
+			return { avatarKey: existingAvatar, avatarChanged: false };
 		}
+	}
+	if (candidate.startsWith("blob:") || candidate.startsWith("/api/profile/photo")) {
+		return { avatarKey: existingAvatar, avatarChanged: false };
+	}
+
+	const avatarKey = normalizeR2Key(candidate);
+	return { avatarKey, avatarChanged: avatarKey !== existingAvatar };
+}
+
+function buildUpdatePayload({
+	userId,
+	finalEmail,
+	finalFullName,
+	nextProfile,
+	baseProfile,
+	nextExtended,
+	baseExtended,
+	profile,
+	avatarKey,
+	avatarChanged,
+}: Record<string, any>) {
+	const updatePayload: Record<string, any> = {
+		id: userId,
+		email: finalEmail,
+		full_name: finalFullName,
+		updated_at: new Date().toISOString(),
+	};
+	const mark = (column: string, value: any, baseline: any) => {
+		if (value !== undefined && isDifferent(value, baseline)) {
+			updatePayload[column] = value;
+		}
+	};
+
+	mark("phone", nextProfile.phone ?? null, baseProfile.phone ?? null);
+	mark("location", nextProfile.location ?? null, baseProfile.location ?? null);
+	mark("portfolio_url", nextProfile.website ?? null, baseProfile.website ?? null);
+	mark("linkedin_url", nextProfile.linkedin_url ?? null, baseProfile.linkedin_url ?? null);
+	if (profile.bio !== undefined) {
+		mark("headline", nextProfile.bio ?? null, baseProfile.bio ?? null);
+		mark("experience_summary", nextProfile.bio ?? null, baseProfile.bio ?? null);
+	}
+	if (profile.skills !== undefined) {
+		mark("skills", nextProfile.skills || [], baseProfile.skills || []);
+	}
+	if (avatarChanged) updatePayload.avatar_url = avatarKey;
+	if (isDifferent(nextExtended, baseExtended) || avatarChanged) {
+		updatePayload.extended_profile = JSON.stringify(nextExtended);
+	}
+	return updatePayload;
+}
+
+async function saveProfile(admin: any, updatePayload: Record<string, any>) {
+	const { data, error } = await admin
+		.from("profiles")
+		.upsert(updatePayload)
+		.select("id, avatar_url")
+		.single();
+
+	if (!error) {
+		return NextResponse.json(
+			{
+				ok: true,
+				saved: true,
+				id: data.id,
+				avatar_url: getProxyPhotoUrl(data.avatar_url),
+			},
+			{ status: 200 }
+		);
+	}
+
+	console.error("Profile save failed:", error);
+	if (error.code === "42501") {
+		return NextResponse.json(
+			{
+				error:
+					"Supabase role is missing permissions on schema public. Ensure service_role (or authenticated) has USAGE on schema public and privileges on table profiles.",
+				code: "SUPABASE_SCHEMA_PERMISSION",
+			},
+			{ status: 500 }
+		);
+	}
+	return NextResponse.json(
+		{ error: error.message || error.details || "Unable to save profile right now." },
+		{ status: 500 }
 	);
+}
+
+export async function PATCH(req: NextRequest) {
+	const supabase = createWritableSupabase();
 
 	const {
 		data: { user },
@@ -394,47 +568,9 @@ export async function PATCH(req: NextRequest) {
 		.eq("id", user.id)
 		.maybeSingle();
 
-	const existingAvatar = normalizeR2Key(existing?.avatar_url);
-	let existingExtended: any = {};
-	if (existing?.extended_profile) {
-		if (typeof existing.extended_profile === "string") {
-			try {
-				existingExtended = JSON.parse(existing.extended_profile);
-			} catch {
-				existingExtended = {};
-			}
-		} else if (typeof existing.extended_profile === "object") {
-			existingExtended = existing.extended_profile;
-		}
-	}
-
-	const lockedEmail =
-		normalizeString(existing?.email) ?? normalizeString(user.email) ?? null;
+	const { existingAvatar, lockedEmail, baseExtended, baseProfile } =
+		buildProfileState(existing, user.email);
 	const canChangeEmail = existing?.can_change_email ?? false;
-	const existingResumeEmail = normalizeString(existing?.resume_email);
-
-	const baseExtended = {
-		work_experience: existingExtended.work_experience || [],
-		education: existingExtended.education || [],
-		custom_fields: existingExtended.custom_fields || [],
-		customSections: existingExtended.customSections || [],
-		github_url: existingExtended.github_url || "",
-		avatar_url: existingExtended.avatar_url ?? existingAvatar ?? null,
-	};
-
-	const baseProfile = {
-		email: lockedEmail,
-		resume_email: normalizeString(existing?.resume_email) ?? null,
-		full_name: normalizeString(existing?.full_name),
-		phone: normalizeString(existing?.phone),
-		location: normalizeString(existing?.location),
-		website: normalizeString(existing?.portfolio_url),
-		linkedin_url: normalizeString(existing?.linkedin_url),
-		bio: normalizeString(
-			existing?.experience_summary ?? existing?.headline ?? null
-		),
-		skills: Array.isArray(existing?.skills) ? existing?.skills : [],
-	};
 
 	const nextExtended = { ...baseExtended };
 	const nextProfile = { ...baseProfile };
@@ -449,43 +585,8 @@ export async function PATCH(req: NextRequest) {
 	if (!lockedEmail && email !== undefined) {
 		nextProfile.email = email;
 	}
-	// Allow resume_email only when can_change_email is true
-	const resumeEmail = normalizeString(profile.resume_email);
-	if (canChangeEmail && resumeEmail !== undefined) {
-		nextProfile.resume_email = resumeEmail || null;
-	}
-	const name = normalizeString(profile.full_name);
-	if (name !== undefined) nextProfile.full_name = name;
-	const phone = normalizeString(profile.phone);
-	if (phone !== undefined) nextProfile.phone = phone;
-	const location = normalizeString(profile.location);
-	if (location !== undefined) nextProfile.location = location;
-	const website = normalizeString(profile.website);
-	if (website !== undefined) nextProfile.website = website;
-	const linkedin = normalizeString(profile.linkedin_url);
-	if (linkedin !== undefined) nextProfile.linkedin_url = linkedin;
-	const bio = normalizeString(profile.bio);
-	if (bio !== undefined) nextProfile.bio = bio;
-	if (Array.isArray(profile.skills)) nextProfile.skills = profile.skills;
-
-	if (profile.work_experience !== undefined) {
-		nextExtended.work_experience = profile.work_experience || [];
-	}
-	if (profile.education !== undefined) {
-		nextExtended.education = profile.education || [];
-	}
-	if (profile.custom_fields !== undefined) {
-		nextExtended.custom_fields = profile.custom_fields || [];
-	}
-	if (profile.github_url !== undefined) {
-		nextExtended.github_url = profile.github_url || "";
-	}
-	if (customSectionsInput !== undefined) {
-		nextExtended.customSections = customSectionsInput;
-	}
-
-	let avatarKey: string | null = existingAvatar;
-	let avatarChanged = false;
+	applyProfileInput(nextProfile, profile, canChangeEmail);
+	applyExtendedInput(nextExtended, profile, customSectionsInput);
 
 	if (
 		(!r2Client || !serverEnv.r2Bucket) &&
@@ -497,30 +598,11 @@ export async function PATCH(req: NextRequest) {
 		);
 	}
 
-	if (profile.avatar_url !== undefined) {
-		const avatarVal = profile.avatar_url;
-		if (avatarVal === null || avatarVal === "") {
-			avatarKey = null;
-			avatarChanged = true;
-		} else if (typeof avatarVal === "string") {
-			const candidate = avatarVal.trim();
-			if (candidate.startsWith("data:")) {
-				try {
-					const uploaded = await uploadDataUrl(candidate, user.id);
-					if (uploaded) {
-						avatarKey = uploaded;
-						avatarChanged = true;
-					}
-				} catch (err) {
-					console.error("Failed to upload photo from data URL:", err);
-				}
-			} else if (!candidate.startsWith("blob:")) {
-				const normalized = normalizeR2Key(candidate);
-				avatarChanged = normalized !== existingAvatar;
-				avatarKey = normalized;
-			}
-		}
-	}
+	const { avatarKey, avatarChanged } = await resolveAvatarUpdate(
+		profile.avatar_url,
+		existingAvatar,
+		user.id
+	);
 
 	nextExtended.avatar_url = avatarKey ?? null;
 
@@ -545,125 +627,19 @@ export async function PATCH(req: NextRequest) {
 	nextProfile.email = finalEmail;
 	nextProfile.full_name = finalFullName;
 
-	const updatePayload: Record<string, any> = {
-		id: user.id,
-		email: finalEmail,
-		full_name: finalFullName,
-	};
-	// Always mark as changed so required fields persist; other fields are marked below.
-	let hasChanges = true;
-	const mark = (column: string, value: any, baseline: any) => {
-		if (value === undefined) return;
-		if (isDifferent(value, baseline)) {
-			updatePayload[column] = value;
-			hasChanges = true;
-		}
-	};
-
-	mark("phone", nextProfile.phone ?? null, baseProfile.phone ?? null);
-	mark("location", nextProfile.location ?? null, baseProfile.location ?? null);
-	mark(
-		"portfolio_url",
-		nextProfile.website ?? null,
-		baseProfile.website ?? null
-	);
-	mark(
-		"linkedin_url",
-		nextProfile.linkedin_url ?? null,
-		baseProfile.linkedin_url ?? null
-	);
-
-	if (bio !== undefined) {
-		mark("headline", nextProfile.bio ?? null, baseProfile.bio ?? null);
-		mark(
-			"experience_summary",
-			nextProfile.bio ?? null,
-			baseProfile.bio ?? null
-		);
-	}
-
-	if (profile.skills !== undefined) {
-		mark(
-			"skills",
-			Array.isArray(nextProfile.skills) ? nextProfile.skills : [],
-			Array.isArray(baseProfile.skills) ? baseProfile.skills : []
-		);
-	}
-
-	if (avatarChanged) {
-		updatePayload.avatar_url = avatarKey;
-		hasChanges = true;
-	}
-
-	const extendedProfileJson = JSON.stringify(nextExtended);
-	const extendedChanged = isDifferent(nextExtended, baseExtended);
-	if (extendedChanged || avatarChanged) {
-		updatePayload.extended_profile = extendedProfileJson;
-		hasChanges = true;
-	}
-
-	if (!existing && !hasChanges) {
-		return NextResponse.json(
-			{ error: "Nothing to save. Provide at least one field." },
-			{ status: 400 }
-		);
-	}
-
-	if (hasChanges) {
-		updatePayload.updated_at = new Date().toISOString();
-	}
-
-	if (!hasChanges) {
-		const proxyAvatarUrl = getProxyPhotoUrl(avatarKey);
-		return NextResponse.json(
-			{
-				ok: true,
-				saved: false,
-				id: existing?.id || user.id,
-				avatar_url: proxyAvatarUrl,
-			},
-			{ status: 200 }
-		);
-	}
-
-	const { data, error } = await admin
-		.from("profiles")
-		.upsert(updatePayload)
-		.select("id, avatar_url")
-		.single();
-
-	if (error) {
-		console.error("Profile save failed:", error);
-		if ((error as any).code === "42501") {
-			return NextResponse.json(
-				{
-					error:
-						"Supabase role is missing permissions on schema public. Ensure service_role (or authenticated) has USAGE on schema public and privileges on table profiles.",
-					code: "SUPABASE_SCHEMA_PERMISSION",
-				},
-				{ status: 500 }
-			);
-		}
-		return NextResponse.json(
-			{
-				error:
-					error.message || error.details || "Unable to save profile right now.",
-			},
-			{ status: 500 }
-		);
-	}
-
-	const proxyAvatarUrl = getProxyPhotoUrl(data.avatar_url);
-
-	return NextResponse.json(
-		{
-			ok: true,
-			saved: true,
-			id: data.id,
-			avatar_url: proxyAvatarUrl,
-		},
-		{ status: 200 }
-	);
+	const updatePayload = buildUpdatePayload({
+		userId: user.id,
+		finalEmail,
+		finalFullName,
+		nextProfile,
+		baseProfile,
+		nextExtended,
+		baseExtended,
+		profile,
+		avatarKey,
+		avatarChanged,
+	});
+	return saveProfile(admin, updatePayload);
 }
 
 export const POST = PATCH;

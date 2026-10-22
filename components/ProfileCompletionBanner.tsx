@@ -105,13 +105,13 @@ export function ProfileCompletionBanner({
 					animate={{ opacity: 1, y: 0 }}
 					exit={{ opacity: 0, y: -20 }}
 					className={cn(
-						"mb-6 rounded-lg border border-orange-500/50 bg-orange-500/10 p-4",
+						"mb-6 rounded-lg border border-[color-mix(in_srgb,var(--kind-interview)_40%,transparent)] bg-[var(--kind-interview-soft)] p-4",
 						className
 					)}
 				>
 					<div className="flex items-start gap-3">
-						<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-orange-500/20">
-							<AlertTriangle className="h-5 w-5 text-orange-500" />
+						<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--kind-interview-soft)]">
+							<AlertTriangle className="h-5 w-5 text-[var(--kind-interview)]" />
 						</div>
 						<div className="flex-1">
 							<div className="flex items-start justify-between gap-2">
@@ -135,9 +135,9 @@ export function ProfileCompletionBanner({
 								{missingFields.map(({ field, label }) => (
 									<li
 										key={field}
-										className="flex items-center gap-2 text-sm text-orange-600 dark:text-orange-400"
+										className="flex items-center gap-2 text-sm text-[var(--kind-interview)]"
 									>
-										<span className="h-1.5 w-1.5 rounded-full bg-orange-500" />
+										<span className="h-1.5 w-1.5 rounded-full bg-[var(--kind-interview)]" />
 										{label}
 									</li>
 								))}
@@ -171,12 +171,12 @@ export function ProfileCompletionBanner({
 			initial={{ opacity: 0, y: -10 }}
 			animate={{ opacity: 1, y: 0 }}
 			className={cn(
-				"mb-6 flex items-center justify-between rounded-lg border border-orange-500/50 bg-orange-500/10 px-4 py-3",
+				"mb-6 flex items-center justify-between rounded-lg border border-[color-mix(in_srgb,var(--kind-interview)_40%,transparent)] bg-[var(--kind-interview-soft)] px-4 py-3",
 				className
 			)}
 		>
 			<div className="flex items-center gap-3">
-				<AlertTriangle className="h-5 w-5 text-orange-500" />
+				<AlertTriangle className="h-5 w-5 text-[var(--kind-interview)]" />
 				<div>
 					<p className="font-medium text-foreground">
 						Your profile is incomplete

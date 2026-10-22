@@ -18,7 +18,8 @@ import hashlib
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 KEY_LENGTH = 32
-_SCRYPT = dict(n=16384, r=8, p=1, maxmem=64 * 1024 * 1024, dklen=KEY_LENGTH)
+_SCRYPT = {"n": 16384, "r": 8, "p": 1, "maxmem": 64 * 1024 * 1024, "dklen": KEY_LENGTH}
+_MASTER_KEY_CONTEXT = b"api-key-encryption"
 
 
 class DecryptionError(ValueError):
@@ -31,7 +32,9 @@ def master_key(encryption_key: str | None, jwt_secret: str | None) -> bytes:
         units = encryption_key.encode("utf-16-le")[: 32 * 2]
         return units.decode("utf-16-le", errors="surrogatepass").encode("utf-8", errors="surrogatepass")
     if jwt_secret:
-        return hashlib.scrypt(jwt_secret.encode("utf-8"), salt=b"api-key-encryption", **_SCRYPT)
+        # This is a fixed domain-separation context required for Node interoperability,
+        # not a password-hashing salt. Per-value encryption uses a random salt below.
+        return hashlib.scrypt(jwt_secret.encode("utf-8"), salt=_MASTER_KEY_CONTEXT, **_SCRYPT)  # NOSONAR
     raise DecryptionError("ENCRYPTION_KEY or SUPABASE_JWT_SECRET must be set for API key decryption")
 
 

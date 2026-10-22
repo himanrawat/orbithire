@@ -19,3 +19,6 @@ _backup/
 .claude/
 .env*.bak*
 backups/
+
+# QA screenshots
+docs/qa-screenshots/

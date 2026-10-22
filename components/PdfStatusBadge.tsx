@@ -31,11 +31,11 @@ const POLL_MS = 2000;
 const STUCK_MS = 120_000;
 
 const STYLES: Record<PdfStatus, { label: string; cls: string }> = {
-	none: { label: "No PDF", cls: "bg-muted text-muted-foreground" },
-	queued: { label: "Queued", cls: "bg-amber-500/10 text-amber-700 dark:text-amber-300" },
-	rendering: { label: "Rendering", cls: "bg-blue-500/10 text-blue-700 dark:text-blue-300" },
-	ready: { label: "PDF ready", cls: "bg-green-500/10 text-green-700 dark:text-green-300" },
-	failed: { label: "PDF failed", cls: "bg-destructive/10 text-destructive" },
+	none: { label: "No PDF", cls: "bg-secondary text-muted-foreground" },
+	queued: { label: "Queued", cls: "bg-[var(--cap-soft)] text-[var(--cap-ink)]" },
+	rendering: { label: "Rendering", cls: "bg-[var(--info-soft)] text-[var(--info)]" },
+	ready: { label: "PDF ready", cls: "bg-[var(--success-soft)] text-[var(--success)]" },
+	failed: { label: "PDF failed", cls: "bg-[var(--danger-soft)] text-[var(--danger)]" },
 };
 
 /**

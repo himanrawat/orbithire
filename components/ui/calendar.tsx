@@ -122,14 +122,14 @@ function Calendar({ selected, onSelect, className }: CalendarProps) {
 								type="button"
 								onClick={() => handleSelect(day)}
 								className={cn(
-									"w-full h-full rounded-md text-sm transition-colors",
+									"w-full h-full rounded-[var(--radius-sm)] text-sm tabular-nums transition-colors",
 									"hover:bg-accent hover:text-accent-foreground",
 									"focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
 									isSelected(day) &&
-										"bg-primary text-primary-foreground hover:bg-primary",
+										"bg-cap font-semibold text-cap-foreground hover:bg-cap",
 									isToday(day) &&
 										!isSelected(day) &&
-										"bg-accent text-accent-foreground"
+										"font-semibold ring-1 ring-inset ring-input"
 								)}
 							>
 								{day}

@@ -6,7 +6,7 @@
  *
  * 1. Validate the request (unknown client / bad redirect URI → error page,
  *    anything else → error redirect to the client with state + iss).
- * 2. Require an OrbitHire login (→ /signin?redirect=back here).
+ * 2. Require an NextMilestone login (→ /signin?redirect=back here).
  * 3. Show the consent form; it posts to /api/oauth/authorize with a signed,
  *    user-bound copy of the validated request.
  */
@@ -22,7 +22,7 @@ import { signConsent } from "@/lib/oauth/consent";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Connect an app | OrbitHire", robots: { index: false } };
+export const metadata: Metadata = { title: "Connect an app", robots: { index: false } };
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -88,7 +88,7 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Se
 			<Card className="w-full max-w-md">
 				<CardHeader>
 					<CardTitle className="text-xl">
-						Connect <span className="break-words">{client.client_name}</span> to OrbitHire?
+						Connect <span className="break-words">{client.client_name}</span> to NextMilestone?
 					</CardTitle>
 					<CardDescription>
 						Signed in as <strong className="text-foreground">{user.email}</strong>
@@ -102,13 +102,13 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Se
 							className={
 								verified
 									? "flex gap-2 rounded-lg border p-3 text-sm"
-									: "flex gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm"
+									: "flex gap-2 rounded-lg border border-[color-mix(in_srgb,var(--cap)_40%,transparent)] bg-[var(--cap-soft)] p-3 text-sm"
 							}
 						>
 							{verified ? (
-								<ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+								<ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[var(--success)]" />
 							) : (
-								<ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+								<ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-[var(--cap-ink)]" />
 							)}
 							<p>
 								{verified ? (
@@ -116,11 +116,11 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Se
 										App identity published by <strong>{clientHost}</strong>.{" "}
 									</>
 								) : (
-									<>The app registered itself; OrbitHire can&apos;t verify its name. </>
+									<>The app registered itself; NextMilestone can&apos;t verify its name. </>
 								)}
 								After you approve, you&apos;ll be sent to{" "}
 								<strong className="break-all">{redirectHost(request.redirect_uri)}</strong>. Only continue if you just
-								added OrbitHire as a connector there.
+								added NextMilestone as a connector there.
 							</p>
 						</div>
 

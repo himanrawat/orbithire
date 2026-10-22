@@ -52,7 +52,7 @@ export async function POST(req: Request) {
 		data: { user },
 	} = await supabase.auth.getUser();
 	if (!user || user.id !== consent.u) {
-		return plainError(401, "Your OrbitHire session changed. Start the connection again from your AI app.");
+		return plainError(401, "Your NextMilestone session changed. Start the connection again from your AI app.");
 	}
 
 	const { r: request } = consent;

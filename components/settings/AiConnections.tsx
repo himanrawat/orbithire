@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { cn } from "@/lib/utils";
 
 /**
- * Settings → AI connections for the OrbitHire MCP server (/api/mcp):
+ * Settings → AI connections for the NextMilestone MCP server (/api/mcp):
  *  - apps connected with OAuth (claude.ai, ChatGPT): GET /api/oauth/grants,
  *    DELETE /api/oauth/grants/:id
  *  - personal access tokens (Claude Desktop / Claude Code): GET/POST
@@ -90,7 +90,7 @@ export function AiConnections({ className }: { className?: string }) {
 	const [disconnecting, setDisconnecting] = useState<string | null>(null);
 
 	useEffect(() => setOrigin(window.location.origin), []);
-	const mcpUrl = `${origin || "https://your-orbithire-domain"}/api/mcp`;
+	const mcpUrl = `${origin || "https://your-nextmilestone-domain"}/api/mcp`;
 
 	const load = useCallback(async () => {
 		try {
@@ -125,7 +125,7 @@ export function AiConnections({ className }: { className?: string }) {
 	}, [load, loadGrants]);
 
 	const disconnect = async (g: OAuthGrant) => {
-		if (!window.confirm(`Disconnect ${g.client_name}? It loses access to OrbitHire immediately.`)) return;
+		if (!window.confirm(`Disconnect ${g.client_name}? It loses access to NextMilestone immediately.`)) return;
 		setDisconnecting(g.id);
 		try {
 			const res = await fetch(`/api/oauth/grants/${g.id}`, { method: "DELETE" });
@@ -180,10 +180,10 @@ export function AiConnections({ className }: { className?: string }) {
 			JSON.stringify(
 				{
 					mcpServers: {
-						orbithire: {
+						nextmilestone: {
 							command: "npx",
-							args: ["-y", "mcp-remote", mcpUrl, "--header", "Authorization:${ORBITHIRE_AUTH}"],
-							env: { ORBITHIRE_AUTH: `Bearer ${tokenText}` },
+							args: ["-y", "mcp-remote", mcpUrl, "--header", "Authorization:${NEXTMILESTONE_AUTH}"],
+							env: { NEXTMILESTONE_AUTH: `Bearer ${tokenText}` },
 						},
 					},
 				},
@@ -192,7 +192,7 @@ export function AiConnections({ className }: { className?: string }) {
 			),
 		[mcpUrl, tokenText]
 	);
-	const codeSnippet = `claude mcp add --transport http orbithire ${mcpUrl} --header "Authorization: Bearer ${tokenText}"`;
+	const codeSnippet = `claude mcp add --transport http nextmilestone ${mcpUrl} --header "Authorization: Bearer ${tokenText}"`;
 
 	const active = tokens.filter((t) => !t.revoked_at);
 	const revoked = tokens.filter((t) => t.revoked_at);
@@ -206,9 +206,9 @@ export function AiConnections({ className }: { className?: string }) {
 						AI connections (MCP)
 					</CardTitle>
 					<CardDescription>
-						Let Claude or ChatGPT use your OrbitHire data: search your Job Inbox, tailor a resume or write a cover letter
+						Let Claude or ChatGPT use your NextMilestone data: search your Job Inbox, tailor a resume or write a cover letter
 						in your own AI subscription, and save the result here as a new document with a PDF. claude.ai and ChatGPT
-						connect by signing in to OrbitHire (OAuth); Claude Desktop and Claude Code use an access token. Disconnect or
+						connect by signing in to NextMilestone (OAuth); Claude Desktop and Claude Code use an access token. Disconnect or
 						revoke any time.
 					</CardDescription>
 				</CardHeader>
@@ -293,7 +293,7 @@ export function AiConnections({ className }: { className?: string }) {
 					</label>
 
 					{secret && (
-						<div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
+						<div className="space-y-2 rounded-lg border border-[color-mix(in_srgb,var(--cap)_40%,transparent)] bg-[var(--cap-soft)] p-4">
 							<p className="flex items-center gap-2 text-sm font-medium">
 								<KeyRound className="h-4 w-4" />
 								Copy your token now – it is shown only once.
@@ -376,7 +376,7 @@ export function AiConnections({ className }: { className?: string }) {
 						<CopyBlock label="Claude Desktop – claude_desktop_config.json" text={desktopSnippet} />
 						<p className="text-xs text-muted-foreground">
 							Claude Desktop → Settings → Developer → Edit Config, merge this into the file, then restart Claude Desktop.
-							Needs Node.js (for <code>npx mcp-remote</code>). Then ask: “Tailor my resume for the top job in my OrbitHire
+							Needs Node.js (for <code>npx mcp-remote</code>). Then ask: “Tailor my resume for the top job in my NextMilestone
 							inbox”.
 						</p>
 					</div>
@@ -394,14 +394,14 @@ export function AiConnections({ className }: { className?: string }) {
 								(on Team/Enterprise plans an owner adds it under Organization settings → Connectors).
 							</li>
 							<li>
-								Name it <em>OrbitHire</em>, paste the URL above, leave the advanced OAuth fields empty and click{" "}
+								Name it <em>NextMilestone</em>, paste the URL above, leave the advanced OAuth fields empty and click{" "}
 								<strong>Add</strong>.
 							</li>
 							<li>
-								Click <strong>Connect</strong>: you are sent here to sign in to OrbitHire and approve access (keep
+								Click <strong>Connect</strong>: you are sent here to sign in to NextMilestone and approve access (keep
 								“write” ticked to let Claude save documents).
 							</li>
-							<li>In a chat, enable OrbitHire in the tools menu and ask: “Tailor my resume for the top job in my inbox”.</li>
+							<li>In a chat, enable NextMilestone in the tools menu and ask: “Tailor my resume for the top job in my inbox”.</li>
 						</ol>
 					</div>
 					<div className="space-y-2">
@@ -412,19 +412,19 @@ export function AiConnections({ className }: { className?: string }) {
 								<strong>Developer mode</strong> (Plus/Pro/Business plans).
 							</li>
 							<li>
-								Back in <strong>Apps &amp; Connectors</strong> click <strong>Create</strong>: name <em>OrbitHire</em>, paste
+								Back in <strong>Apps &amp; Connectors</strong> click <strong>Create</strong>: name <em>NextMilestone</em>, paste
 								the URL above as the MCP server URL, choose <strong>OAuth</strong> as authentication, tick “I trust this
 								application” and create it.
 							</li>
-							<li>Sign in to OrbitHire and approve access when ChatGPT opens the login window.</li>
+							<li>Sign in to NextMilestone and approve access when ChatGPT opens the login window.</li>
 							<li>
-								In a new chat pick <strong>Developer mode</strong> from the + menu, enable OrbitHire and ask for your top
+								In a new chat pick <strong>Developer mode</strong> from the + menu, enable NextMilestone and ask for your top
 								jobs. ChatGPT asks you to confirm each write action.
 							</li>
 						</ol>
 					</div>
 					<p className="text-xs text-muted-foreground">
-						Both need OrbitHire to be reachable over public HTTPS. Connected apps appear under “Connected apps” above.
+						Both need NextMilestone to be reachable over public HTTPS. Connected apps appear under “Connected apps” above.
 					</p>
 				</CardContent>
 			</Card>

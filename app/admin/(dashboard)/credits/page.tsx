@@ -2,6 +2,7 @@ import { createServiceSupabase } from "@/lib/supabaseServer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CreditCard, Infinity, Users, TrendingUp } from "lucide-react";
+import { PageHeader } from "@/components/app/page-header";
 
 async function getCreditsStats() {
 	const supabase = createServiceSupabase();
@@ -67,12 +68,7 @@ export default async function CreditsPage() {
 
 	return (
 		<div className="space-y-6">
-			<div>
-				<h1 className="text-3xl font-bold tracking-tight">Credits & Access</h1>
-				<p className="text-muted-foreground">
-					Overview of AI credits and access permissions.
-				</p>
-			</div>
+			<PageHeader title="Credits & access" description="Overview of AI credits and access permissions." className="mb-0" />
 
 			{/* Stats Cards */}
 			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -82,7 +78,7 @@ export default async function CreditsPage() {
 						<Infinity className="h-4 w-4 text-muted-foreground" />
 					</CardHeader>
 					<CardContent>
-						<div className="text-2xl font-bold">{stats.unlimitedUsers}</div>
+						<div className="font-mono text-2xl font-semibold tabular-nums">{stats.unlimitedUsers}</div>
 						<p className="text-xs text-muted-foreground">
 							Users with unlimited AI access
 						</p>
@@ -95,7 +91,7 @@ export default async function CreditsPage() {
 						<CreditCard className="h-4 w-4 text-muted-foreground" />
 					</CardHeader>
 					<CardContent>
-						<div className="text-2xl font-bold">{stats.lowCreditUsers}</div>
+						<div className="font-mono text-2xl font-semibold tabular-nums">{stats.lowCreditUsers}</div>
 						<p className="text-xs text-muted-foreground">
 							Users with 0-1 credits remaining
 						</p>
@@ -108,7 +104,7 @@ export default async function CreditsPage() {
 						<TrendingUp className="h-4 w-4 text-muted-foreground" />
 					</CardHeader>
 					<CardContent>
-						<div className="text-2xl font-bold">{stats.totalCredits}</div>
+						<div className="font-mono text-2xl font-semibold tabular-nums">{stats.totalCredits}</div>
 						<p className="text-xs text-muted-foreground">
 							Credits across all users
 						</p>
@@ -121,7 +117,7 @@ export default async function CreditsPage() {
 						<Users className="h-4 w-4 text-muted-foreground" />
 					</CardHeader>
 					<CardContent>
-						<div className="text-2xl font-bold">{stats.emailChangeUsers}</div>
+						<div className="font-mono text-2xl font-semibold tabular-nums">{stats.emailChangeUsers}</div>
 						<p className="text-xs text-muted-foreground">
 							Users who can change email
 						</p>

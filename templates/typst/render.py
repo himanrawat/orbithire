@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render an OrbitHire Typst template.
+"""Render an NextMilestone Typst template.
 
 CLI:
     uv run --python 3.12 --with typst python templates/typst/render.py \

@@ -519,7 +519,7 @@ export function UsersTable({ users, total, page, totalPages }: UsersTableProps) 
 								id="requireVerification"
 								checked={requireVerification}
 								onChange={(e) => setRequireVerification(e.target.checked)}
-								className="rounded border-gray-300"
+								className="rounded border-border"
 							/>
 							<Label htmlFor="requireVerification" className="text-sm font-normal">
 								Require email verification

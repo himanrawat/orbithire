@@ -15,7 +15,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import { GridBackground } from "@/components/ui/aceternity";
 import {
 	Building2,
 	Globe,
@@ -26,6 +25,9 @@ import {
 	Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/app/page-header";
+import { APPLICATION_STATUS } from "@/components/app/status";
+import { nativeSelectClass } from "@/components/app/blocks";
 
 const statusOptions = [
 	{ value: "saved", label: "Saved", description: "Saved for later" },
@@ -104,29 +106,14 @@ export default function NewCompanyPage() {
 
 	return (
 		<div className="min-h-screen">
-			<GridBackground />
 
-			<div className="relative max-w-2xl px-6 py-8">
-				{/* Header */}
-				<motion.div
-					initial={{ opacity: 0, y: 20 }}
-					animate={{ opacity: 1, y: 0 }}
-					className="mb-8"
-				>
-					<Button variant="ghost" asChild className="mb-4">
-						<Link href="/companies">
-							<ChevronLeft className="mr-1 h-4 w-4" />
-							Back to Companies
-						</Link>
-					</Button>
-					<h1 className="flex items-center gap-3 text-3xl font-bold tracking-tight">
-						<Building2 className="h-8 w-8 text-primary" />
-						New Company
-					</h1>
-					<p className="mt-1 text-muted-foreground">
-						Add a new company to track your job applications.
-					</p>
-				</motion.div>
+			<div className="relative mx-auto max-w-2xl px-4 py-8 md:px-8">
+				<PageHeader
+					back={{ href: "/companies", label: "Back to applications" }}
+					icon={<Building2 />}
+					title="New application"
+					description="Add a company to track the role, its status and your notes."
+				/>
 
 				{/* Form */}
 				<motion.div
@@ -135,7 +122,7 @@ export default function NewCompanyPage() {
 					transition={{ delay: 0.1 }}
 				>
 					<form onSubmit={handleSubmit}>
-						<Card className="border-border/50 bg-card/80 backdrop-blur">
+						<Card>
 							<CardHeader>
 								<CardTitle>Company Details</CardTitle>
 								<CardDescription>
@@ -189,7 +176,7 @@ export default function NewCompanyPage() {
 										onChange={(e) =>
 											setFormData({ ...formData, industry: e.target.value })
 										}
-										className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+										className={nativeSelectClass}
 									>
 										<option value="">Select industry...</option>
 										{industryOptions.map((industry) => (
@@ -211,17 +198,19 @@ export default function NewCompanyPage() {
 											<button
 												key={status.value}
 												type="button"
+												aria-pressed={formData.status === status.value}
 												onClick={() =>
 													setFormData({ ...formData, status: status.value })
 												}
 												className={cn(
-													"flex flex-col items-start rounded-lg border p-3 text-left transition-colors hover:bg-accent",
+													"flex min-h-[64px] flex-col items-start rounded-[var(--radius-control)] border p-3 text-left transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 													formData.status === status.value
-														? "border-primary bg-primary/5"
-														: "border-border"
+														? "border-foreground bg-card ring-1 ring-foreground"
+														: "border-border bg-card"
 												)}
 											>
-												<span className="text-sm font-medium">
+												<span className="flex items-center gap-2 text-sm font-semibold">
+													<i aria-hidden="true" className={cn("h-2 w-2 rounded-full", APPLICATION_STATUS[status.value]?.dot)} />
 													{status.label}
 												</span>
 												<span className="text-xs text-muted-foreground">
@@ -238,7 +227,7 @@ export default function NewCompanyPage() {
 									<Textarea
 										id="notes"
 										rows={4}
-										placeholder="Add any notes about this company, job role, or application..."
+										placeholder="Anything worth remembering about the company, the role or the process"
 										value={formData.notes}
 										onChange={(e) =>
 											setFormData({ ...formData, notes: e.target.value })
@@ -258,16 +247,16 @@ export default function NewCompanyPage() {
 							<Button variant="outline" asChild>
 								<Link href="/companies">Cancel</Link>
 							</Button>
-							<Button type="submit" disabled={!isValid || isSaving}>
+							<Button type="submit" variant="cap" disabled={!isValid || isSaving}>
 								{isSaving ? (
 									<>
 										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-										Saving...
+										Saving…
 									</>
 								) : (
 									<>
 										<Save className="mr-2 h-4 w-4" />
-										Save Company
+										Save application
 									</>
 								)}
 							</Button>

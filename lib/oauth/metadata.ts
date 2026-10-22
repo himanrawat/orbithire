@@ -16,7 +16,7 @@ export function protectedResourceMetadata(req: Request) {
 		authorization_servers: [issuer],
 		scopes_supported: [...SUPPORTED_SCOPES],
 		bearer_methods_supported: ["header"],
-		resource_name: "OrbitHire",
+		resource_name: "NextMilestone",
 		resource_documentation: `${issuer}/settings`,
 	};
 }

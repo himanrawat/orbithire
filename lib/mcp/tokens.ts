@@ -83,7 +83,7 @@ export async function verifyBearer(
 		return {
 			ok: false,
 			error: "missing_token",
-			description: "Send an OrbitHire access token: Authorization: Bearer orb_… (create one in Settings → AI connections)",
+			description: "Send an NextMilestone access token: Authorization: Bearer orb_… (create one in Settings → AI connections)",
 		};
 	}
 	const token = match[1];

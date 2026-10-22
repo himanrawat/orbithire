@@ -1,226 +1,75 @@
-"use client";
-
-import { useState, Suspense } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
-import { NavBar } from "@/components/NavBar";
-import { ArrowLeft, Mail, MessageSquare, Loader2, CheckCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { ArrowRight, Mail } from "lucide-react";
+import { MarketingShell, getRedirectQuery, pageMetadata, type SearchParams } from "@/components/marketing/marketing-shell";
+import { ContactForm } from "@/components/marketing/contact-form";
 
-export default function ContactPage() {
-	const [name, setName] = useState("");
-	const [email, setEmail] = useState("");
-	const [subject, setSubject] = useState("");
-	const [message, setMessage] = useState("");
-	const [loading, setLoading] = useState(false);
-	const [error, setError] = useState("");
-	const [success, setSuccess] = useState(false);
+export const metadata: Metadata = pageMetadata(
+	"/contact",
+	"Contact | NextMilestone",
+	"Write to the NextMilestone team. A person reads every message and replies by email.",
+);
 
-	const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-		e.preventDefault();
-		setError("");
-		setLoading(true);
+const CONTACT_EMAIL = "info@himanshurawat.in";
 
-		try {
-			const res = await fetch("/api/contact", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ name, email, subject, message }),
-			});
+const SHORTCUTS = [
+	{ href: "/faq", title: "Questions", blurb: "Who it's for, the phone app, AI drafts and privacy." },
+	{ href: "/privacy", title: "Privacy", blurb: "What we store, and how to export or delete it." },
+	{ href: "/terms", title: "Terms", blurb: "The agreement for using NextMilestone." },
+];
 
-			const data = await res.json();
-
-			if (!res.ok) {
-				setError(data.error || "Failed to send message");
-				return;
-			}
-
-			setSuccess(true);
-			setName("");
-			setEmail("");
-			setSubject("");
-			setMessage("");
-		} catch {
-			setError("Something went wrong. Please try again.");
-		} finally {
-			setLoading(false);
-		}
-	};
-
+export default function ContactPage({ searchParams }: { searchParams?: SearchParams }) {
 	return (
-		<div className="relative min-h-screen bg-background">
-			<Suspense fallback={null}>
-				<NavBar />
-			</Suspense>
+		<MarketingShell redirectQuery={getRedirectQuery(searchParams)}>
+			<section aria-labelledby="h1" className="pb-14 pt-10 md:pb-[104px] md:pt-20">
+				<div className="nm-wrap grid gap-12 lg:grid-cols-[5fr_6fr] lg:gap-16">
+					<div>
+						<span className="nm-mono text-xs font-medium text-[var(--ink-muted)]">Contact</span>
+						<h1
+							id="h1"
+							className="nm-display mt-4 text-[44px] leading-[44px] tracking-[-0.03em] md:text-[64px] md:leading-[62px] xl:text-[80px] xl:leading-[76px]"
+						>
+							Write to us. <span className="font-normal text-[var(--ink-muted)]">A person replies.</span>
+						</h1>
+						<p className="nm-lead mt-6">
+							Questions, feedback, a bug, or something you wish NextMilestone did. Every message is read by the team.
+						</p>
 
-			<main className="container max-w-4xl py-12">
-				<Link
-					href="/"
-					className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-8"
-				>
-					<ArrowLeft className="mr-2 h-4 w-4" />
-					Back to home
-				</Link>
+						<a
+							href={`mailto:${CONTACT_EMAIL}`}
+							className="group mt-10 flex items-center gap-4 rounded-[var(--radius-lg)] border border-[var(--line)] bg-[var(--surface)] p-5 transition-colors hover:border-[var(--line-control)]"
+						>
+							<span className="grid size-11 flex-none place-items-center rounded-[var(--radius-control)] bg-[var(--cap-soft)] text-[var(--cap-ink)]">
+								<Mail size={20} strokeWidth={1.75} aria-hidden="true" />
+							</span>
+							<span className="min-w-0">
+								<span className="block text-[13px] font-semibold text-[var(--ink-muted)]">Prefer email?</span>
+								<span className="block truncate text-[17px] font-semibold">{CONTACT_EMAIL}</span>
+							</span>
+							<ArrowRight size={18} strokeWidth={1.75} className="ml-auto flex-none transition-transform group-hover:translate-x-1" aria-hidden="true" />
+						</a>
 
-				<h1 className="text-4xl font-bold tracking-tight mb-4">Contact Us</h1>
-				<p className="text-lg text-muted-foreground mb-8">
-					Have a question or feedback? We&apos;d love to hear from you.
-				</p>
+						<ul className="mt-8 grid">
+							{SHORTCUTS.map((s) => (
+								<li key={s.href}>
+									<Link href={s.href} className="group grid grid-cols-[1fr_auto] items-center gap-4 border-t border-[var(--line)] py-4">
+										<span>
+											<b className="block text-[17px] font-semibold">{s.title}</b>
+											<span className="text-[15px] text-[var(--ink-muted)]">{s.blurb}</span>
+										</span>
+										<ArrowRight size={18} strokeWidth={1.75} className="transition-transform group-hover:translate-x-1" aria-hidden="true" />
+									</Link>
+								</li>
+							))}
+						</ul>
+					</div>
 
-				<div className="grid gap-8 md:grid-cols-2">
-					<Card>
-						<CardHeader>
-							<CardTitle className="flex items-center gap-2">
-								<MessageSquare className="h-5 w-5" />
-								Send us a message
-							</CardTitle>
-							<CardDescription>
-								Fill out the form and we&apos;ll get back to you at{" "}
-								<span className="font-medium text-foreground">info@himanshurawat.in</span>
-							</CardDescription>
-						</CardHeader>
-						<CardContent>
-							{success ? (
-								<div className="flex flex-col items-center justify-center py-8 text-center">
-									<CheckCircle className="h-12 w-12 text-green-500 mb-4" />
-									<h3 className="text-lg font-semibold mb-2">Message Sent!</h3>
-									<p className="text-muted-foreground mb-4">
-										Thank you for reaching out. We&apos;ll get back to you soon.
-									</p>
-									<Button variant="outline" onClick={() => setSuccess(false)}>
-										Send Another Message
-									</Button>
-								</div>
-							) : (
-								<form className="space-y-4" onSubmit={handleSubmit}>
-									<div className="space-y-2">
-										<Label htmlFor="name">Name</Label>
-										<Input
-											id="name"
-											placeholder="Your name"
-											value={name}
-											onChange={(e) => setName(e.target.value)}
-											required
-											disabled={loading}
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="email">Email</Label>
-										<Input
-											id="email"
-											type="email"
-											placeholder="your@email.com"
-											value={email}
-											onChange={(e) => setEmail(e.target.value)}
-											required
-											disabled={loading}
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="subject">Subject</Label>
-										<Input
-											id="subject"
-											placeholder="How can we help?"
-											value={subject}
-											onChange={(e) => setSubject(e.target.value)}
-											required
-											disabled={loading}
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="message">Message</Label>
-										<Textarea
-											id="message"
-											placeholder="Tell us more about your question or feedback..."
-											rows={5}
-											value={message}
-											onChange={(e) => setMessage(e.target.value)}
-											required
-											disabled={loading}
-										/>
-									</div>
-									{error && (
-										<div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-											{error}
-										</div>
-									)}
-									<Button type="submit" className="w-full" disabled={loading}>
-										{loading ? (
-											<>
-												<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-												Sending...
-											</>
-										) : (
-											"Send Message"
-										)}
-									</Button>
-								</form>
-							)}
-						</CardContent>
-					</Card>
-
-					<div className="space-y-6">
-						<Card>
-							<CardHeader>
-								<CardTitle className="flex items-center gap-2">
-									<Mail className="h-5 w-5" />
-									Email Us Directly
-								</CardTitle>
-								<CardDescription>
-									Prefer email? Reach out to us directly.
-								</CardDescription>
-							</CardHeader>
-							<CardContent>
-								<a
-									href="mailto:info@himanshurawat.in"
-									className="text-primary hover:underline"
-								>
-									info@himanshurawat.in
-								</a>
-							</CardContent>
-						</Card>
-
-						<Card>
-							<CardHeader>
-								<CardTitle>FAQs</CardTitle>
-								<CardDescription>
-									Common questions and answers
-								</CardDescription>
-							</CardHeader>
-							<CardContent className="space-y-4">
-								<div>
-									<h4 className="font-medium mb-1">How does the AI resume generation work?</h4>
-									<p className="text-sm text-muted-foreground">
-										Paste a job description and our AI analyzes it to create a tailored,
-										ATS-optimized resume matching your profile to the role.
-									</p>
-								</div>
-								<div>
-									<h4 className="font-medium mb-1">Can I cancel my subscription?</h4>
-									<p className="text-sm text-muted-foreground">
-										Yes, you can cancel anytime from your account settings. Your access
-										continues until the end of your billing period.
-									</p>
-								</div>
-								<div>
-									<h4 className="font-medium mb-1">Is my data secure?</h4>
-									<p className="text-sm text-muted-foreground">
-										Absolutely. We use industry-standard encryption and never share your
-										personal information with third parties. See our{" "}
-										<Link href="/privacy" className="text-primary hover:underline">
-											Privacy Policy
-										</Link>
-										.
-									</p>
-								</div>
-							</CardContent>
-						</Card>
+					<div className="rounded-[var(--radius-lg)] border border-[var(--line)] bg-[var(--surface)] p-6 shadow-[var(--shadow-lift)] md:p-10 lg:self-start">
+						<h2 className="nm-display mb-6 text-[26px] font-[650] leading-8 tracking-[-0.02em] md:text-[32px] md:leading-9">Send a message</h2>
+						<ContactForm />
 					</div>
 				</div>
-			</main>
-		</div>
+			</section>
+		</MarketingShell>
 	);
 }

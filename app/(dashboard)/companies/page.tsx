@@ -6,7 +6,6 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { GridBackground } from "@/components/ui/aceternity";
 import {
 	Dialog,
 	DialogContent,
@@ -27,6 +26,9 @@ import {
 	Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/app/page-header";
+import { EmptyState, tabClass, tabListClass } from "@/components/app/blocks";
+import { statusClass } from "@/components/app/status";
 import { FailedPdfsPanel } from "@/components/documents/FailedPdfsPanel";
 
 // Data types
@@ -46,15 +48,6 @@ type Company = {
 	coverLetterCount: number;
 	created_at: string;
 	updated_at: string;
-};
-
-const statusColors: Record<string, string> = {
-	saved: "bg-secondary text-secondary-foreground",
-	applied: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-	interviewing: "bg-green-500/10 text-green-600 dark:text-green-400",
-	offered: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
-	rejected: "bg-red-500/10 text-red-600 dark:text-red-400",
-	withdrawn: "bg-muted text-muted-foreground",
 };
 
 const statusFilters = [
@@ -159,31 +152,21 @@ export default function CompaniesPage() {
 
 	return (
 		<div className="min-h-screen">
-			<GridBackground />
 
-			<div className="relative px-6 py-8">
-				{/* Header */}
-				<motion.div
-					initial={{ opacity: 0, y: 20 }}
-					animate={{ opacity: 1, y: 0 }}
-					className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
-				>
-					<div>
-						<h1 className="flex items-center gap-3 text-3xl font-bold tracking-tight">
-							<Building2 className="h-8 w-8 text-primary" />
-							Applications
-						</h1>
-						<p className="mt-1 text-muted-foreground">
-							Track your job applications and saved materials
-						</p>
-					</div>
-					<Button asChild>
-						<Link href="/generate">
-							<Plus className="mr-2 h-4 w-4" />
-							New Application
-						</Link>
-					</Button>
-				</motion.div>
+			<div className="relative mx-auto max-w-6xl px-4 py-8 md:px-8">
+				<PageHeader
+					icon={<Building2 />}
+					title="Applications"
+					description="Track your job applications and the documents you made for each."
+					actions={
+						<Button variant="cap" asChild>
+							<Link href="/generate">
+								<Plus className="h-4 w-4" />
+								New application
+							</Link>
+						</Button>
+					}
+				/>
 
 				<FailedPdfsPanel className="mb-6" />
 
@@ -192,7 +175,7 @@ export default function CompaniesPage() {
 					<motion.div
 						initial={{ opacity: 0 }}
 						animate={{ opacity: 1 }}
-						className="mb-6 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive"
+						className="mb-6 rounded-[var(--radius-control)] bg-[var(--danger-soft)] p-4 text-sm text-[var(--danger)]"
 					>
 						{error}
 						<Button
@@ -212,29 +195,28 @@ export default function CompaniesPage() {
 					transition={{ delay: 0.1 }}
 					className="mb-6"
 				>
-					<Card className="border-border/50 bg-card/80 backdrop-blur">
+					<Card>
 						<CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center">
 							<div className="relative flex-1">
 								<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 								<Input
-									placeholder="Search by company or job title..."
+									placeholder="Search by company or job title"
 									value={searchQuery}
 									onChange={(e) => setSearchQuery(e.target.value)}
 									className="pl-9"
 								/>
 							</div>
-							<div className="flex flex-wrap gap-2">
+							<div role="tablist" aria-label="Filter by status" className={tabListClass}>
 								{statusFilters.map((filter) => (
-									<Button
+									<button
 										key={filter.value}
-										variant={
-											statusFilter === filter.value ? "default" : "outline"
-										}
-										size="sm"
+										role="tab"
+										aria-selected={statusFilter === filter.value}
+										className={tabClass(statusFilter === filter.value)}
 										onClick={() => setStatusFilter(filter.value)}
 									>
 										{filter.label}
-									</Button>
+									</button>
 								))}
 							</div>
 						</CardContent>
@@ -244,7 +226,7 @@ export default function CompaniesPage() {
 				{/* Loading state */}
 				{isLoading && (
 					<div className="flex items-center justify-center py-20">
-						<Loader2 className="h-8 w-8 animate-spin text-primary" />
+						<Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
 					</div>
 				)}
 
@@ -259,11 +241,12 @@ export default function CompaniesPage() {
 							<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 								{filteredCompanies.map((company) => (
 									<Link key={company.id} href={`/companies/${company.id}`}>
-										<Card className="group relative border-border/50 bg-card/80 backdrop-blur transition-colors hover:bg-accent/50">
+										<Card className="group relative h-full transition-[border-color,box-shadow] duration-[var(--duration-base)] hover:border-input hover:shadow-[var(--shadow-lift)]">
 											{/* Delete button */}
 											<button
 												onClick={(e) => handleDeleteClick(e, company)}
-												className="absolute right-2 top-2 z-10 rounded-md p-1.5 opacity-0 transition-opacity hover:bg-destructive/10 group-hover:opacity-100"
+												className="absolute right-2 top-2 z-10 grid size-9 place-items-center rounded-[var(--radius-sm)] opacity-0 transition-opacity hover:bg-[var(--danger-soft)] focus-visible:opacity-100 group-hover:opacity-100 max-md:opacity-100"
+												aria-label={`Delete ${company.name}`}
 												title="Delete application"
 											>
 												<Trash2 className="h-4 w-4 text-destructive" />
@@ -272,11 +255,11 @@ export default function CompaniesPage() {
 											<CardContent className="p-6">
 												<div className="flex items-start justify-between">
 													<div className="flex items-center gap-4">
-														<div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted text-lg font-semibold">
+														<div className="flex h-12 w-12 flex-none items-center justify-center rounded-[var(--radius-control)] bg-secondary font-display text-lg font-[650]">
 															{company.name.charAt(0)}
 														</div>
 														<div>
-															<h3 className="font-semibold">{company.name}</h3>
+															<h3 className="font-display font-[650] tracking-[-0.01em]">{company.name}</h3>
 															{company.job_title && (
 																<p className="text-sm text-muted-foreground">
 																	{company.job_title}
@@ -287,7 +270,7 @@ export default function CompaniesPage() {
 													<span
 														className={cn(
 															"rounded-full px-2 py-1 text-xs font-medium capitalize",
-															statusColors[company.status]
+															statusClass(company.status)
 														)}
 													>
 														{company.status}
@@ -333,28 +316,25 @@ export default function CompaniesPage() {
 								))}
 							</div>
 						) : (
-							<Card className="border-border/50 bg-card/80 backdrop-blur">
-								<CardContent className="flex flex-col items-center justify-center py-16 text-center">
-									<Building2 className="mb-4 h-16 w-16 text-muted-foreground/50" />
-									<h3 className="mb-2 text-lg font-semibold">
-										{searchQuery || statusFilter !== "all"
-											? "No applications found"
-											: "No applications yet"}
-									</h3>
-									<p className="mb-6 max-w-sm text-muted-foreground">
-										{searchQuery || statusFilter !== "all"
-											? "Try adjusting your search or filters"
-											: "Generate a resume and save it to start tracking your applications."}
-									</p>
-									{!searchQuery && statusFilter === "all" && (
-										<Button asChild>
-											<Link href="/generate">
-												<Plus className="mr-2 h-4 w-4" />
-												Create Your First Resume
-											</Link>
-										</Button>
-									)}
-								</CardContent>
+							<Card>
+								<EmptyState
+									title={searchQuery || statusFilter !== "all" ? "No applications found" : "No applications yet"}
+									description={
+										searchQuery || statusFilter !== "all"
+											? "Try a different search or status."
+											: "Generate a resume and save it to start tracking your applications."
+									}
+									action={
+										!searchQuery && statusFilter === "all" ? (
+											<Button variant="default" asChild>
+												<Link href="/generate">
+													<Plus className="h-4 w-4" />
+													Create your first resume
+												</Link>
+											</Button>
+										) : undefined
+									}
+								/>
 							</Card>
 						)}
 					</motion.div>

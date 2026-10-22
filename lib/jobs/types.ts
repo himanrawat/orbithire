@@ -398,7 +398,7 @@ export function salaryRangeText(row: {
 
 export function mcpPrompt(row: { id: string; title: string; company: string }): string {
 	return [
-		`Using the OrbitHire MCP server, tailor my resume and write a cover letter for the job "${row.title}" at ${row.company}.`,
+		`Using the NextMilestone MCP server, tailor my resume and write a cover letter for the job "${row.title}" at ${row.company}.`,
 		`1. Call get_job with job_id "${row.id}" and get_profile.`,
 		"2. Draft a truthful, ATS-friendly resume (no invented experience) following the tailor_resume prompt, then save it with save_resume linked to this job.",
 		"3. Write a short cover letter following write_cover_letter and save it with save_cover_letter.",

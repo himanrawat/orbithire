@@ -2,6 +2,7 @@ import { createServiceSupabase } from "@/lib/supabaseServer";
 import { AdminsPanel, CreateAdminButton } from "../users/AdminsPanel";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { PageHeader } from "@/components/app/page-header";
 
 async function getAdmins() {
 	const supabase = createServiceSupabase();
@@ -44,15 +45,12 @@ export default async function AdminsPage() {
 
 	return (
 		<div className="space-y-6">
-			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-				<div>
-					<h1 className="text-3xl font-bold tracking-tight">Admins</h1>
-					<p className="text-muted-foreground">
-						Super admin can create or delete admins. Roles are indicated by badges.
-					</p>
-				</div>
-				<CreateAdminButton />
-			</div>
+			<PageHeader
+				title="Admins"
+				description="The owner can create or remove admins. Badges show each role."
+				actions={<CreateAdminButton />}
+				className="mb-0"
+			/>
 
 			<AdminsPanel admins={admins} />
 		</div>

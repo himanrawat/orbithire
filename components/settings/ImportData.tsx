@@ -36,13 +36,13 @@ export default ImportData;
 
 function ErrorBox({ error }: { error: string | null }) {
 	if (!error) return null;
-	return <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>;
+	return <div className="rounded-[var(--radius-control)] bg-[var(--danger-soft)] p-3 text-sm text-[var(--danger)]">{error}</div>;
 }
 
 function Note({ children }: { children: React.ReactNode }) {
 	return (
-		<div className="flex items-start gap-2 rounded-lg border bg-muted/40 p-3 text-sm">
-			<CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
+		<div className="flex items-start gap-2 rounded-[var(--radius-control)] border bg-secondary p-3 text-sm">
+			<CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--success)]" />
 			<div>{children}</div>
 		</div>
 	);
@@ -124,7 +124,7 @@ function TrackerImport() {
 	const actionable = preview?.rows?.filter((r: any) => r.action !== "skip" && !excluded.has(r.index)).length ?? 0;
 
 	return (
-		<Card className="border-border/50 bg-card/80">
+		<Card>
 			<CardHeader>
 				<CardTitle className="flex items-center gap-2 text-base">
 					<FileSpreadsheet className="h-4 w-4" /> 1. Applications from job_search_tracker.csv
@@ -324,7 +324,7 @@ function PdfImport() {
 	const selected = rows.filter((r) => r.include && r.state !== "imported").length;
 
 	return (
-		<Card className="border-border/50 bg-card/80">
+		<Card>
 			<CardHeader>
 				<CardTitle className="flex items-center gap-2 text-base">
 					<FileText className="h-4 w-4" /> 2. Existing PDFs (cv/*.pdf, cover_letters/*.pdf)
@@ -376,7 +376,7 @@ function PdfImport() {
 												</td>
 												<td className="p-2">
 													<select
-														className="rounded border bg-background px-1 py-0.5 text-xs"
+														className="rounded-[var(--radius-xs)] border border-input bg-card px-1.5 py-1 text-xs"
 														value={r.kind}
 														disabled={busy}
 														onChange={(e) => update(i, { kind: e.target.value as PdfRow["kind"] })}
@@ -387,7 +387,7 @@ function PdfImport() {
 												</td>
 												<td className="p-2">
 													<select
-														className="w-full max-w-[280px] rounded border bg-background px-1 py-0.5 text-xs"
+														className="w-full max-w-[280px] rounded-[var(--radius-xs)] border border-input bg-card px-1.5 py-1 text-xs"
 														value={r.company_id || ""}
 														disabled={busy}
 														onChange={(e) => {
@@ -418,7 +418,7 @@ function PdfImport() {
 												</td>
 												<td className="p-2 text-xs">
 													{r.state === "uploading" && <Loader2 className="h-3 w-3 animate-spin" />}
-													{r.state === "imported" && <span className="text-green-600">imported</span>}
+													{r.state === "imported" && <span className="text-[var(--success)]">imported</span>}
 													{r.state === "exists" && <span className="text-muted-foreground">{r.message}</span>}
 													{r.state === "error" && <span className="text-destructive">{r.message}</span>}
 												</td>
@@ -517,7 +517,7 @@ function ProfileImport() {
 	};
 
 	return (
-		<Card className="border-border/50 bg-card/80">
+		<Card>
 			<CardHeader>
 				<CardTitle className="flex items-center gap-2 text-base">
 					<UserRound className="h-4 w-4" /> 3. Profile from CLAUDE.md

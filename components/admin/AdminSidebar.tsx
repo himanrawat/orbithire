@@ -1,7 +1,11 @@
 "use client";
 
+// Admin navigation on the night ground, like the app sidebar. Fixed 256px on desktop; on
+// phones a top bar opens it as a sheet (it used to start open and cover the page).
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
 	LayoutDashboard,
@@ -11,56 +15,28 @@ import {
 	CreditCard,
 	Shield,
 	LogOut,
-	ChevronLeft,
 	Menu,
 	UserCheck,
 	ListChecks,
+	X,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
+import { Lockup } from "@/components/marketing/logo";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const baseNavigation = [
-	{
-		name: "Dashboard",
-		href: "/admin/dashboard",
-		icon: LayoutDashboard,
-	},
-	{
-		name: "Users",
-		href: "/admin/users",
-		icon: Users,
-	},
-	{
-		name: "Admins",
-		href: "/admin/admins",
-		icon: UserCheck,
-	},
-	{
-		name: "Contact Submissions",
-		href: "/admin/contacts",
-		icon: MessageSquare,
-	},
-	{
-		name: "Credits & Access",
-		href: "/admin/credits",
-		icon: CreditCard,
-	},
-	{
-		name: "Access Codes",
-		href: "/admin/access-codes",
-		icon: Shield,
-	},
-	{
-		name: "Tasks",
-		href: "/admin/tasks",
-		icon: ListChecks,
-	},
-	{
-		name: "Settings",
-		href: "/admin/settings",
-		icon: Settings,
-	},
+	{ name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+	{ name: "Users", href: "/admin/users", icon: Users },
+	{ name: "Admins", href: "/admin/admins", icon: UserCheck },
+	{ name: "Contact messages", href: "/admin/contacts", icon: MessageSquare },
+	{ name: "Credits & access", href: "/admin/credits", icon: CreditCard },
+	{ name: "Access codes", href: "/admin/access-codes", icon: Shield },
+	{ name: "Tasks", href: "/admin/tasks", icon: ListChecks },
+	{ name: "Settings", href: "/admin/settings", icon: Settings },
 ];
+
+const rowBase =
+	"relative flex min-h-10 items-center gap-3 rounded-[var(--radius-control)] px-3 text-sm font-medium transition-colors duration-[var(--duration-quick)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--night-ink)]";
+const rowIdle = "text-[var(--night-muted)] hover:bg-white/[0.06] hover:text-[var(--night-ink)]";
 
 interface AdminSidebarProps {
 	adminName?: string;
@@ -69,7 +45,7 @@ interface AdminSidebarProps {
 
 export function AdminSidebar({ adminName = "Admin", adminEmail }: AdminSidebarProps) {
 	const pathname = usePathname();
-	const [collapsed, setCollapsed] = useState(false);
+	const [mobileOpen, setMobileOpen] = useState(false);
 	const [role, setRole] = useState<"admin" | "super_admin" | null>(null);
 
 	useEffect(() => {
@@ -87,102 +63,106 @@ export function AdminSidebar({ adminName = "Admin", adminEmail }: AdminSidebarPr
 		fetchRole();
 	}, []);
 
+	// close the sheet when the route changes
+	useEffect(() => setMobileOpen(false), [pathname]);
+
 	const handleLogout = async () => {
 		await fetch("/api/auth/admin/logout", { method: "POST" });
 		window.location.href = "/admin/signin";
 	};
 
-	return (
-		<>
-			{/* Mobile menu button */}
-			<Button
-				variant="ghost"
-				size="icon"
-				className="fixed top-4 left-4 z-50 lg:hidden"
-				onClick={() => setCollapsed(!collapsed)}
-			>
-				<Menu className="h-5 w-5" />
-			</Button>
-
-			{/* Sidebar */}
-			<aside
-				className={cn(
-					"fixed inset-y-0 left-0 z-40 flex flex-col border-r bg-card transition-all duration-300",
-					collapsed ? "w-16" : "w-64",
-					"max-lg:translate-x-0",
-					collapsed && "max-lg:-translate-x-full"
-				)}
-			>
-				{/* Header */}
-				<div className="flex h-16 items-center justify-between border-b px-4">
-					{!collapsed && (
-						<Link href="/admin/dashboard" className="flex items-center gap-2">
-							<Shield className="h-6 w-6 text-primary" />
-							<span className="font-semibold">Admin Panel</span>
-						</Link>
-					)}
-					<Button
-						variant="ghost"
-						size="icon"
-						className="hidden lg:flex"
-						onClick={() => setCollapsed(!collapsed)}
+	const panel = (mobile: boolean) => (
+		<div className="flex h-full flex-col text-[var(--night-ink)]" style={{ "--ink": "var(--night-ink)" } as React.CSSProperties}>
+			<div className="flex h-14 items-center justify-between gap-2 px-4">
+				<Link href="/admin/dashboard" className="flex items-center gap-2.5 rounded-[var(--radius-sm)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--night-ink)]">
+					<Lockup className="block h-[22px] w-auto" />
+					<span className="rounded-full bg-[var(--night-raised)] px-2 py-0.5 font-mono text-[11px] text-[var(--night-muted)]">Admin</span>
+				</Link>
+				{mobile && (
+					<button
+						type="button"
+						onClick={() => setMobileOpen(false)}
+						aria-label="Close menu"
+						className="grid size-11 place-items-center rounded-[var(--radius-control)] text-[var(--night-muted)] hover:bg-white/[0.06] hover:text-[var(--night-ink)]"
 					>
-						<ChevronLeft
-							className={cn(
-								"h-4 w-4 transition-transform",
-								collapsed && "rotate-180"
-							)}
-						/>
-					</Button>
-				</div>
+						<X className="h-5 w-5" />
+					</button>
+				)}
+			</div>
 
-				{/* Navigation */}
-				<nav className="flex-1 space-y-1 p-2">
-					{baseNavigation
-						.filter((item) => item.name !== "Admins" || role === "super_admin")
-						.map((item) => {
+			<nav aria-label="Admin" className="flex-1 space-y-1 px-2 pt-3">
+				{baseNavigation
+					.filter((item) => item.name !== "Admins" || role === "super_admin")
+					.map((item) => {
 						const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
 						return (
 							<Link
 								key={item.name}
 								href={item.href}
-								className={cn(
-									"flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-									isActive
-										? "bg-primary text-primary-foreground"
-										: "text-muted-foreground hover:bg-muted hover:text-foreground"
-								)}
+								aria-current={isActive ? "page" : undefined}
+								className={cn(rowBase, isActive ? "bg-[var(--night-raised)] text-[var(--night-ink)]" : rowIdle)}
 							>
+								{isActive && (
+									<span aria-hidden="true" className="absolute -left-2 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-[var(--cap)]" />
+								)}
 								<item.icon className="h-5 w-5 shrink-0" />
-								{!collapsed && <span>{item.name}</span>}
+								<span>{item.name}</span>
 							</Link>
 						);
 					})}
-				</nav>
+			</nav>
 
-				{/* Footer */}
-				<div className="border-t p-4">
-					{!collapsed && (
-						<div className="mb-4">
-							<p className="text-sm font-medium truncate">{adminName}</p>
-							{adminEmail && (
-								<p className="text-xs text-muted-foreground truncate">{adminEmail}</p>
-							)}
-						</div>
-					)}
-					<Button
-						variant="ghost"
-						className={cn(
-							"w-full justify-start gap-3 text-muted-foreground hover:text-foreground",
-							collapsed && "justify-center px-0"
-						)}
-						onClick={handleLogout}
-					>
-						<LogOut className="h-5 w-5 shrink-0" />
-						{!collapsed && <span>Logout</span>}
-					</Button>
+			<div className="border-t border-[var(--night-line)] p-2">
+				<div className="px-3 py-2">
+					<p className="truncate text-sm font-semibold">{adminName}</p>
+					{adminEmail && <p className="truncate text-xs text-[var(--night-muted)]">{adminEmail}</p>}
 				</div>
+				<button type="button" onClick={handleLogout} className={cn(rowBase, rowIdle, "w-full")}>
+					<LogOut className="h-5 w-5 shrink-0" />
+					Sign out
+				</button>
+			</div>
+		</div>
+	);
+
+	return (
+		<>
+			{/* phone top bar */}
+			<header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/85 px-2 backdrop-blur-[10px] lg:hidden">
+				<button
+					type="button"
+					onClick={() => setMobileOpen(true)}
+					aria-label="Open menu"
+					aria-expanded={mobileOpen}
+					className="grid size-11 place-items-center rounded-[var(--radius-control)] hover:bg-accent"
+				>
+					<Menu className="h-5 w-5" />
+				</button>
+				<span className="flex items-center gap-2 text-foreground">
+					<Lockup className="block h-5 w-auto" />
+					<span className="rounded-full bg-secondary px-2 py-0.5 font-mono text-[11px] text-muted-foreground">Admin</span>
+				</span>
+				<ThemeToggle />
+			</header>
+
+			{/* desktop */}
+			<aside className="nm-grain fixed inset-y-0 left-0 z-40 hidden w-64 bg-[var(--night)] [--grain-o:.35] lg:block">
+				<div className="relative z-[2] h-full">{panel(false)}</div>
 			</aside>
+
+			{/* phone sheet */}
+			{mobileOpen && (
+				<>
+					<div
+						onClick={() => setMobileOpen(false)}
+						className="fixed inset-0 z-40 bg-[rgba(16,18,22,0.55)] backdrop-blur-[2px] lg:hidden"
+						aria-hidden="true"
+					/>
+					<aside className="nm-grain fixed inset-y-0 left-0 z-50 w-[280px] bg-[var(--night)] [--grain-o:.35] lg:hidden">
+						<div className="relative z-[2] h-full">{panel(true)}</div>
+					</aside>
+				</>
+			)}
 		</>
 	);
 }

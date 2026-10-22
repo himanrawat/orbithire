@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { GridBackground } from "@/components/ui/aceternity";
 import {
 	Building2,
 	Calendar,
@@ -124,19 +123,19 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
 
 	return (
 		<div className="min-h-screen">
-			<GridBackground />
-			<div className="relative mx-auto max-w-5xl px-6 py-8">
-				<Button variant="ghost" asChild className="mb-4">
-					<Link href="/jobs">
-						<ChevronLeft className="mr-1 h-4 w-4" />
-						Back to Job Inbox
-					</Link>
-				</Button>
+			<div className="relative mx-auto max-w-5xl px-4 py-8 md:px-8">
+				<Link
+					href="/jobs"
+					className="-ml-1 mb-4 inline-flex min-h-9 items-center gap-1 rounded-[var(--radius-sm)] px-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+				>
+					<ChevronLeft className="h-4 w-4" />
+					Back to Job Inbox
+				</Link>
 
 				<div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 					<div>
 						<div className="flex flex-wrap items-center gap-2">
-							<h1 className="text-2xl font-bold tracking-tight">{job.title}</h1>
+							<h1 className="font-display text-[26px] font-[680] leading-8 tracking-[-0.02em] md:text-[30px] md:leading-9">{job.title}</h1>
 							<Badge variant="outline">{job.status}</Badge>
 							{!job.is_active && <Badge variant="warning">no longer listed</Badge>}
 						</div>
@@ -193,7 +192,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
 								<Link href={`/companies/${job.company_id}`}>View application</Link>
 							</Button>
 						) : (
-							<Button disabled={busy} onClick={createApplication}>
+							<Button variant="cap" disabled={busy} onClick={createApplication}>
 								<Plus className="mr-1 h-4 w-4" />
 								Create application
 							</Button>
@@ -202,7 +201,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
 				</div>
 
 				{error && (
-					<div className="mb-4 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+					<div className="mb-4 rounded-[var(--radius-control)] bg-[var(--danger-soft)] p-3 text-sm text-[var(--danger)]">
 						{error}
 					</div>
 				)}
@@ -236,7 +235,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
 							<CardContent className="space-y-3 text-sm">
 								<div className="flex items-baseline justify-between">
 									<span className="text-muted-foreground">AI score</span>
-									<span className="text-2xl font-bold">{job.llm_score ?? "–"}</span>
+									<span className="font-mono text-3xl font-semibold tabular-nums">{job.llm_score ?? "–"}</span>
 								</div>
 								<div className="flex items-baseline justify-between">
 									<span className="text-muted-foreground">Profile similarity</span>
@@ -307,7 +306,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
 								</Button>
 								<p className="text-xs text-muted-foreground">
 									Generate documents opens the resume generator with this job filled in. The MCP
-									prompt is for Claude / ChatGPT once the OrbitHire MCP server is connected.
+									prompt is for Claude / ChatGPT once the NextMilestone MCP server is connected.
 								</p>
 							</CardContent>
 						</Card>

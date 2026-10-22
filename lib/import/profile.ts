@@ -1,6 +1,6 @@
 /**
  * Parse the candidate profile from ai-job-search `CLAUDE.md` (and optionally the
- * text of a recent CV) into proposed OrbitHire profile fields, and diff them
+ * text of a recent CV) into proposed NextMilestone profile fields, and diff them
  * against the current profile. Nothing is written here: the user picks fields
  * in the UI and only those are applied (POST /api/import/profile, mode=apply).
  */

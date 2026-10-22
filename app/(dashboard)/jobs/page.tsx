@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { GridBackground } from "@/components/ui/aceternity";
 import { FetchNowButton } from "@/components/jobs/FetchNowButton";
+import { PageHeader } from "@/components/app/page-header";
+import { EmptyState, nativeSelectClass, tabClass, tabCountClass, tabListClass } from "@/components/app/blocks";
 import {
 	Briefcase,
 	Building2,
@@ -58,12 +59,20 @@ function timeAgo(iso: string | null): string | null {
 }
 
 function scoreClass(score: number) {
-	if (score >= 75) return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
-	if (score >= 50) return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
-	return "bg-muted text-muted-foreground";
+	if (score >= 75) return "bg-[var(--success-soft)] text-[var(--success)]";
+	if (score >= 50) return "bg-[var(--cap-soft)] text-[var(--cap-ink)]";
+	return "bg-secondary text-muted-foreground";
 }
 
 export default function JobInboxPage() {
+	// The daily fetch runs at 07:00 IST (01:30 UTC); show it in the viewer's own time zone.
+	const [fetchTime, setFetchTime] = useState("");
+	useEffect(() => {
+		setFetchTime(
+			new Date(Date.UTC(2000, 0, 1, 1, 30)).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", timeZoneName: "short" })
+		);
+	}, []);
+
 	const router = useRouter();
 	const [status, setStatus] = useState<MatchStatus>("new");
 	const [source, setSource] = useState("");
@@ -136,49 +145,40 @@ export default function JobInboxPage() {
 
 	return (
 		<div className="min-h-screen">
-			<GridBackground />
-			<div className="relative px-6 py-8">
-				<motion.div
-					initial={{ opacity: 0, y: 20 }}
-					animate={{ opacity: 1, y: 0 }}
-					className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
-				>
-					<div>
-						<h1 className="flex items-center gap-3 text-3xl font-bold tracking-tight">
-							<Briefcase className="h-8 w-8 text-primary" />
-							Job Inbox
-						</h1>
-						<p className="mt-1 text-muted-foreground">
-							New jobs are fetched every morning at 07:00 IST.{" "}
-							<Link href="/settings?tab=job-search" className="inline-flex items-center gap-1 underline">
-								<Settings2 className="h-3 w-3" />
-								Job search settings
-							</Link>
-						</p>
-					</div>
-					<FetchNowButton onDone={load} />
+			<div className="relative mx-auto max-w-6xl px-4 py-8 md:px-8">
+				<motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+					<PageHeader
+						icon={<Briefcase />}
+						title="Job Inbox"
+						description={
+							<>
+								New jobs are fetched every morning{fetchTime ? ` at ${fetchTime}` : ""}.{" "}
+								<Link href="/settings?tab=job-search" className="inline-flex items-center gap-1 font-medium text-[var(--info)] underline underline-offset-2">
+									<Settings2 className="h-3.5 w-3.5" />
+									Job search settings
+								</Link>
+							</>
+						}
+						actions={<FetchNowButton onDone={load} />}
+						className="mb-6"
+					/>
 				</motion.div>
 
 				{/* Status tabs */}
-				<div className="mb-4 flex flex-wrap gap-2 rounded-lg border bg-card/80 p-2 backdrop-blur">
+				<div role="tablist" aria-label="Job status" className={cn(tabListClass, "mb-4")}>
 					{MATCH_STATUSES.map((s) => (
 						<button
 							key={s}
+							role="tab"
+							aria-selected={status === s}
 							onClick={() => {
 								setStatus(s);
 								setShowHidden(false);
 							}}
-							className={cn(
-								"flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-								status === s
-									? "bg-primary text-primary-foreground"
-									: "text-muted-foreground hover:bg-muted hover:text-foreground"
-							)}
+							className={tabClass(status === s)}
 						>
 							{STATUS_LABELS[s]}
-							<span className="rounded bg-background/20 px-1.5 text-xs">
-								{data?.counts?.[s] ?? 0}
-							</span>
+							<span className={tabCountClass(status === s)}>{data?.counts?.[s] ?? 0}</span>
 						</button>
 					))}
 				</div>
@@ -188,7 +188,7 @@ export default function JobInboxPage() {
 					<select
 						value={source}
 						onChange={(e) => setSource(e.target.value)}
-						className="h-10 rounded-md border bg-background px-3 text-sm"
+						className={nativeSelectClass}
 						aria-label="Source"
 					>
 						<option value="">All sources</option>
@@ -198,14 +198,14 @@ export default function JobInboxPage() {
 							</option>
 						))}
 					</select>
-					<label className="flex h-10 items-center gap-2 rounded-md border bg-background px-3 text-sm">
-						<input type="checkbox" checked={remote} onChange={(e) => setRemote(e.target.checked)} />
+					<label className="flex h-11 cursor-pointer items-center gap-2.5 rounded-[var(--radius-control)] border border-input bg-card px-3.5 text-[15px] hover:border-foreground/50">
+						<input type="checkbox" className="size-4 accent-[var(--ink)]" checked={remote} onChange={(e) => setRemote(e.target.checked)} />
 						Remote only
 					</label>
 					<Input
 						type="number"
 						min={0}
-						placeholder="Min salary / yr (e.g. 1500000)"
+						placeholder="Min salary / yr (e.g. 120000)"
 						value={minSalary}
 						onChange={(e) => setMinSalary(e.target.value)}
 					/>
@@ -222,13 +222,13 @@ export default function JobInboxPage() {
 						onClick={() => setShowHidden(!showHidden)}
 						disabled={!showHidden && !data?.hiddenCount}
 					>
-						<EyeOff className="mr-2 h-4 w-4" />
+						<EyeOff className="h-4 w-4" />
 						{showHidden ? "Back to visible jobs" : `Show hidden (${data?.hiddenCount ?? 0})`}
 					</Button>
 				</div>
 
 				{error && (
-					<div className="mb-4 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+					<div role="alert" className="mb-4 rounded-[var(--radius-control)] bg-[var(--danger-soft)] p-3 text-sm text-[var(--danger)]">
 						{error}
 					</div>
 				)}
@@ -239,13 +239,12 @@ export default function JobInboxPage() {
 					</div>
 				) : jobs.length === 0 ? (
 					<Card>
-						<CardContent className="py-16 text-center text-muted-foreground">
-							{showHidden
-								? "No hidden jobs."
-								: status === "new"
-								? "No new jobs yet. Set up a job search or watchlist, then press Fetch now."
-								: `No ${STATUS_LABELS[status].toLowerCase()} jobs.`}
-						</CardContent>
+						<EmptyState
+							title={showHidden ? "No hidden jobs" : status === "new" ? "No new jobs yet" : `No ${STATUS_LABELS[status].toLowerCase()} jobs`}
+							description={
+								!showHidden && status === "new" ? "Set up a job search or a company watchlist, then press Fetch now." : undefined
+							}
+						/>
 					</Card>
 				) : (
 					<div className={cn("grid grid-cols-1 gap-3", loading && "opacity-60")}>
@@ -260,14 +259,14 @@ export default function JobInboxPage() {
 								: [];
 							const busy = busyId === job.id;
 							return (
-								<Card key={job.id} className={cn(!job.seen_at && "border-primary/40")}>
+								<Card key={job.id} className={cn(!job.seen_at && "border-l-[3px] border-l-[var(--cap)]")}>
 									<CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
 										<div className="min-w-0 flex-1">
 											<div className="flex flex-wrap items-center gap-2">
 												{job.llm_score != null && (
 													<span
 														className={cn(
-															"rounded-full px-2 py-0.5 text-xs font-bold",
+															"rounded-full px-2 py-0.5 font-mono text-xs font-semibold tabular-nums",
 															scoreClass(job.llm_score)
 														)}
 														title="AI match score"
@@ -277,7 +276,7 @@ export default function JobInboxPage() {
 												)}
 												{job.llm_score == null && job.similarity != null && (
 													<span
-														className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+														className="rounded-full bg-secondary px-2 py-0.5 font-mono text-xs text-muted-foreground"
 														title="Profile similarity"
 													>
 														sim {Math.round(job.similarity * 100)}%
@@ -285,7 +284,7 @@ export default function JobInboxPage() {
 												)}
 												<Link
 													href={`/jobs/${job.id}`}
-													className="max-w-full truncate text-lg font-semibold hover:underline"
+													className="max-w-full truncate font-display text-[17px] font-[650] leading-6 tracking-[-0.01em] hover:underline"
 												>
 													{job.title}
 												</Link>
@@ -323,7 +322,7 @@ export default function JobInboxPage() {
 											{topReasons.length > 0 && (
 												<ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
 													{topReasons.map(([k, v]) => (
-														<li key={k}>• {v?.note}</li>
+														<li key={k}>· {v?.note}</li>
 													))}
 												</ul>
 											)}

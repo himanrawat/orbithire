@@ -35,6 +35,7 @@ import {
 	type WatchedCompany,
 } from "@/lib/jobs/types";
 import { detectAts } from "@/lib/jobs/portals";
+import { nativeSelectClass } from "@/components/app/blocks";
 
 type SearchForm = {
 	name: string;
@@ -234,12 +235,12 @@ export function JobSearchSettings() {
 	return (
 		<div className="grid gap-6">
 			{error && (
-				<div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+				<div className="rounded-[var(--radius-control)] bg-[var(--danger-soft)] p-3 text-sm text-[var(--danger)]">
 					{error}
 				</div>
 			)}
 			{notice && (
-				<div className="rounded-lg border border-green-500/40 bg-green-500/10 p-3 text-sm">{notice}</div>
+				<div className="rounded-lg border border-[color-mix(in_srgb,var(--success)_40%,transparent)] bg-[var(--success-soft)] p-3 text-sm">{notice}</div>
 			)}
 
 			{/* Searches */}
@@ -326,7 +327,7 @@ export function JobSearchSettings() {
 									<Label htmlFor="job-search-country">Country</Label>
 									<select
 										id="job-search-country"
-										className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+										className={nativeSelectClass}
 										value={form.country}
 										onChange={(e) => setForm(withCountry(form, e.target.value))}
 									>
@@ -591,7 +592,7 @@ export function JobSearchSettings() {
 							onChange={(e) => setCompany({ ...company, company: e.target.value })}
 						/>
 						<select
-							className="h-10 rounded-md border bg-background px-3 text-sm"
+							className={nativeSelectClass}
 							value={company.ats}
 							onChange={(e) => setCompany({ ...company, ats: e.target.value as AtsType })}
 						>

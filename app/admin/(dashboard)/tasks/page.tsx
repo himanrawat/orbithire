@@ -2,6 +2,7 @@ import { createServiceSupabase } from "@/lib/supabaseServer";
 import { TASK_STATUSES, TASK_TYPES, type TaskRow } from "@/lib/tasks";
 import Link from "next/link";
 import { TasksTable } from "./TasksTable";
+import { PageHeader } from "@/components/app/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -82,15 +83,10 @@ export default async function TasksPage({
 
 	return (
 		<div className="space-y-6">
-			<div>
-				<h1 className="text-3xl font-bold tracking-tight">Background Tasks</h1>
-				<p className="text-muted-foreground">
-					Queue processed by the worker: PDF renders, job fetches, ranking and digests.
-				</p>
-			</div>
+			<PageHeader title="Background tasks" description="Queue processed by the worker: PDF renders, job fetches, ranking and digests." className="mb-0" />
 
 			{error && (
-				<div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+				<div className="rounded-[var(--radius-control)] bg-[var(--danger-soft)] p-4 text-sm text-[var(--danger)]">
 					Could not load tasks: {error}. Has the tasks migration been applied?
 				</div>
 			)}

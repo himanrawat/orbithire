@@ -89,7 +89,7 @@ export function FetchNowButton({ onDone }: { onDone?: () => void }) {
 
 	return (
 		<div className="flex flex-col items-start gap-1 sm:items-end">
-			<Button onClick={start} disabled={starting || !!status?.active}>
+			<Button variant="cap" onClick={start} disabled={starting || !!status?.active}>
 				{starting || status?.active ? (
 					<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 				) : (

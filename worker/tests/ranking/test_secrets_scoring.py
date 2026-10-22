@@ -57,7 +57,8 @@ def test_decrypt_wrong_key_and_legacy():
 
 def test_parse_valid():
     r = parse_score(good_json(81))
-    assert r.score == 81 and r.reasons.skills_fit.score == 81
+    assert r.score == 81
+    assert r.reasons.skills_fit.score == 81
 
 
 @pytest.mark.parametrize(
@@ -104,10 +105,13 @@ def test_parse_rejects_garbage(text):
 def test_platform_key_gated_by_quota():
     c = cfg(anthropic_api_key="sk-platform", openai_api_key="sk-oai")
     allowed = resolve_clients(None, {"can_generate": True, "reason": "free_tier"}, c)
-    assert isinstance(allowed.scorer, AnthropicScorer) and allowed.scorer.source == "platform"
-    assert allowed.platform_cap == 15 and allowed.embedder is not None
+    assert isinstance(allowed.scorer, AnthropicScorer)
+    assert allowed.scorer.source == "platform"
+    assert allowed.platform_cap == 15
+    assert allowed.embedder is not None
     blocked = resolve_clients(None, {"can_generate": False, "reason": "quota_exceeded"}, c)
-    assert blocked.scorer is None and "quota_exceeded" in blocked.note
+    assert blocked.scorer is None
+    assert "quota_exceeded" in blocked.note
     assert blocked.embedder is not None  # embeddings are not quota-gated
     always = resolve_clients(None, {"can_generate": False}, cfg(anthropic_api_key="k", ranking_platform_llm="always"))
     assert always.scorer is not None
@@ -121,15 +125,19 @@ def test_user_key_wins_and_has_no_platform_cap():
     us = {"ai_provider": "openai", "ai_api_key_encrypted": v["ciphertext"], "ai_base_url": None}
     out = resolve_clients(us, {"can_generate": False}, c)
     assert isinstance(out.scorer, OpenAIChatScorer)
-    assert out.scorer.source == "user" and out.scorer.api_key == v["plaintext"]
+    assert out.scorer.source == "user"
+    assert out.scorer.api_key == v["plaintext"]
     assert out.platform_cap is None
-    assert out.embedder is not None and out.embedder.source == "user"
+    assert out.embedder is not None
+    assert out.embedder.source == "user"
     us["ai_provider"] = "anthropic"
     out = resolve_clients(us, None, c)
-    assert isinstance(out.scorer, AnthropicScorer) and out.scorer.model == "claude-haiku-5-5"
+    assert isinstance(out.scorer, AnthropicScorer)
+    assert out.scorer.model == "claude-haiku-5-5"
     us["ai_provider"] = "groq"
     out = resolve_clients(us, None, c)
-    assert isinstance(out.scorer, OpenAIChatScorer) and "groq" in (out.scorer.base_url or "")
+    assert isinstance(out.scorer, OpenAIChatScorer)
+    assert "groq" in (out.scorer.base_url or "")
 
 
 def test_llm_error_message_is_user_facing():

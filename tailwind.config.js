@@ -16,6 +16,11 @@ module.exports = {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ["var(--font-text)", "system-ui", "sans-serif"],
+        display: ["var(--font-display)", "var(--font-text)", "system-ui", "sans-serif"],
+        mono: ["var(--font-mono)", "ui-monospace", "monospace"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -45,6 +50,10 @@ module.exports = {
         popover: {
           DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",
+        },
+        cap: {
+          DEFAULT: "hsl(var(--brand-cap))",
+          foreground: "hsl(var(--brand-cap-foreground))",
         },
         card: {
           DEFAULT: "hsl(var(--card))",

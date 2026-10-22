@@ -1,6 +1,6 @@
 /**
  * Server-only: authorization requests, codes, grants and tokens for the
- * OrbitHire OAuth 2.1 server. Everything here uses the service-role client;
+ * NextMilestone OAuth 2.1 server. Everything here uses the service-role client;
  * every secret is stored as a SHA-256 hash.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -67,7 +67,7 @@ export async function validateAuthorizationRequest(
 			ok: false,
 			kind: "render",
 			title: "Unknown application",
-			message: "This application is not registered with OrbitHire. Remove the connector and add it again.",
+			message: "This application is not registered with NextMilestone. Remove the connector and add it again.",
 		};
 	}
 	let redirectUri = params.get("redirect_uri");

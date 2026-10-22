@@ -1,4 +1,4 @@
-# OrbitHire
+# NextMilestone
 
 A personal job-search hub: every morning new jobs are fetched and ranked against your
 profile, you review them in a **Job Inbox**, and you get a tailored **resume + cover
@@ -143,7 +143,7 @@ access tokens are Supabase JWTs that would also open PostgREST as the user.
 |---|---|---|
 | `/.well-known/oauth-protected-resource[/api/mcp]` | RFC 9728 | `resource = <origin>/api/mcp`, scopes `read write` |
 | `/.well-known/oauth-authorization-server` | RFC 8414 | issuer = app origin; `code_challenge_methods_supported: ["S256"]`, `client_id_metadata_document_supported: true` |
-| `/oauth/authorize` | OAuth 2.1 §4.1 | needs an OrbitHire login (→ `/signin?redirect=…`), consent screen (client, redirect host, scopes; *write* can be unticked); response carries `code`, `state`, `iss` (RFC 9207) |
+| `/oauth/authorize` | OAuth 2.1 §4.1 | needs an NextMilestone login (→ `/signin?redirect=…`), consent screen (client, redirect host, scopes; *write* can be unticked); response carries `code`, `state`, `iss` (RFC 9207) |
 | `/api/oauth/authorize` | – | consent form POST (same-origin check + HMAC-signed, user-bound request, 10 min) |
 | `/api/oauth/token` | OAuth 2.1 §4.1.3, §4.3 | `authorization_code` (PKCE S256 required) and `refresh_token` (rotated; reuse of a rotated token after 30 s revokes the connection); `resource` must match (RFC 8707); access token 1 h, refresh 60 days |
 | `/api/oauth/register` | RFC 7591 | open DCR, public (`none`) or confidential clients; redirect URIs https or http on localhost/127.0.0.1; 30/h per IP |

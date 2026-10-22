@@ -218,28 +218,28 @@ export default function DocumentEditorPage() {
 	if (loading) {
 		return (
 			<div className="flex min-h-[50vh] items-center justify-center">
-				<Loader2 className="h-8 w-8 animate-spin text-primary" />
+				<Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
 			</div>
 		);
 	}
 	if (!row || !type) {
-		return <div className="p-8 text-destructive">{error || "Document not found"}</div>;
+		return <div className="mx-auto max-w-3xl p-8"><div role="alert" className="rounded-[var(--radius-control)] bg-[var(--danger-soft)] p-4 text-sm text-[var(--danger)]">{error || "Document not found"}</div></div>;
 	}
 
 	const basics: Json = content.basics || {};
 	const location = typeof basics.location === "object" ? basics.location?.city ?? "" : basics.location ?? "";
 
 	return (
-		<div className="container mx-auto max-w-7xl space-y-4 px-4 py-6">
+		<div className="mx-auto max-w-7xl space-y-4 px-4 py-8 md:px-8">
 			<div className="flex flex-wrap items-center justify-between gap-3">
 				<div>
 					{row.company_id && (
-						<Link href={`/companies/${row.company_id}`} className="mb-1 inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
+						<Link href={`/companies/${row.company_id}`} className="-ml-1 mb-2 inline-flex min-h-9 items-center gap-1 rounded-[var(--radius-sm)] px-1 text-sm font-medium text-muted-foreground hover:text-foreground">
 							<ChevronLeft className="h-4 w-4" /> Back to application
 						</Link>
 					)}
-					<h1 className="text-2xl font-bold">{row.title}</h1>
-					<div className="mt-1 flex items-center gap-3">
+					<h1 className="font-display text-[26px] font-[680] leading-8 tracking-[-0.02em] md:text-[30px] md:leading-9">{row.title}</h1>
+					<div className="mt-2 flex items-center gap-3">
 						<PdfStatusBadge
 							documentId={row.id}
 							documentType={type}
@@ -248,36 +248,36 @@ export default function DocumentEditorPage() {
 							onChange={(st: PdfStatusInfo) => setPdfUrl(st.pdf_url)}
 						/>
 						{pdfUrl && (
-							<a href={pdfUrl} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+							<a href={pdfUrl} className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--info)] underline-offset-2 hover:underline">
 								<Download className="h-3 w-3" /> PDF
 							</a>
 						)}
 					</div>
 				</div>
-				<Button onClick={save} disabled={saving}>
+				<Button variant="cap" onClick={save} disabled={saving}>
 					{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
 					Save
 				</Button>
 			</div>
 			{row.source === "import" && staticPdf ? (
-				<div className="rounded-lg border bg-muted/40 p-3 text-sm">
+				<div className="rounded-[var(--radius-control)] border bg-secondary p-3 text-sm">
 					This document was imported as a finished PDF and is kept exactly as uploaded. Download the PDF above, or
 					fill in the form and save to render a new PDF with a template (the imported PDF is replaced).
 				</div>
 			) : (
 				staticPdf && (
-					<div className="rounded-lg border bg-muted/40 p-3 text-sm">
+					<div className="rounded-[var(--radius-control)] border bg-secondary p-3 text-sm">
 						This document was made with a retired template and has no editable content. Its PDF is kept as is; fill
 						in the form and save to render it with a Typst template.
 					</div>
 				)
 			)}
-			{error && <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
-			{message && <div className="rounded-lg border bg-muted/40 p-3 text-sm">{message}</div>}
+			{error && <div className="rounded-[var(--radius-control)] bg-[var(--danger-soft)] p-3 text-sm text-[var(--danger)]">{error}</div>}
+			{message && <div className="rounded-[var(--radius-control)] border bg-secondary p-3 text-sm">{message}</div>}
 
 			<div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(340px,460px)]">
 				{/* ---------- form ---------- */}
-				<Card className="border-border/50 bg-card/80">
+				<Card>
 					<CardContent className="space-y-6 pt-6">
 						<div className="grid gap-3 sm:grid-cols-2">
 							<Field label="Name" value={basics.name} onChange={(v) => set("basics.name", v)} />
@@ -403,7 +403,7 @@ export default function DocumentEditorPage() {
 
 				{/* ---------- preview ---------- */}
 				<aside className="space-y-3 lg:sticky lg:top-4">
-					<Card className="border-border/50 bg-card/80">
+					<Card>
 						<CardHeader className="pb-3">
 							<CardTitle className="text-base">Template & preview</CardTitle>
 							<CardDescription>Live preview of page 1. Saving renders the PDF in the background.</CardDescription>

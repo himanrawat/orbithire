@@ -1,5 +1,6 @@
 import { createServiceSupabase } from "@/lib/supabaseServer";
 import { ContactsTable } from "./ContactsTable";
+import { PageHeader } from "@/components/app/page-header";
 
 async function getContacts(searchParams: { page?: string; status?: string }) {
 	const supabase = createServiceSupabase();
@@ -43,12 +44,7 @@ export default async function ContactsPage({
 
 	return (
 		<div className="space-y-6">
-			<div>
-				<h1 className="text-3xl font-bold tracking-tight">Contact Submissions</h1>
-				<p className="text-muted-foreground">
-					View and manage contact form submissions.
-				</p>
-			</div>
+			<PageHeader title="Contact messages" description="View and manage contact form submissions." className="mb-0" />
 
 			<ContactsTable
 				contacts={contacts}

@@ -59,7 +59,7 @@ export function ProviderSelector({
 							"disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100",
 							isSelected
 								? "border-primary bg-primary/5 shadow-md"
-								: "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+								: "border-border hover:border-border"
 						)}
 					>
 						<div
@@ -77,14 +77,14 @@ export function ProviderSelector({
 						<span
 							className={cn(
 								"text-sm font-medium",
-								isSelected ? "text-primary" : "text-gray-700 dark:text-gray-300"
+								isSelected ? "text-primary" : "text-foreground"
 							)}
 						>
 							{provider.name}
 						</span>
 						{isSelected && (
 							<div className="absolute top-2 right-2">
-								<div className="h-2 w-2 rounded-full bg-green-500" />
+								<div className="h-2 w-2 rounded-full bg-[var(--success)]" />
 							</div>
 						)}
 					</button>

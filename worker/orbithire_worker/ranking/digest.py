@@ -75,7 +75,7 @@ def render(matches: list[dict[str, Any]], *, app_url: str, name: str | None) -> 
             f'<a href="{e(link)}" style="color:#111827;text-decoration:none">{e(m.get("title") or "Untitled role")}</a> {score}</div>'
             f'<div style="color:#4b5563;font-size:14px">{e(meta)}</div>'
             + (f'<div style="color:#374151;font-size:14px;margin-top:6px">{e(summary)}</div>' if summary else "")
-            + f'<div style="margin-top:8px"><a href="{e(link)}" style="color:#4f46e5;font-size:14px">View in OrbitHire &rarr;</a></div>'
+            + f'<div style="margin-top:8px"><a href="{e(link)}" style="color:#4f46e5;font-size:14px">View in NextMilestone &rarr;</a></div>'
             f'</td></tr>')
         score_txt = f" [{int(m['llm_score'])}]" if m.get("llm_score") is not None else ""
         items_text.append(f"{i}. {m.get('title')}{score_txt}\n   {meta}\n   {link}")

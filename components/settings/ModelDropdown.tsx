@@ -3,6 +3,7 @@
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import type { ModelInfo } from "@/lib/ai/providers/registry";
+import { nativeSelectClass } from "@/components/app/blocks";
 
 interface ModelDropdownProps {
 	models: ModelInfo[];
@@ -27,26 +28,26 @@ export function ModelDropdown({
 		switch (category) {
 			case "recommended":
 				return (
-					<span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+					<span className="inline-flex items-center gap-1 text-xs text-[var(--success)]">
 						<CheckCircle2 className="h-3 w-3" />
 						Recommended
 					</span>
 				);
 			case "alternative":
 				return (
-					<span className="text-xs text-blue-600 dark:text-blue-400">
+					<span className="text-xs text-[var(--info)]">
 						Alternative
 					</span>
 				);
 			case "experimental":
 				return (
-					<span className="text-xs text-amber-600 dark:text-amber-400">
+					<span className="text-xs text-[var(--cap-ink)]">
 						⚠️ Experimental
 					</span>
 				);
 			case "deprecated":
 				return (
-					<span className="inline-flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
+					<span className="inline-flex items-center gap-1 text-xs text-[var(--danger)]">
 						<AlertCircle className="h-3 w-3" />
 						Deprecated
 					</span>
@@ -64,7 +65,7 @@ export function ModelDropdown({
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
 				disabled={disabled}
-				className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+				className={nativeSelectClass}
 			>
 				{!value && <option value="">Select a model...</option>}
 
@@ -111,7 +112,7 @@ export function ModelDropdown({
 
 			{/* Show model details for selected model */}
 			{value && (
-				<div className="mt-2 rounded-md bg-gray-50 dark:bg-gray-800/50 p-3 text-sm">
+				<div className="mt-2 rounded-md bg-secondary p-3 text-sm">
 					{(() => {
 						const selectedModel = models.find((m) => m.id === value);
 						if (!selectedModel) return null;
@@ -122,10 +123,10 @@ export function ModelDropdown({
 									<span className="font-medium">{selectedModel.name}</span>
 									{getCategoryBadge(selectedModel.category)}
 								</div>
-								<p className="text-xs text-gray-600 dark:text-gray-400">
+								<p className="text-xs text-muted-foreground">
 									{selectedModel.description}
 								</p>
-								<div className="flex flex-wrap gap-2 text-xs text-gray-600 dark:text-gray-400">
+								<div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
 									<span>Speed: {selectedModel.performance.speed}/10</span>
 									<span>•</span>
 									<span>Quality: {selectedModel.performance.quality}/10</span>

@@ -1,4 +1,4 @@
-// OrbitHire shared data layer for Typst templates.
+// NextMilestone shared data layer for Typst templates.
 //
 // Everything user-supplied arrives as JSON via `sys.inputs.data` and is only
 // ever handled as Typst *values* (str / array / dictionary). Strings are

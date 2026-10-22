@@ -28,7 +28,7 @@ export async function POST(req: Request) {
 		const client = await getClient(service, creds.clientId);
 		if (!client || !authenticateClient(client, creds.clientSecret)) {
 			return oauthError("invalid_client", "Client authentication failed", 401, {
-				"WWW-Authenticate": 'Basic realm="OrbitHire OAuth"',
+				"WWW-Authenticate": 'Basic realm="NextMilestone OAuth"',
 			});
 		}
 		if (!client.grant_types.includes(grantType)) {

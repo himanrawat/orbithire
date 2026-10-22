@@ -80,34 +80,22 @@ async function fetchPhotoFromR2(
  * Create Supabase client for server-side operations
  */
 function createSupabaseClient() {
+	const cookieStore = cookies();
 	return createServerClient(serverEnv.supabaseUrl, serverEnv.supabaseAnonKey, {
 		cookies: {
-			get(name: string) {
-				return cookies().get(name)?.value;
-			},
-			set(name: string, value: string, options: any) {
-				cookies().set({
-					name,
-					value,
-					httpOnly: true,
-					secure: true,
-					sameSite: "lax",
-					domain: serverEnv.authCookieDomain,
-					path: "/",
-					...options,
-				});
-			},
-			remove(name: string, options: any) {
-				cookies().set({
-					name,
-					value: "",
-					expires: new Date(0),
-					httpOnly: true,
-					secure: true,
-					sameSite: "lax",
-					domain: serverEnv.authCookieDomain,
-					path: "/",
-					...options,
+			getAll: () => cookieStore.getAll(),
+			setAll(cookiesToSet) {
+				cookiesToSet.forEach(({ name, value, options }) => {
+					cookieStore.set({
+						name,
+						value,
+						httpOnly: true,
+						secure: true,
+						sameSite: "lax",
+						domain: serverEnv.authCookieDomain,
+						path: "/",
+						...options,
+					});
 				});
 			},
 		},
@@ -267,8 +255,8 @@ export async function POST(req: NextRequest) {
 		// Don't fail - the upload succeeded, user can save profile manually
 	}
 
-	// Return proxy URL instead of signed URL - this never expires
-	const proxyUrl = "/api/profile/photo";
+	// Return proxy URL instead of signed URL - this never expires; the version busts the browser cache
+	const proxyUrl = `/api/profile/photo?v=${encodeURIComponent(key.split("/").pop() || key)}`;
 
 	return NextResponse.json({ ok: true, key, url: proxyUrl }, { status: 200 });
 }

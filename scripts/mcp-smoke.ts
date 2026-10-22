@@ -1,5 +1,5 @@
 /**
- * End-to-end smoke test for the OrbitHire MCP server (/api/mcp).
+ * End-to-end smoke test for the NextMilestone MCP server (/api/mcp).
  *
  * Needs: the app running (next dev / start), the worker running (for the PDF
  * step), Supabase reachable with the service role key, and a user that has

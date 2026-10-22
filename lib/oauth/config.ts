@@ -1,11 +1,11 @@
 /**
- * OAuth 2.1 authorization server for the OrbitHire MCP endpoint (Phase 5).
+ * OAuth 2.1 authorization server for the NextMilestone MCP endpoint (Phase 5).
  *
  * The app is both the authorization server (issuer = the app origin) and the
  * protected resource (`<origin>/api/mcp`). Endpoints:
  *   /.well-known/oauth-protected-resource[/api/mcp]  RFC 9728
  *   /.well-known/oauth-authorization-server          RFC 8414
- *   /oauth/authorize                                 consent page (needs an OrbitHire login)
+ *   /oauth/authorize                                 consent page (needs an NextMilestone login)
  *   /api/oauth/authorize                             consent decision (form POST)
  *   /api/oauth/token                                 authorization_code + refresh_token
  *   /api/oauth/register                              RFC 7591 dynamic client registration

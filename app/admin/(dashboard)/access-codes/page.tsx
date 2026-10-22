@@ -16,6 +16,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { Plus, Copy, Trash2, Loader2, Check } from "lucide-react";
+import { PageHeader } from "@/components/app/page-header";
 
 interface AccessCode {
 	id: string;
@@ -94,12 +95,7 @@ export default function AccessCodesPage() {
 
 	return (
 		<div className="space-y-6">
-			<div>
-				<h1 className="text-3xl font-bold tracking-tight">Access Codes</h1>
-				<p className="text-muted-foreground">
-					Manage admin registration access codes.
-				</p>
-			</div>
+			<PageHeader title="Access codes" description="Manage admin registration access codes." className="mb-0" />
 
 			{/* Create new code */}
 			<Card>
@@ -193,7 +189,7 @@ export default function AccessCodesPage() {
 													disabled={!!code.used_by}
 												>
 													{copiedId === code.id ? (
-														<Check className="h-4 w-4 text-green-500" />
+														<Check className="h-4 w-4 text-[var(--success)]" />
 													) : (
 														<Copy className="h-4 w-4" />
 													)}

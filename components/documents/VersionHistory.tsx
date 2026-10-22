@@ -118,7 +118,7 @@ export function VersionHistory({
 	const latest = versions?.[0]?.version;
 
 	return (
-		<Card className="border-border/50 bg-card/80">
+		<Card>
 			<CardHeader className="pb-3">
 				<button type="button" className="flex w-full items-center justify-between text-left" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
 					<div>
@@ -180,7 +180,7 @@ export function VersionHistory({
 													</div>
 												))}
 												{d.added.slice(0, 8).map((l, i) => (
-													<div key={`a${i}`} className="whitespace-pre-wrap text-green-700 dark:text-green-400">
+													<div key={`a${i}`} className="whitespace-pre-wrap text-[var(--success)]">
 														+ {l}
 													</div>
 												))}

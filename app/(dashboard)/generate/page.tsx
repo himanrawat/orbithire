@@ -17,7 +17,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { GridBackground } from "@/components/ui/aceternity";
 import {
 	Dialog,
 	DialogContent,
@@ -58,6 +57,7 @@ import {
 	AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/app/page-header";
 import { type JSONResume, type ResumeSection } from "@/lib/sampleResume";
 import { TemplateGallery } from "@/components/TemplateGallery";
 import { TypstPreview } from "@/components/TypstPreview";
@@ -739,12 +739,19 @@ export default function GeneratePage() {
 	};
 
 	return (
-		<div className="">
-			<GridBackground />
-
+		<div>
 			<div className="relative">
+				<div className="mx-auto max-w-4xl px-4 pt-8 md:px-8">
+					<PageHeader
+						icon={<Sparkles />}
+						title="Generate a resume"
+						description="Paste a job, pick a template, and review the AI draft before anything is saved."
+						className="mb-2"
+					/>
+				</div>
+
 				{/* Profile Completion Warning */}
-				<div className="container mx-auto max-w-4xl px-4 pt-6">
+				<div className="mx-auto max-w-4xl px-4 md:px-8">
 					<ProfileCompletionBanner variant="popup" />
 				</div>
 
@@ -753,14 +760,14 @@ export default function GeneratePage() {
 					<motion.div
 						initial={{ opacity: 0, y: -10 }}
 						animate={{ opacity: 1, y: 0 }}
-						className="container mx-auto max-w-4xl px-4 pt-4"
+						className="mx-auto max-w-4xl px-4 pt-4 md:px-8"
 					>
 						<Card
 							className={cn(
-								"border-border/50 backdrop-blur",
+								"",
 								quota.remaining === 0
-									? "border-amber-500/50 bg-amber-500/5"
-									: "bg-card/80"
+									? "border-[color-mix(in_srgb,var(--cap)_40%,transparent)] bg-[var(--cap-soft)]"
+									: "bg-card"
 							)}
 						>
 							<CardContent className="flex items-center justify-between gap-4 py-3 px-4">
@@ -769,32 +776,32 @@ export default function GeneratePage() {
 										className={cn(
 											"flex h-9 w-9 items-center justify-center rounded-lg",
 											quota.remaining === 0
-												? "bg-amber-500/10"
-												: "bg-purple-500/10"
+												? "bg-[var(--cap-soft)]"
+												: "bg-[var(--kind-prep-soft)]"
 										)}
 									>
 										<Zap
 											className={cn(
 												"h-4 w-4",
 												quota.remaining === 0
-													? "text-amber-500"
-													: "text-purple-500"
+													? "text-[var(--cap-ink)]"
+													: "text-[var(--kind-prep)]"
 											)}
 										/>
 									</div>
 									<div>
 										<p className="text-sm font-medium">
 											{quota.remaining === 0 ? (
-												<span className="text-amber-600 dark:text-amber-400">
+												<span className="text-[var(--cap-ink)]">
 													Free generation limit reached
 												</span>
 											) : (
 												<>
-													<span className="text-purple-600 dark:text-purple-400">
+													<span className="text-[var(--kind-prep)]">
 														{quota.remaining}
 													</span>
 													<span className="text-muted-foreground"> of </span>
-													<span className="text-purple-600 dark:text-purple-400">
+													<span className="text-[var(--kind-prep)]">
 														{quota.limit}
 													</span>
 													<span className="text-muted-foreground">
@@ -826,22 +833,23 @@ export default function GeneratePage() {
 					</motion.div>
 				)}
 
+				<div className={cn("mx-auto px-4 pb-12 md:px-8", step === "preview" ? "max-w-6xl" : "max-w-4xl")}>
 				{/* Progress indicator */}
 				<div className="my-6 flex items-center justify-center gap-2">
 					{["job-details", "select-template", "preview"].map((s, i) => (
 						<div key={s} className="flex items-center">
 							<div
 								className={cn(
-									"flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors",
+									"flex h-8 w-8 items-center justify-center rounded-full font-mono text-sm font-semibold transition-colors",
 									step === s ||
 										(step === "generating" && s === "select-template")
-										? "bg-primary text-primary-foreground"
+										? "bg-[var(--cap)] text-[var(--on-cap)]"
 										: i <
 										  ["job-details", "select-template", "preview"].indexOf(
 												step
 										  )
-										? "bg-primary/20 text-primary"
-										: "bg-muted text-muted-foreground"
+										? "bg-primary text-primary-foreground"
+										: "bg-secondary text-muted-foreground"
 								)}
 							>
 								{i <
@@ -860,7 +868,7 @@ export default function GeneratePage() {
 												step
 											)
 											? "bg-primary"
-											: "bg-muted"
+											: "bg-border"
 									)}
 								/>
 							)}
@@ -877,7 +885,7 @@ export default function GeneratePage() {
 							animate={{ opacity: 1, x: 0 }}
 							exit={{ opacity: 0, x: -20 }}
 						>
-							<Card className="border-border/50 bg-card/80 backdrop-blur">
+							<Card>
 								<CardHeader>
 									<CardTitle className="flex items-center gap-2 text-2xl">
 										<FileText className="h-5 w-5 text-primary" />
@@ -989,7 +997,7 @@ export default function GeneratePage() {
 											onClick={() => setStep("select-template")}
 											disabled={!canProceed}
 										>
-											Choose Template
+											Choose template
 											<ArrowRight className="ml-2 h-4 w-4" />
 										</Button>
 									</div>
@@ -1006,11 +1014,11 @@ export default function GeneratePage() {
 							animate={{ opacity: 1, x: 0 }}
 							exit={{ opacity: 0, x: 20 }}
 						>
-							<Card className="border-border/50 bg-card/80 backdrop-blur">
+							<Card>
 								<CardHeader>
 									<CardTitle className="flex items-center gap-2 text-2xl">
 										<Sparkles className="h-5 w-5 text-primary" />
-										Choose Your Template
+										Choose your template
 									</CardTitle>
 									<CardDescription>
 										Select a template style. Previews show sample data. Your
@@ -1019,7 +1027,7 @@ export default function GeneratePage() {
 								</CardHeader>
 								<CardContent className="space-y-6">
 									{error && (
-										<div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+										<div className="rounded-[var(--radius-control)] bg-[var(--danger-soft)] p-4 text-sm text-[var(--danger)]">
 											{error}
 										</div>
 									)}
@@ -1041,12 +1049,13 @@ export default function GeneratePage() {
 										</Button>
 										<div className="flex items-center gap-3">
 											{isQuotaBlocked && (
-												<span className="flex items-center gap-1.5 text-sm text-amber-600 dark:text-amber-400">
+												<span className="flex items-center gap-1.5 text-sm text-[var(--cap-ink)]">
 													<AlertTriangle className="h-4 w-4" />
 													Quota exceeded
 												</span>
 											)}
 											<Button
+												variant="cap"
 												onClick={handleGenerate}
 												disabled={isQuotaBlocked ?? false}
 											>
@@ -1068,10 +1077,10 @@ export default function GeneratePage() {
 							animate={{ opacity: 1, scale: 1 }}
 							exit={{ opacity: 0, scale: 0.95 }}
 						>
-							<Card className="border-border/50 bg-card/80 backdrop-blur">
+							<Card>
 								<CardContent className="flex flex-col items-center justify-center py-20">
 									<div className="relative">
-										<Loader2 className="h-16 w-16 animate-spin text-primary" />
+										<Loader2 className="h-16 w-16 animate-spin text-muted-foreground" />
 										<Sparkles className="absolute left-1/2 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 text-primary" />
 									</div>
 									<h3 className="mt-6 text-xl font-semibold">
@@ -1109,12 +1118,12 @@ export default function GeneratePage() {
 							<div
 								className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]"
 							>
-							<Card className="border-border/50 bg-card/80 backdrop-blur">
+							<Card>
 								<CardHeader>
 									<div className="flex items-center justify-between">
 										<div>
 											<CardTitle className="flex items-center gap-2 text-2xl">
-												<CheckCircle2 className="h-5 w-5 text-green-500" />
+												<CheckCircle2 className="h-5 w-5 text-[var(--success)]" />
 												Your Resume is Ready!
 											</CardTitle>
 											<CardDescription>
@@ -1133,7 +1142,7 @@ export default function GeneratePage() {
 									{/* ==================== RESUME SECTION ==================== */}
 									<div className="rounded-lg border-2 border-primary/20 bg-background/60 p-6">
 										<div className="flex items-center justify-between mb-6">
-											<h2 className="text-xl font-bold flex items-center gap-2">
+											<h2 className="flex items-center gap-2 font-display text-xl font-[650] tracking-[-0.01em]">
 												<FileText className="h-5 w-5 text-primary" />
 												Resume
 											</h2>
@@ -1143,7 +1152,7 @@ export default function GeneratePage() {
 												onClick={() => handleCopy("resume")}
 											>
 												{copied === "resume" ? (
-													<CheckCircle2 className="h-4 w-4 text-green-500" />
+													<CheckCircle2 className="h-4 w-4 text-[var(--success)]" />
 												) : (
 													<Copy className="h-4 w-4" />
 												)}
@@ -1637,7 +1646,7 @@ export default function GeneratePage() {
 									{/* ==================== COVER LETTER SECTION ==================== */}
 									<div className="rounded-lg border-2 border-primary/20 bg-background/60 p-6">
 										<div className="flex items-center justify-between mb-4">
-											<h2 className="text-xl font-bold flex items-center gap-2">
+											<h2 className="flex items-center gap-2 font-display text-xl font-[650] tracking-[-0.01em]">
 												<FileText className="h-5 w-5 text-primary" />
 												Cover Letter
 											</h2>
@@ -1647,7 +1656,7 @@ export default function GeneratePage() {
 												onClick={() => handleCopy("cover")}
 											>
 												{copied === "cover" ? (
-													<CheckCircle2 className="h-4 w-4 text-green-500" />
+													<CheckCircle2 className="h-4 w-4 text-[var(--success)]" />
 												) : (
 													<Copy className="h-4 w-4" />
 												)}
@@ -1683,7 +1692,7 @@ export default function GeneratePage() {
 							</Card>
 							{typstResume && (
 								<aside className="space-y-3 lg:sticky lg:top-4">
-									<Card className="border-border/50 bg-card/80 backdrop-blur">
+									<Card>
 										<CardHeader className="pb-3">
 											<CardTitle className="text-base">Live preview</CardTitle>
 											<CardDescription>
@@ -1755,6 +1764,7 @@ export default function GeneratePage() {
 						</motion.div>
 					)}
 				</AnimatePresence>
+				</div>
 			</div>
 
 			{/* Track Application Modal */}
@@ -1773,7 +1783,7 @@ export default function GeneratePage() {
 
 					<div className="space-y-4 py-4">
 						{error && (
-							<div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+							<div className="rounded-[var(--radius-control)] bg-[var(--danger-soft)] p-3 text-sm text-[var(--danger)]">
 								{error}
 							</div>
 						)}
@@ -1889,7 +1899,7 @@ export default function GeneratePage() {
 							{isSaving ? (
 								<>
 									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									Saving...
+									Saving…
 								</>
 							) : (
 								<>

@@ -4,7 +4,7 @@
  *
  * Resume = JSON Resume v1 (https://jsonresume.org/schema) as stored in
  * resumes.content_json and rendered by templates/typst/_lib/data.typ, plus the
- * few OrbitHire extensions those templates read (EU personal details, custom
+ * few NextMilestone extensions those templates read (EU personal details, custom
  * sections, meta.sectionOrder/hiddenSections/labels). Objects are strict:
  * unknown keys are rejected so a typo (e.g. "company" instead of "name")
  * never silently drops content from the PDF.
@@ -196,7 +196,7 @@ export const resumeSchema = z
 			)
 			.max(5)
 			.optional()
-			.describe("OrbitHire extension: extra titled sections"),
+			.describe("NextMilestone extension: extra titled sections"),
 		meta: z
 			.strictObject({
 				sectionOrder: z.array(sectionMeta).max(14).optional(),

@@ -1,0 +1,420 @@
+/* NextMilestone tokens. Values come from the design system's tokens.json.
+   They sit on :root as well as .nm so the app, and the menus and dialogs it renders in
+   portals, can read them; the app's shadcn variables in app/globals.css map onto them. */
+:root,
+.nm {
+	--paper: #f4f5f2;
+	--surface: #ffffff;
+	--surface-sunken: #ebece8;
+	--surface-raised: #ffffff;
+	--ink: #101216;
+	--ink-muted: #555a63;
+	--ink-faint: #8a8f97;
+	--line: #dee0db;
+	--line-strong: #c4c7c1;
+	--line-control: #878c94;
+	--cap: #ffc21a;
+	--cap-press: #f0ae00;
+	--on-cap: #101216;
+	--cap-ink: #855100;
+	--cap-soft: #fff0c2;
+	--inverse: #101216;
+	--on-inverse: #f4f5f2;
+	--info: #2148c9;
+	--info-soft: #e3e9fc;
+	--success: #0b6e66;
+	--success-soft: #d8f1ee;
+	--danger: #bf1f2b;
+	--danger-soft: #fbe1e2;
+	--focus: #2148c9;
+	--draft-line: #878c94;
+	--draft-soft: #f1f2ee;
+	--stage-student: #f07a1f;
+	--stage-early: #2f6be0;
+	--stage-experienced: #18a058;
+	--stage-leader: #ffc21a;
+	--kind-focus: #3d4352;
+	--kind-focus-soft: #e6e8ee;
+	--kind-learn: #0e7040;
+	--kind-learn-soft: #ddf2e5;
+	--kind-prep: #7a3e9d;
+	--kind-prep-soft: #f1e6f7;
+	--kind-jobs: #2148c9;
+	--kind-jobs-soft: #e3e9fc;
+	--kind-interview: #a64600;
+	--kind-interview-soft: #fce7d6;
+
+	/* the night band keeps its own ink ground in both themes */
+	--night: #101216;
+	--night-raised: #1e2126;
+	--night-ink: #ecede9;
+	--night-muted: #a2a7af;
+	--night-line: #3a3e45;
+	/* the navbar's notch */
+	--notch: #101216;
+
+	--shadow-lift: 0 1px 2px rgba(16, 18, 22, 0.06), 0 4px 12px rgba(16, 18, 22, 0.06);
+	--shadow-float: 0 2px 6px rgba(16, 18, 22, 0.08), 0 12px 32px rgba(16, 18, 22, 0.14);
+
+	--radius-xs: 4px;
+	--radius-sm: 8px;
+	--radius-control: 10px;
+	--radius-md: 14px;
+	--radius-lg: 22px;
+	--radius-xl: 28px;
+
+	--duration-instant: 80ms;
+	--duration-quick: 140ms;
+	--duration-base: 220ms;
+	--duration-step: 420ms;
+	--duration-milestone: 900ms;
+	--ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+	--ease-arrive: cubic-bezier(0.16, 1, 0.3, 1);
+	--ease-leave: cubic-bezier(0.7, 0, 0.84, 0);
+
+	--size-content: 1200px;
+	--size-control-l: 48px;
+
+	/* print grain: the footer's tile, and a softer cut of it for the page ground */
+	--grain: url("/textures/grain.png");
+	--grain-soft: url("/textures/grain-soft.png");
+}
+
+/* The marketing ground: printed paper, the text face, 16/24 body. */
+.nm {
+	background: var(--grain-soft), var(--paper);
+	color: var(--ink);
+	font-family: var(--font-text), system-ui, sans-serif;
+	font-size: 16px;
+	line-height: 24px;
+	-webkit-font-smoothing: antialiased;
+}
+
+.dark,
+.dark .nm {
+	--paper: #0d0e11;
+	--surface: #16181c;
+	--surface-sunken: #08090b;
+	--surface-raised: #1e2126;
+	--ink: #ecede9;
+	--ink-muted: #a2a7af;
+	--ink-faint: #6c7179;
+	--line: #272a30;
+	--line-strong: #3a3e45;
+	--line-control: #6e737c;
+	--cap-press: #ffd24d;
+	--cap-ink: #ffc94a;
+	--cap-soft: #2e2409;
+	--inverse: #ecede9;
+	--on-inverse: #101216;
+	--info: #8ea8ff;
+	--info-soft: #18213f;
+	--success: #4cc9bc;
+	--success-soft: #0d2b29;
+	--danger: #ff7f86;
+	--danger-soft: #3a1418;
+	--focus: #8ea8ff;
+	--draft-line: #6e737c;
+	--draft-soft: #1a1c20;
+	--stage-student: #ff9a4d;
+	--stage-early: #86a9ff;
+	--stage-experienced: #57d08e;
+	--kind-focus: #b9c0cf;
+	--kind-focus-soft: #22252d;
+	--kind-learn: #57d08e;
+	--kind-learn-soft: #0e2b1c;
+	--kind-prep: #d19af0;
+	--kind-prep-soft: #2b1838;
+	--kind-jobs: #8ea8ff;
+	--kind-jobs-soft: #18213f;
+	--kind-interview: #ffa463;
+	--kind-interview-soft: #36200e;
+	--night: #16181c;
+	--night-raised: #1e2126;
+	--notch: #1e2126;
+	--shadow-lift: 0 1px 2px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.35);
+	--shadow-float: 0 2px 6px rgba(0, 0, 0, 0.6), 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+.nm ::selection {
+	background: var(--cap);
+	color: var(--on-cap);
+}
+.nm :focus-visible {
+	outline: 2px solid var(--focus);
+	outline-offset: 2px;
+	border-radius: 4px;
+}
+
+/* anchor jumps land below the sticky header */
+.nm section[id] {
+	scroll-margin-top: 72px;
+}
+
+.nm-wrap {
+	max-width: var(--size-content);
+	margin: 0 auto;
+	padding-inline: 40px;
+}
+@media (max-width: 760px) {
+	.nm-wrap {
+		padding-inline: 16px;
+	}
+}
+
+/* Grain: any element with .nm-grain gets the print tile over its own ground.
+   --grain-o sets the strength: about .3 on paper, .5 on the ink and cap grounds. */
+/* :where keeps this at zero specificity, so a utility like `absolute` still wins */
+:where(.nm-grain) {
+	position: relative;
+	isolation: isolate;
+}
+.nm-grain::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background: var(--grain);
+	opacity: var(--grain-o, 0.5);
+	pointer-events: none;
+	z-index: 1;
+}
+
+/* type */
+.nm-display {
+	font-family: var(--font-display), var(--font-text), sans-serif;
+	font-weight: 700;
+	text-wrap: balance;
+}
+.nm-h2 {
+	font-family: var(--font-display), var(--font-text), sans-serif;
+	font-weight: 700;
+	font-size: 64px;
+	line-height: 60px;
+	letter-spacing: -0.03em;
+	text-wrap: balance;
+}
+.nm-lead {
+	font-size: 20px;
+	line-height: 30px;
+	color: var(--ink-muted);
+	max-width: 46ch;
+}
+.nm-mono {
+	font-family: var(--font-mono), ui-monospace, monospace;
+	font-variant-numeric: tabular-nums;
+}
+@media (max-width: 760px) {
+	.nm-h2 {
+		font-size: 36px;
+		line-height: 38px;
+	}
+	.nm-lead {
+		font-size: 17px;
+		line-height: 26px;
+	}
+}
+
+/* Buttons from the website template: the label rolls, and a fill rises in an arch. */
+.nm-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 10px;
+	height: var(--size-control-l);
+	padding: 0 22px;
+	border-radius: var(--radius-control);
+	font: 600 16px/20px var(--font-text), sans-serif;
+	text-decoration: none;
+	border: 1px solid transparent;
+	cursor: pointer;
+	position: relative;
+	overflow: hidden;
+	white-space: nowrap;
+	flex-shrink: 0;
+	transition: color var(--duration-base) var(--ease-standard), border-color var(--duration-quick) var(--ease-standard),
+		transform var(--duration-instant) var(--ease-standard);
+}
+.nm-btn:active {
+	transform: translateY(1px);
+}
+.nm-btn .lbl {
+	display: inline-grid;
+	overflow: hidden;
+	height: 20px;
+}
+.nm-btn .lbl span {
+	grid-area: 1 / 1;
+	transition: transform var(--duration-base) var(--ease-arrive);
+}
+.nm-btn .lbl span:last-child {
+	transform: translateY(100%);
+}
+.nm-btn:hover .lbl span:first-child {
+	transform: translateY(-100%);
+}
+.nm-btn:hover .lbl span:last-child {
+	transform: translateY(0);
+}
+.nm-btn .ar {
+	transition: transform var(--duration-base) var(--ease-arrive);
+}
+.nm-btn:hover .ar {
+	transform: translateX(4px);
+}
+.nm-btn::before {
+	content: "";
+	position: absolute;
+	left: -2px;
+	right: -2px;
+	bottom: -2px;
+	height: calc(100% + 24px);
+	border-radius: 9999px 9999px 0 0;
+	transform: translateY(101%);
+	transition: transform var(--duration-step) var(--ease-arrive);
+}
+.nm-btn > * {
+	position: relative;
+	z-index: 1;
+}
+.nm-btn:hover::before {
+	transform: translateY(0);
+}
+.nm-btn-primary {
+	background: var(--cap);
+	color: var(--on-cap);
+}
+.nm-btn-primary::before {
+	background: #101216;
+}
+.nm-btn-primary:hover {
+	color: #f4f5f2;
+}
+.nm-btn-secondary {
+	background: var(--surface);
+	color: var(--ink);
+	border-color: var(--line-control);
+}
+.nm-btn-secondary::before {
+	background: var(--cap);
+}
+.nm-btn-secondary:hover {
+	border-color: var(--cap);
+	color: var(--on-cap);
+}
+.nm-tlink {
+	text-decoration: none;
+	background: linear-gradient(currentColor, currentColor) 0 100% / 0 1.5px no-repeat;
+	transition: background-size var(--duration-base) var(--ease-arrive);
+	padding-bottom: 2px;
+}
+.nm-tlink:hover {
+	background-size: 100% 1.5px;
+}
+
+/* the arch: a full round top over a near-square base, kept for progress markers */
+.nm-arch {
+	border-radius: 9999px 9999px var(--radius-xs) var(--radius-xs);
+}
+
+/* next-step card and plan items, shared by the hero and the Today frame */
+.nm-next {
+	background: var(--surface);
+	border: 1px solid var(--line);
+	border-radius: var(--radius-lg);
+	overflow: hidden;
+}
+.nm-next .hd {
+	background: var(--cap-soft);
+	padding: 20px 24px;
+	display: grid;
+	gap: 8px;
+}
+.nm-next .k {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font: 600 13px/16px var(--font-text), sans-serif;
+	color: var(--cap-ink);
+}
+.nm-next .ttl {
+	font: 600 22px/28px var(--font-text), sans-serif;
+	letter-spacing: -0.01em;
+}
+.nm-next .why {
+	font-size: 15px;
+	line-height: 22px;
+}
+.nm-next .acts {
+	display: flex;
+	gap: 8px;
+	margin-top: 4px;
+}
+.nm-next .acts span {
+	height: 40px;
+	padding: 0 16px;
+	border-radius: var(--radius-control);
+	display: inline-flex;
+	align-items: center;
+	font: 600 14px/20px var(--font-text), sans-serif;
+}
+.nm-next .acts .go {
+	background: var(--cap);
+	color: var(--on-cap);
+}
+.nm-next .acts .no {
+	color: var(--ink-muted);
+}
+.nm-pi {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-height: 44px;
+	padding: 0 12px;
+	border-radius: var(--radius-sm);
+	border: 1px solid var(--line);
+	border-left: 4px solid;
+	background: var(--surface);
+	font: 500 15px/20px var(--font-text), sans-serif;
+	transition: opacity var(--duration-step) var(--ease-arrive), transform var(--duration-step) var(--ease-arrive);
+}
+.nm-pi b {
+	width: 18px;
+	height: 18px;
+	border-radius: 5px;
+	border: 1.5px solid var(--line-control);
+	flex: none;
+}
+.nm-pi.done {
+	color: var(--ink-muted);
+}
+.nm-pi.done b {
+	background: var(--success);
+	border-color: var(--success);
+}
+.nm-pi em {
+	margin-left: auto;
+	font: 500 13px/16px var(--font-mono), monospace;
+	font-style: normal;
+	color: var(--ink-muted);
+}
+
+/* footer: "nextmilestone" is far longer than the component's sample brand, so print it
+   smaller to clear the privacy and terms links either side */
+.nm-footer .tpf-word {
+	font-size: max(34px, min(8.4cqmin, 9.2cqw));
+}
+@container (max-width: 620px) {
+	.nm-footer .tpf-credit {
+		display: none;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.nm *,
+	.nm *::before,
+	.nm *::after {
+		transition-duration: 1ms !important;
+		animation-duration: 1ms !important;
+		animation-iteration-count: 1 !important;
+	}
+}

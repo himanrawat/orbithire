@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "crypto";
+import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
@@ -39,9 +39,13 @@ export function encryptApiKey(plaintext: string): string {
 	const iv = randomBytes(IV_LENGTH);
 
 	// Derive a unique key for this encryption using salt
-	const derivedKey = scryptSync(key, salt, KEY_LENGTH);
+	const derivedKey = scryptSync(new Uint8Array(key), new Uint8Array(salt), KEY_LENGTH);
 
-	const cipher = createCipheriv(ALGORITHM, derivedKey, iv);
+	const cipher = createCipheriv(
+		ALGORITHM,
+		new Uint8Array(derivedKey),
+		new Uint8Array(iv)
+	);
 
 	let encrypted = cipher.update(plaintext, "utf-8", "hex");
 	encrypted += cipher.final("hex");
@@ -81,10 +85,18 @@ export function decryptApiKey(encrypted: string): string {
 		const tag = Buffer.from(tagHex, "hex");
 
 		// Derive the same key using the stored salt
-		const derivedKey = scryptSync(key, salt, KEY_LENGTH);
+		const derivedKey = scryptSync(
+			new Uint8Array(key),
+			new Uint8Array(salt),
+			KEY_LENGTH
+		);
 
-		const decipher = createDecipheriv(ALGORITHM, derivedKey, iv);
-		decipher.setAuthTag(tag);
+		const decipher = createDecipheriv(
+			ALGORITHM,
+			new Uint8Array(derivedKey),
+			new Uint8Array(iv)
+		);
+		decipher.setAuthTag(new Uint8Array(tag));
 
 		let decrypted = decipher.update(ciphertext, "hex", "utf-8");
 		decrypted += decipher.final("utf-8");

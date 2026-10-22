@@ -208,7 +208,7 @@ class SmokeProvider implements OAuthClientProvider {
 	}
 	get clientMetadata(): OAuthClientMetadata {
 		return {
-			client_name: "OrbitHire OAuth smoke (SDK)",
+			client_name: "NextMilestone OAuth smoke (SDK)",
 			redirect_uris: [this.redirect],
 			grant_types: ["authorization_code", "refresh_token"],
 			response_types: ["code"],
