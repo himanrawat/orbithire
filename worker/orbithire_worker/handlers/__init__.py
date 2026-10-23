@@ -15,9 +15,11 @@ log = logging.getLogger(__name__)
 _MODULES = [
     "noop",
     "fetch_jobs",
+    "fetch_watchlist",
     "rank_jobs",
     "digest",
     "render_pdf",
+    "daily_plan",
 ]
 
 

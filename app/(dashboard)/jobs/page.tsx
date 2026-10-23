@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { SourceBadge } from "@/components/jobs/SourceBadge";
 import { FetchNowButton } from "@/components/jobs/FetchNowButton";
 import { PageHeader } from "@/components/app/page-header";
 import { EmptyState, nativeSelectClass, tabClass, tabCountClass, tabListClass } from "@/components/app/blocks";
@@ -339,7 +340,7 @@ export default function JobInboxPage() {
 													<Calendar className="h-3.5 w-3.5" />
 													{timeAgo(job.posted_at) || `seen ${timeAgo(job.first_seen_at)}`}
 												</span>
-												<Badge variant="outline">{job.source}</Badge>
+												<SourceBadge source={job.source} url={job.url} />
 											</div>
 											{reasons?.summary && (
 												<p className="mt-2 text-sm">{reasons.summary}</p>

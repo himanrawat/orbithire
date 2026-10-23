@@ -361,6 +361,8 @@ def test_remoteok_skips_legal_row_and_filters():
     p = res.postings[0]
     assert p.url.lower().startswith("https://remoteok.com/") and p.is_remote
     assert (p.salary_min, p.currency) == (120000, "USD")
+    # display rule: credit Remote OK with a link back to its listing
+    assert p.attribution == {"name": "Remote OK", "url": p.url, "home_url": "https://remoteok.com"}
 
 
 @respx.mock

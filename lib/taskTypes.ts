@@ -2,10 +2,12 @@
 
 export const TASK_TYPES = [
 	"fetch_jobs",
+	"fetch_watchlist",
 	"rank_jobs",
 	"render_pdf",
 	"thumbnail",
 	"digest",
+	"generate_daily_plan",
 	"noop",
 ] as const;
 export type TaskType = (typeof TASK_TYPES)[number];

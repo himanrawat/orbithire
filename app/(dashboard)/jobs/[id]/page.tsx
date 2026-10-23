@@ -21,6 +21,8 @@ import {
 	X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ScoreExplanation } from "@/components/jobs/ScoreExplanation";
+import { SourceBadge } from "@/components/jobs/SourceBadge";
 import {
 	CRITERION_LABELS,
 	formatSalary,
@@ -163,7 +165,7 @@ export default function JobDetailPage({ params }: Readonly<{ params: { id: strin
 									? `posted ${new Date(job.posted_at).toLocaleDateString()}`
 									: `first seen ${new Date(job.first_seen_at).toLocaleDateString()}`}
 							</span>
-							<Badge variant="outline">{job.source}</Badge>
+							<SourceBadge source={job.source} url={job.url} />
 						</div>
 					</div>
 					<div className="flex flex-wrap gap-2">
@@ -255,6 +257,7 @@ export default function JobDetailPage({ params }: Readonly<{ params: { id: strin
 										))}
 									</ul>
 								)}
+								<ScoreExplanation explanation={reasons?.explanation} />
 								{(reasons?.red_flags || []).length > 0 && (
 									<div>
 										<p className="font-medium">Red flags</p>

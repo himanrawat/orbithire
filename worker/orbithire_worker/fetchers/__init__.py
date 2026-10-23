@@ -9,6 +9,7 @@ Public API used by the `fetch_jobs` handler:
 from __future__ import annotations
 
 import asyncio
+import os
 from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
@@ -28,6 +29,7 @@ from .models import (
     normalize_location,
 )
 from .portals import PortalsConfig, detect_ats, load_portals, parse_portals
+from .source_registry import SOURCES, attribution_for, policy_block
 from .sources import API_SOURCE_ENV, API_SOURCES, fetch_api_sources
 
 __all__ = [
@@ -42,8 +44,10 @@ __all__ = [
     "FetchResult",
     "NormalizedPosting",
     "PortalsConfig",
+    "SOURCES",
     "SearchSpec",
     "WatchedCompany",
+    "attribution_for",
     "dedupe",
     "detect_ats",
     "fetch_company",
@@ -51,6 +55,7 @@ __all__ = [
     "html_to_text",
     "load_portals",
     "parse_portals",
+    "policy_block",
     "title_matches",
 ]
 
@@ -71,6 +76,21 @@ def dedupe(postings: Iterable[NormalizedPosting]) -> tuple[list[NormalizedPostin
         if score(p) > score(cur):
             by_key[key] = p
     return list(by_key.values()), dropped
+
+
+def gate_sites(
+    sites: list[str], env: Mapping[str, str]
+) -> tuple[list[str], dict[str, str]]:
+    """Drop JobSpy boards blocked by the production gates (source_registry)."""
+    keep: list[str] = []
+    skipped: dict[str, str] = {}
+    for site in sites:
+        why = policy_block(site, env)
+        if why:
+            skipped[site] = why
+        else:
+            keep.append(site)
+    return keep, skipped
 
 
 def _finish(
@@ -107,6 +127,8 @@ async def fetch_search(
     except UnsupportedCountry as e:
         return FetchResult(errors={"country": str(e)})
     sites, skipped = split_sites(list(spec.sites), spec.country)
+    sites, gated = gate_sites(sites, os.environ if env is None else env)
+    skipped.update(gated)
 
     async def jobspy() -> FetchResult:
         if not sites:

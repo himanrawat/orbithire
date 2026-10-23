@@ -1,5 +1,6 @@
 "use client";
 
+import { sourceEnabledByDefault } from "@/lib/jobs/sourceRegistry";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -408,9 +409,17 @@ export function JobSearchSettings() {
 												}
 											/>
 											{site}
+											{!sourceEnabledByDefault(site) && (
+												<span className="text-xs text-muted-foreground">(off unless enabled on the server)</span>
+											)}
 										</label>
 									))}
 								</div>
+								<p className="text-xs text-muted-foreground">
+									LinkedIn, Glassdoor and Indeed are turned off in production because their terms restrict
+									scraping. India-only boards are opt-in. Company career pages on the shared watchlist are
+									fetched for everyone.
+								</p>
 							</div>
 							<div className="space-y-2">
 								<Label>Job APIs</Label>

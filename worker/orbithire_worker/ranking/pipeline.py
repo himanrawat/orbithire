@@ -269,6 +269,7 @@ async def run_llm(conn: AsyncConnection, user_id: UUID | str, settings: dict[str
             continue
         reasons = {
             **parsed.model_dump(),
+            "explanation": scoring.explain(parsed),
             "provider": scorer.provider,
             "model": res.model or scorer.model,
             "key_source": scorer.source,

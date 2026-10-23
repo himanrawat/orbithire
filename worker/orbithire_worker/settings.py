@@ -18,17 +18,21 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 DEFAULT_CONCURRENCY: dict[str, int] = {
     "render_pdf": 2,
     "fetch_jobs": 1,
+    "fetch_watchlist": 1,
     "rank_jobs": 1,
     "thumbnail": 1,
     "digest": 1,
+    "generate_daily_plan": 1,
     "noop": 2,
 }
 DEFAULT_TIMEOUTS: dict[str, float] = {
     "render_pdf": 30,
     "fetch_jobs": 300,
+    "fetch_watchlist": 600,
     "rank_jobs": 300,
     "thumbnail": 30,
     "digest": 120,
+    "generate_daily_plan": 60,
     "noop": 30,
 }
 

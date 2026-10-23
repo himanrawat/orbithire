@@ -203,9 +203,11 @@ export function sourceAvailable(id: string, country: string): boolean {
 
 /** Sensible defaults when a country is picked in the search form. */
 export function defaultSitesFor(country: string): JobSite[] {
-	const c = countryByCode(country)?.code || DEFAULT_COUNTRY;
-	if (c === "IN") return ["linkedin", "naukri", "indeed"];
-	return ["linkedin", "indeed"];
+	void country; // same default for every market today
+	// LinkedIn, Glassdoor and Indeed are off in production (terms restrict scraping) and
+	// India-only boards such as Naukri are opt-in (PRD area 9). Employer ATS feeds and
+	// the keyless API sources below carry the default supply.
+	return [];
 }
 
 /**
@@ -219,7 +221,8 @@ export function defaultSourcesFor(country: string): ApiSource[] {
 		DE: ["bundesagentur", "arbeitnow"],
 		SG: ["mycareersfuture"],
 	};
-	return [...(byCountry[c] || []), "himalayas", "remotive"];
+	// Remote boards credited under their display rules; Remotive (24-hour delay) is opt-in.
+	return [...(byCountry[c] || []), "himalayas", "jobicy", "remoteok"];
 }
 
 export const ATS_TYPES = [
@@ -311,6 +314,8 @@ export interface LlmReasons {
 	model?: string;
 	key_source?: string;
 	scored_at?: string;
+	/** What helped and what's missing (worker ranking/scoring.py explain()). */
+	explanation?: { helped?: string[]; missing?: string[] };
 	/** present when scoring failed (llm_score is then NULL) */
 	error?: string;
 	attempts?: number;
