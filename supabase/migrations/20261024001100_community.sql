@@ -188,7 +188,9 @@ CREATE INDEX IF NOT EXISTS idx_content_reports_target
 
 -- ==================== HELPERS ====================
 
--- The caller's field when they are an active member, otherwise NULL.
+-- The caller's field when they are an active member, otherwise NULL. Signed-in callers
+-- may only ask about themselves (auth.uid() is NULL for the service role and triggers
+-- running as it), so membership and field of other users can't be probed over RPC.
 CREATE OR REPLACE FUNCTION public.community_member_field(p_user_id UUID)
 RETURNS TEXT
 LANGUAGE sql
@@ -197,11 +199,13 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
   SELECT field FROM public.community_members
-   WHERE user_id = p_user_id AND status = 'active';
+   WHERE user_id = p_user_id AND status = 'active'
+     AND (auth.uid() IS NULL OR p_user_id = auth.uid());
 $$;
 
 -- TRUE when `p_author` should be hidden from `p_viewer`: a block in either direction,
--- or the viewer muted the author.
+-- or the viewer muted the author. Signed-in callers may only pass themselves as the
+-- viewer, so blocks and mutes between other people stay private.
 CREATE OR REPLACE FUNCTION public.community_is_filtered(p_viewer UUID, p_author UUID)
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -209,12 +213,15 @@ STABLE
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
-  SELECT p_viewer <> p_author AND (
-    EXISTS (SELECT 1 FROM public.user_blocks
-             WHERE (blocker_id = p_viewer AND blocked_id = p_author)
-                OR (blocker_id = p_author AND blocked_id = p_viewer))
-    OR EXISTS (SELECT 1 FROM public.user_mutes WHERE muter_id = p_viewer AND muted_id = p_author)
-  );
+  SELECT CASE
+    WHEN auth.uid() IS NOT NULL AND p_viewer IS DISTINCT FROM auth.uid() THEN NULL
+    ELSE p_viewer <> p_author AND (
+      EXISTS (SELECT 1 FROM public.user_blocks
+               WHERE (blocker_id = p_viewer AND blocked_id = p_author)
+                  OR (blocker_id = p_author AND blocked_id = p_viewer))
+      OR EXISTS (SELECT 1 FROM public.user_mutes WHERE muter_id = p_viewer AND muted_id = p_author)
+    )
+  END;
 $$;
 
 REVOKE ALL ON FUNCTION public.community_member_field(UUID) FROM PUBLIC, anon;

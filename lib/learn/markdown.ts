@@ -24,7 +24,8 @@ export type Block =
 
 export function safeHref(raw: string): string | null {
 	const href = raw.trim();
-	if (href.startsWith("/") && !href.startsWith("//")) return href;
+	// "//host" and "/\\host" are protocol-relative in browsers, so only a single "/" is local.
+	if (href.startsWith("/") && href[1] !== "/" && href[1] !== "\\") return href;
 	try {
 		const url = new URL(href);
 		return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;

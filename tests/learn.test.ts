@@ -42,6 +42,8 @@ describe("isPrivateAddress", () => {
 		"fe80::1",
 		"::ffff:127.0.0.1",
 		"::ffff:10.0.0.1",
+		"::127.0.0.1",
+		"2002:7f00:1::1",
 		"not-an-ip",
 	])("blocks %s", (ip) => {
 		expect(isPrivateAddress(ip)).toBe(true);
@@ -131,6 +133,7 @@ describe("markdown", () => {
 		expect(parseInline("[x](javascript:alert(1))").some((node) => node.type === "link")).toBe(false);
 		expect(parseInline("[x](javascript:void)")).toEqual([{ type: "text", text: "x" }]);
 		expect(safeHref("//evil.com")).toBeNull();
+		expect(safeHref(String.raw`/\evil.com`)).toBeNull();
 		expect(safeHref("/learn")).toBe("/learn");
 		expect(safeHref("data:text/html,hi")).toBeNull();
 	});

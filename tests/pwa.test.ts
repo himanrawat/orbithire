@@ -116,6 +116,15 @@ describe("schemas", () => {
 		expect(pushSubscriptionSchema.safeParse({ ...subscription, platform: "windows" }).success).toBe(false);
 	});
 
+	it("only accepts endpoints on browser push services", () => {
+		const ok = (endpoint: string) => pushSubscriptionSchema.safeParse({ ...subscription, endpoint }).success;
+		expect(ok("https://web.push.apple.com/QO2")).toBe(true);
+		expect(ok("https://updates.push.services.mozilla.com/wpush/v2/x")).toBe(true);
+		expect(ok("https://internal.example/hook")).toBe(false);
+		expect(ok("https://fcm.googleapis.com.evil.example/x")).toBe(false);
+		expect(ok("https://fcm.googleapis.com:8443/x")).toBe(false);
+	});
+
 	it("validates preference updates and fills defaults", () => {
 		expect(notificationPreferencesSchema.safeParse({ follow_ups: false }).success).toBe(true);
 		expect(notificationPreferencesSchema.safeParse({}).success).toBe(false);

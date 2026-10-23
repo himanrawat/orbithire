@@ -8,13 +8,29 @@ const base64Url = z
 	.min(1)
 	.regex(/^[\w-]+=*$/, "Expected a base64url value");
 
+// Browser push services (FCM, Mozilla, WNS, Apple). The worker POSTs to the stored
+// endpoint, so anything else is refused (same list as worker/orbithire_worker/push/deliver.py).
+const PUSH_SERVICE_SUFFIXES = [".googleapis.com", ".push.services.mozilla.com", ".notify.windows.com", ".push.apple.com"];
+
+export function isPushServiceEndpoint(value: string): boolean {
+	try {
+		const url = new URL(value);
+		if (url.protocol !== "https:" || url.port !== "" || url.username || url.password) return false;
+		const host = url.hostname.toLowerCase();
+		return PUSH_SERVICE_SUFFIXES.some((suffix) => host.endsWith(suffix));
+	} catch {
+		return false;
+	}
+}
+
 export const pushSubscriptionSchema = z
 	.object({
 		endpoint: z
 			.string()
 			.max(2048)
 			.url()
-			.refine((value) => value.startsWith("https://"), "Push endpoints must use https"),
+			.refine((value) => value.startsWith("https://"), "Push endpoints must use https")
+			.refine(isPushServiceEndpoint, "Unsupported push service"),
 		keys: z
 			.object({
 				p256dh: base64Url.max(256),

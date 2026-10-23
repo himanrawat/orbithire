@@ -154,7 +154,7 @@ CREATE OR REPLACE FUNCTION public.suggest_milestones_from_companies(p_user UUID)
 RETURNS VOID
 LANGUAGE sql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_temp
 AS $$
   INSERT INTO milestone_suggestions (user_id, kind, title, happened_on, source_ref)
   SELECT c.user_id,
@@ -177,7 +177,7 @@ CREATE OR REPLACE FUNCTION public.suggest_milestones_from_paths(p_user UUID)
 RETURNS VOID
 LANGUAGE sql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_temp
 AS $$
   INSERT INTO milestone_suggestions (user_id, kind, title, happened_on, source_ref)
   SELECT p_user,
@@ -203,7 +203,7 @@ CREATE OR REPLACE FUNCTION public.suggest_milestones_from_learning(p_user UUID)
 RETURNS VOID
 LANGUAGE sql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_temp
 AS $$
   INSERT INTO milestone_suggestions (user_id, kind, title, happened_on, source_ref)
   SELECT e.user_id,
@@ -226,7 +226,7 @@ CREATE OR REPLACE FUNCTION public.refresh_milestone_suggestions()
 RETURNS INTEGER
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_user UUID := auth.uid();
@@ -252,7 +252,7 @@ CREATE OR REPLACE FUNCTION public.companies_offer_milestone_suggestion()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_temp
 AS $$
 BEGIN
   IF NEW.status IN ('offered', 'hired') AND (TG_OP = 'INSERT' OR OLD.status IS DISTINCT FROM NEW.status) THEN
@@ -267,15 +267,17 @@ CREATE TRIGGER companies_offer_milestone
   AFTER INSERT OR UPDATE OF status ON public.companies
   FOR EACH ROW EXECUTE FUNCTION public.companies_offer_milestone_suggestion();
 
-REVOKE ALL ON FUNCTION public.suggest_milestones_from_companies(UUID) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.suggest_milestones_from_paths(UUID) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.suggest_milestones_from_learning(UUID) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.companies_offer_milestone_suggestion() FROM PUBLIC;
+-- Supabase grants EXECUTE on new public functions to anon and authenticated by default,
+-- so revoke from them explicitly: these take an arbitrary user id.
+REVOKE ALL ON FUNCTION public.suggest_milestones_from_companies(UUID) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.suggest_milestones_from_paths(UUID) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.suggest_milestones_from_learning(UUID) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.companies_offer_milestone_suggestion() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.suggest_milestones_from_companies(UUID) TO service_role;
 GRANT EXECUTE ON FUNCTION public.suggest_milestones_from_paths(UUID) TO service_role;
 GRANT EXECUTE ON FUNCTION public.suggest_milestones_from_learning(UUID) TO service_role;
 
-REVOKE ALL ON FUNCTION public.refresh_milestone_suggestions() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.refresh_milestone_suggestions() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.refresh_milestone_suggestions() TO authenticated, service_role;
 
 -- ==================== PUBLIC PROFILE READ ====================
@@ -287,7 +289,7 @@ RETURNS JSONB
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_temp
 AS $$
   SELECT jsonb_build_object(
            'handle', p.public_handle,

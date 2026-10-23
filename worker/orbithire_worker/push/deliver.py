@@ -12,6 +12,7 @@ import json
 import logging
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable
+from urllib.parse import urlsplit
 from uuid import UUID
 
 from psycopg import AsyncConnection
@@ -51,11 +52,36 @@ class DeliveryResult:
     failed: int
 
 
+# Browser push services. Endpoints come from users (the RPC is callable directly), so the
+# worker only ever POSTs to these hosts; anything else would be a blind SSRF.
+PUSH_SERVICE_SUFFIXES = (
+    ".googleapis.com",
+    ".push.services.mozilla.com",
+    ".notify.windows.com",
+    ".push.apple.com",
+)
+
+
+def is_push_service_endpoint(endpoint: str) -> bool:
+    try:
+        parsed = urlsplit(endpoint)
+        port = parsed.port
+    except ValueError:
+        return False
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https" or port not in (None, 443) or parsed.username or parsed.password:
+        return False
+    return any(host.endswith(suffix) for suffix in PUSH_SERVICE_SUFFIXES)
+
+
 def pywebpush_sender(cfg: PushConfig) -> PushSender:
     """The real sender: pywebpush (requests) in a worker thread."""
     from pywebpush import WebPushException, webpush
 
     def _send(info: dict[str, Any], data: str) -> int:
+        if not is_push_service_endpoint(str(info.get("endpoint", ""))):
+            log.warning("dropping push subscription with a non push-service endpoint")
+            return 404  # classified "gone": the row is deleted
         try:
             resp = webpush(info, data, vapid_private_key=cfg.vapid_private_key,
                            vapid_claims={"sub": cfg.vapid_subject}, ttl=cfg.push_ttl_seconds, timeout=10)

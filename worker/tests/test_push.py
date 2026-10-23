@@ -13,7 +13,7 @@ from typing import Any
 import httpx
 
 from orbithire_worker.push.config import PushConfig
-from orbithire_worker.push.deliver import PushMessage, classify, send_to_subscriptions
+from orbithire_worker.push.deliver import PushMessage, classify, is_push_service_endpoint, send_to_subscriptions
 from orbithire_worker.push.messages import interview_message, morning_plan_message
 from orbithire_worker.push.morning import notify_morning_plan, render_email
 from orbithire_worker.push.reminders import message_for, run_reminders
@@ -105,6 +105,18 @@ def test_classify_statuses() -> None:
     assert classify(410) == "gone"
     assert classify(500) == "failed"
     assert classify(0) == "failed"
+
+
+def test_only_push_service_endpoints_are_sent_to() -> None:
+    assert is_push_service_endpoint("https://fcm.googleapis.com/fcm/send/abc")
+    assert is_push_service_endpoint("https://updates.push.services.mozilla.com/wpush/v2/x")
+    assert is_push_service_endpoint("https://web.push.apple.com/QO2")
+    assert is_push_service_endpoint("https://wns2-by3p.notify.windows.com/w/?token=x")
+    assert not is_push_service_endpoint("https://internal.example/hook")
+    assert not is_push_service_endpoint("https://fcm.googleapis.com.evil.example/x")
+    assert not is_push_service_endpoint("http://fcm.googleapis.com/fcm/send/abc")
+    assert not is_push_service_endpoint("https://fcm.googleapis.com:8443/x")
+    assert not is_push_service_endpoint("https://user@fcm.googleapis.com/x")
 
 
 def test_morning_message_counts_open_items() -> None:

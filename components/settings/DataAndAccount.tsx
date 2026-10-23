@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { clearOfflinePages } from "@/lib/pwa/client";
 
 type DeleteState =
 	| { status: "idle" }
@@ -19,7 +20,11 @@ async function requestAccountDeletion(confirmEmail: string): Promise<string | nu
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ confirmEmail }),
 		});
-		if (response.ok) return null;
+		if (response.ok) {
+			// The account is gone and signed out: drop the offline page shells too.
+			clearOfflinePages();
+			return null;
+		}
 		const data = (await response.json().catch(() => ({}))) as { error?: string };
 		return data.error ?? "We couldn't delete your account. Please try again.";
 	} catch {

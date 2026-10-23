@@ -24,23 +24,19 @@ function isPrivateIpv4(ip: string): boolean {
 
 function isPrivateIpv6(ip: string): boolean {
 	const x = ip.toLowerCase();
-	if (x === "::" || x === "::1") return true;
 	if (x.startsWith("::ffff:")) {
 		const tail = x.slice(7);
 		return isIP(tail) === 4 ? isPrivateIpv4(tail) : true;
 	}
-	if (x.startsWith("64:ff9b:")) return true; // NAT64 can reach IPv4 space
+	// "::" covers ::, ::1 and IPv4-compatible ::a.b.c.d; NAT64 and 6to4 can reach IPv4 space.
+	if (EMBEDDED_V4_PREFIXES.some((prefix) => x.startsWith(prefix))) return true;
 	const first = x.split(":")[0] ?? "";
-	return (
-		first.startsWith("fc") ||
-		first.startsWith("fd") ||
-		first.startsWith("fe8") ||
-		first.startsWith("fe9") ||
-		first.startsWith("fea") ||
-		first.startsWith("feb") ||
-		first.startsWith("ff")
-	);
+	return PRIVATE_V6_FIRST_HEXTET.some((prefix) => first.startsWith(prefix));
 }
+
+const EMBEDDED_V4_PREFIXES = ["::", "0:", "64:ff9b:", "2002:"];
+// Unique local (fc/fd), link-local (fe8-feb) and multicast (ff).
+const PRIVATE_V6_FIRST_HEXTET = ["fc", "fd", "fe8", "fe9", "fea", "feb", "ff"];
 
 /** True for loopback, private, link-local, CGNAT, multicast and other non-public addresses. */
 export function isPrivateAddress(ip: string): boolean {
