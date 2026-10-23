@@ -72,6 +72,7 @@ export function SiteFooter({ redirectQuery }: Readonly<{ redirectQuery: string }
 					title: "Company",
 					links: [
 						{ label: "Community", href: "/community" },
+						{ label: "Pricing", href: "/pricing" },
 						{ label: "Questions", href: "/faq" },
 						{ label: "Privacy", href: "/privacy" },
 						{ label: "Terms", href: "/terms" },

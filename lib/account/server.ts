@@ -17,6 +17,7 @@ import {
 	type ExportRow,
 	type ExportTableSpec,
 } from "@/lib/account/export";
+import { cancelSubscriptionForDeletedAccount } from "@/lib/billing/server";
 import { R2_DELETE_BATCH_SIZE, chunk, userStoragePrefix } from "@/lib/account/delete";
 
 // ==================== Export ====================
@@ -120,7 +121,7 @@ export async function deleteUserFiles(userId: string): Promise<number> {
 
 export type DeleteAccountResult =
 	| { ok: true; filesDeleted: number }
-	| { ok: false; stage: "files" | "auth"; message: string };
+	| { ok: false; stage: "billing" | "files" | "auth"; message: string };
 
 /**
  * Permanently deletes a user: stored files first (so nothing is orphaned if this
@@ -129,6 +130,11 @@ export type DeleteAccountResult =
  * the admin delete in app/api/admin/users/delete, plus the file cleanup.
  */
 export async function deleteUserAccount(userId: string): Promise<DeleteAccountResult> {
+	// End any paid plan first, so a deleted account is never billed again.
+	if (!(await cancelSubscriptionForDeletedAccount(userId))) {
+		return { ok: false, stage: "billing", message: "We couldn't cancel your paid plan." };
+	}
+
 	let filesDeleted: number;
 	try {
 		filesDeleted = await deleteUserFiles(userId);
