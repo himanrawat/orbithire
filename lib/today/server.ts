@@ -1,7 +1,6 @@
 /**
  * Server-only data loaders for the Today page. Every query uses the caller's
- * RLS-scoped client. Tables owned by other areas (lesson_progress, focus_sessions,
- * learning_entries) and onboarding columns may not exist yet: those reads fail soft.
+ * RLS-scoped client. Tables owned by other areas (focus_sessions, learning_entries) and onboarding columns may not exist yet: those reads fail soft.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -18,6 +17,7 @@ import {
 	type PlanItem,
 	type TodaySignals,
 } from "./nextStep";
+import { getActiveLesson } from "@/lib/learn/server";
 import { parseStoredItems } from "./schema";
 import type { ComingUpItem, TodayMatch, TodayPlan, WeeklyFocus } from "./types";
 import { getNextFocusBlock } from "@/lib/focus/server";
@@ -101,36 +101,13 @@ async function loadFollowUpSignals(
 	}));
 }
 
-function lessonFromRow(row: Row | null): LessonSignal | null {
-	if (!row) return null;
-	const id = str(row.lesson_id) ?? str(row.id);
-	if (!id) return null;
-	return {
-		id,
-		title: str(row.lesson_title) ?? str(row.title) ?? "your lesson",
-		href: `/learn/lessons/${encodeURIComponent(id)}`,
-	};
-}
-
-/** Learn (area 3) may not have shipped yet; any error means "no lesson in progress". */
+/** Learn (area 3): the most recently started, unfinished lesson. Never throws. */
 async function loadLessonSignal(
 	supabase: SupabaseClient,
 	userId: string
 ): Promise<LessonSignal | null> {
-	try {
-		const { data, error } = await supabase
-			.from("lesson_progress")
-			.select("*")
-			.eq("user_id", userId)
-			.eq("status", "in_progress")
-			.order("updated_at", { ascending: false })
-			.limit(1)
-			.maybeSingle();
-		if (error) return null;
-		return lessonFromRow(data as Row | null);
-	} catch {
-		return null;
-	}
+	const active = await getActiveLesson(userId, supabase);
+	return active ? { id: active.lessonId, title: active.lessonTitle, href: active.href } : null;
 }
 
 async function countStrongMatches(supabase: SupabaseClient, userId: string): Promise<number> {

@@ -19,6 +19,7 @@ const PROTECTED_PATHS = [
 	"/settings",
 	"/documents",
 	"/templates",
+	"/learn",
 	"/onboarding",
 	"/focus",
 ];
