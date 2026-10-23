@@ -1,4 +1,6 @@
 /** Client fetch helpers for the /api/prep routes. Module scope, no component state. */
+import type { FeedbackQuota } from "@/lib/billing/gates";
+import type { PrepAccess } from "@/lib/prep/access";
 import type { InterviewCard, PracticeAttempt, PrepQuestion } from "@/lib/prep/constants";
 
 type ErrorBody = { error?: string };
@@ -24,12 +26,17 @@ export async function fetchQuestions(query: string): Promise<PrepQuestion[]> {
 }
 
 export async function fetchQuestion(id: string) {
-	return request<{ question: PrepQuestion; attempts: PracticeAttempt[] }>(
+	return request<{ question: PrepQuestion; attempts: PracticeAttempt[]; access: PrepAccess }>(
 		`/api/prep/questions/${encodeURIComponent(id)}`
 	);
 }
 
-export type AttemptResponse = { attempt: PracticeAttempt; feedbackError: string | null };
+export type AttemptResponse = {
+	attempt: PracticeAttempt;
+	feedbackError: string | null;
+	feedbackLimitReached?: boolean;
+	feedbackQuota?: FeedbackQuota;
+};
 
 export async function submitAttempt(body: Record<string, unknown>): Promise<AttemptResponse> {
 	return request<AttemptResponse>("/api/prep/attempts", { method: "POST", body: JSON.stringify(body) });

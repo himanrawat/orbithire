@@ -4,7 +4,10 @@ import { PageHeader } from "@/components/app/page-header";
 import { LearnTabs } from "@/components/learn/LearnTabs";
 import { LearningLog } from "@/components/learn/LearningLog";
 import { LibraryList, PathsGrid, SkillGapCard } from "@/components/learn/LearnPanels";
+import { isPathUnlocked } from "@/lib/learn/access";
+import { loadPathAccess } from "@/lib/learn/server";
 import { parseLearnTab } from "@/lib/learn/tabs";
+import type { PathSummary } from "@/lib/learn/types";
 import { loadLearnPage, requirePageUser } from "./data";
 
 export const dynamic = "force-dynamic";
@@ -18,11 +21,18 @@ function UnavailableNotice() {
 	);
 }
 
+async function lockedPathIds(supabase: Parameters<typeof loadPathAccess>[0], userId: string, paths: PathSummary[]) {
+	const access = await loadPathAccess(supabase, userId).catch(() => null);
+	if (!access) return new Set<string>();
+	return new Set(paths.filter((path) => !isPathUnlocked(access, path.id)).map((path) => path.id));
+}
+
 export default async function LearnPage({
 	searchParams,
 }: Readonly<{ searchParams: Record<string, string | string[] | undefined> }>) {
 	const { supabase, userId } = await requirePageUser();
 	const data = await loadLearnPage(supabase, userId);
+	const locked = await lockedPathIds(supabase, userId, data.paths);
 
 	return (
 		<div className="mx-auto w-full max-w-6xl">
@@ -37,7 +47,7 @@ export default async function LearnPage({
 					initialTab={parseLearnTab(searchParams.tab)}
 					panels={{
 						log: <LearningLog initialEntries={data.entries} />,
-						paths: <PathsGrid paths={data.paths} />,
+						paths: <PathsGrid paths={data.paths} locked={locked} />,
 						library: <LibraryList items={data.library} />,
 					}}
 				/>

@@ -7,7 +7,7 @@
 export type ExportTableSpec = Readonly<{
 	table: string;
 	/** Column that holds the owner's user id. */
-	ownerColumn: "id" | "user_id";
+	ownerColumn: "id" | "user_id" | "author_id" | "reporter_id" | "follower_id";
 	/** Columns never exported (credentials, encrypted values, share secrets). */
 	omit?: readonly string[];
 }>;
@@ -38,6 +38,13 @@ export const EXPORT_TABLES: readonly ExportTableSpec[] = [
 	{ table: "notification_preferences", ownerColumn: "user_id" },
 	{ table: "push_events", ownerColumn: "user_id" },
 	{ table: "notification_deliveries", ownerColumn: "user_id" },
+	{ table: "community_members", ownerColumn: "user_id" },
+	{ table: "community_posts", ownerColumn: "author_id" },
+	{ table: "community_replies", ownerColumn: "author_id" },
+	{ table: "post_reactions", ownerColumn: "user_id" },
+	{ table: "post_saves", ownerColumn: "user_id" },
+	{ table: "user_follows", ownerColumn: "follower_id" },
+	{ table: "content_reports", ownerColumn: "reporter_id" },
 ];
 
 /** Upper bound per table, so one export request stays bounded. */
@@ -128,6 +135,13 @@ const TABLE_LABELS: Record<string, string> = {
 	notification_preferences: "Notification settings",
 	push_events: "Push notification choices",
 	notification_deliveries: "Notifications sent",
+	community_members: "Community membership",
+	community_posts: "Community posts",
+	community_replies: "Community replies",
+	post_reactions: "Helpful reactions",
+	post_saves: "Saved posts",
+	user_follows: "People you follow",
+	content_reports: "Reports you filed",
 };
 
 function tableLabel(table: string) {

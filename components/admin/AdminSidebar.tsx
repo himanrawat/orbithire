@@ -20,6 +20,7 @@ import {
 	UserCheck,
 	ListChecks,
 	Flag,
+	UsersRound,
 	X,
 } from "lucide-react";
 import { Lockup } from "@/components/marketing/logo";
@@ -30,6 +31,7 @@ const baseNavigation = [
 	{ name: "Users", href: "/admin/users", icon: Users },
 	{ name: "Admins", href: "/admin/admins", icon: UserCheck },
 	{ name: "Moderation", href: "/admin/moderation", icon: Flag },
+	{ name: "Community", href: "/admin/community", icon: UsersRound },
 	{ name: "Contact messages", href: "/admin/contacts", icon: MessageSquare },
 	{ name: "Credits & access", href: "/admin/credits", icon: CreditCard },
 	{ name: "Access codes", href: "/admin/access-codes", icon: Shield },

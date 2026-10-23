@@ -7,8 +7,11 @@ import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { UpgradeLink } from "@/components/billing/UpgradePrompt";
+import { gateMessage } from "@/lib/billing/gates";
 
-type Status = Readonly<{ available: boolean; connected: boolean; email: string | null }>;
+// allowed: the plan includes calendar sync (missing from older servers = allowed).
+type Status = Readonly<{ available: boolean; connected: boolean; email: string | null; allowed?: boolean }>;
 
 const OUTCOME_MESSAGES: Readonly<Record<string, string>> = {
 	connected: "Google Calendar is connected.",
@@ -37,6 +40,7 @@ function readOutcome(): string | null {
 
 function description(status: Status) {
 	if (status.connected) return status.email ? `Connected as ${status.email}` : "Connected";
+	if (status.allowed === false) return gateMessage("calendar_sync");
 	return "See your events in Focus and add the blocks you plan to a NextMilestone calendar.";
 }
 
@@ -49,6 +53,7 @@ function CardAction({ status, busy, onDisconnect }: Readonly<{ status: Status; b
 			</Button>
 		);
 	}
+	if (status.allowed === false) return <UpgradeLink className="flex-none text-sm" />;
 	return (
 		<Button asChild variant="outline" size="sm">
 			<a href="/api/calendar/google/connect">Connect</a>

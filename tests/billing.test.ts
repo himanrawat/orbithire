@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+	FEATURES,
 	PLAN_LIMITS,
 	buildPlanContext,
 	canUse,
+	effectivePlan,
 	isBillingEnabled,
 	limitFor,
 	normalizeSubscriptionRow,
@@ -73,9 +75,9 @@ describe("resolvePlan", () => {
 });
 
 describe("limits and canUse", () => {
-	const free = { plan: "free" as const, hasOwnAiKey: false };
-	const freeOwnKey = { plan: "free" as const, hasOwnAiKey: true };
-	const pro = { plan: "pro" as const, hasOwnAiKey: false };
+	const free = { plan: "free" as const, hasOwnAiKey: false, billingEnabled: true };
+	const freeOwnKey = { plan: "free" as const, hasOwnAiKey: true, billingEnabled: true };
+	const pro = { plan: "pro" as const, hasOwnAiKey: false, billingEnabled: true };
 
 	it("matches the PRD table", () => {
 		expect(PLAN_LIMITS.free.learning_paths).toBe(1);
@@ -106,6 +108,21 @@ describe("limits and canUse", () => {
 		expect(canUse(pro, "ai_feedback", 10_000)).toBe(true);
 		expect(canUse(free, "learning_paths", 0)).toBe(true);
 		expect(canUse(free, "learning_paths", 1)).toBe(false);
+	});
+});
+
+describe("billing off (no Stripe)", () => {
+	const off = { plan: "free" as const, hasOwnAiKey: false, billingEnabled: false };
+
+	it("reports Free but applies Pro rules, so nothing that works today is gated", () => {
+		expect(buildPlanContext(null, { billingEnabled: false, hasOwnAiKey: false, now: NOW }).plan).toBe("free");
+		expect(effectivePlan(off)).toBe("pro");
+		expect(effectivePlan({ plan: "free", billingEnabled: true })).toBe("free");
+		for (const feature of FEATURES) {
+			expect(limitFor(off, feature)).toBeNull();
+			expect(canUse(off, feature, 10_000)).toBe(true);
+		}
+		expect(remainingFor(off, "ai_feedback", 50)).toBeNull();
 	});
 });
 

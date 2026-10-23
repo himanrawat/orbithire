@@ -25,6 +25,7 @@ import {
 	Settings,
 	Timer,
 	MessagesSquare,
+	Users,
 	X,
 } from "lucide-react";
 import { Lockup, Mark } from "@/components/marketing/logo";
@@ -78,6 +79,7 @@ const mainNavItems: NavItem[] = [
 	{ label: "Milestones", href: "/profile/milestones", icon: Flag, tone: "var(--cap)" },
 	{ label: "Companies", href: "/companies", icon: Building2, tone: "var(--kind-interview)" },
 	{ label: "Prep", href: "/prep", icon: MessagesSquare, tone: "var(--kind-prep)" },
+	{ label: "Community", href: "/feed", icon: Users, tone: "var(--kind-interview)" },
 	{ label: "My Resumes", href: "/resumes", icon: FileText, tone: "var(--kind-learn)" },
 	{ label: "Templates", href: "/templates", icon: LayoutTemplate, tone: "var(--kind-focus)" },
 ];
