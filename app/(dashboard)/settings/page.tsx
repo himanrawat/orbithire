@@ -39,6 +39,7 @@ import {
 	Briefcase,
 	Plug,
 	Upload as ImportIcon,
+	ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/app/page-header";
@@ -50,6 +51,8 @@ import { JobSearchSettings } from "@/components/jobs/JobSearchSettings";
 import { RankingSettings } from "@/components/settings/RankingSettings";
 import { AiConnections } from "@/components/settings/AiConnections";
 import { ImportData } from "@/components/settings/ImportData";
+import { PrivacyChoices } from "@/components/settings/PrivacyChoices";
+import { DataAndAccount } from "@/components/settings/DataAndAccount";
 import { getProviderModels, type ModelInfo } from "@/lib/ai/providers/registry";
 
 type Provider = "openai" | "groq" | "anthropic" | "gemini" | "custom";
@@ -60,7 +63,8 @@ type Tab =
 	| "account"
 	| "billing"
 	| "integrations"
-	| "import";
+	| "import"
+	| "privacy";
 
 const PROVIDER_LABELS: Record<Provider, string> = {
 	openai: "OpenAI",
@@ -99,6 +103,11 @@ const tabs: {
 		icon: <Link2 className="h-4 w-4" />,
 	},
 	{ id: "import", label: "Import", icon: <ImportIcon className="h-4 w-4" /> },
+	{
+		id: "privacy",
+		label: "Data & privacy",
+		icon: <ShieldCheck className="h-4 w-4" />,
+	},
 ];
 
 async function updateVerification(verified: boolean) {
@@ -454,6 +463,12 @@ export default function SettingsPage() {
 					</Show>
 					<Show when={activeTab === "import"}>
 						<ImportData />
+					</Show>
+					<Show when={activeTab === "privacy"}>
+						<div className="grid gap-6">
+							<PrivacyChoices />
+							<DataAndAccount />
+						</div>
 					</Show>
 
 					<Show when={activeTab === "job-search"}>
@@ -948,11 +963,13 @@ export default function SettingsPage() {
 												Permanently delete your account and all associated data
 											</p>
 										</div>
-										<Button variant="destructive" size="sm" disabled>
-											<span className="mr-2">Delete</span>
-											<span className="rounded bg-destructive-foreground/20 px-1.5 py-0.5 text-[10px] font-medium">
-												Soon
-											</span>
+										<Button
+											type="button"
+											variant="destructive"
+											size="sm"
+											onClick={() => setActiveTab("privacy")}
+										>
+											Go to Data &amp; privacy
 										</Button>
 									</div>
 								</CardContent>
@@ -1061,74 +1078,6 @@ export default function SettingsPage() {
 					{/* Integrations Tab */}
 					<Show when={activeTab === "integrations"}>
 						<div className="grid gap-6">
-							{/* Email Integrations */}
-							<Card>
-								<CardHeader>
-									<CardTitle className="flex items-center gap-2 text-lg">
-										<Mail className="h-5 w-5" />
-										Email Integrations
-									</CardTitle>
-									<CardDescription>
-										Connect your email accounts to track job applications.
-									</CardDescription>
-								</CardHeader>
-								<CardContent className="space-y-4">
-									{/* Gmail */}
-									<div className="flex items-center justify-between rounded-lg border p-4">
-										<div className="flex items-center gap-3">
-											<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--danger-soft)]">
-												<Image
-													src="/gmail.svg"
-													alt="Gmail"
-													width={24}
-													height={24}
-													className="h-6 w-6"
-												/>
-											</div>
-											<div>
-												<p className="font-medium">Gmail</p>
-												<p className="text-sm text-muted-foreground">
-													Connect your Gmail account
-												</p>
-											</div>
-										</div>
-										<Button variant="outline" size="sm" disabled>
-											<span className="mr-2">Connect</span>
-											<span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-												Soon
-											</span>
-										</Button>
-									</div>
-
-									{/* Outlook */}
-									<div className="flex items-center justify-between rounded-lg border p-4">
-										<div className="flex items-center gap-3">
-											<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--info-soft)]">
-												<Image
-													src="/outlook.svg"
-													alt="Outlook"
-													width={24}
-													height={24}
-													className="h-6 w-6"
-												/>
-											</div>
-											<div>
-												<p className="font-medium">Outlook</p>
-												<p className="text-sm text-muted-foreground">
-													Connect your Outlook account
-												</p>
-											</div>
-										</div>
-										<Button variant="outline" size="sm" disabled>
-											<span className="mr-2">Connect</span>
-											<span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-												Soon
-											</span>
-										</Button>
-									</div>
-								</CardContent>
-							</Card>
-
 							{/* Calendar Integrations */}
 							<Card>
 								<CardHeader>

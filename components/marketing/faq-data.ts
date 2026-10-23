@@ -108,7 +108,7 @@ export const JOBS_FAQS: readonly FaqItem[] = [
 	{
 		id: "sources",
 		q: "Where do the jobs come from?",
-		a: "About 30 sources: job boards, company career pages and the applicant systems they use. Duplicates of the same role are merged into one.",
+		a: "Hundreds of US employers' career pages, plus public job APIs. We only use sources whose terms allow it, and duplicates of the same role are merged into one.",
 	},
 	{
 		id: "score",

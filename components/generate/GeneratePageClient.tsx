@@ -57,6 +57,7 @@ import {
 	AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AiLabel } from "@/components/AiLabel";
 import { PageHeader } from "@/components/app/page-header";
 import { type JSONResume, type ResumeSection } from "@/lib/sampleResume";
 import { TemplateGallery } from "@/components/TemplateGallery";
@@ -1144,6 +1145,7 @@ export default function GeneratePageClient() {
 											<h2 className="flex items-center gap-2 font-display text-xl font-[650] tracking-[-0.01em]">
 												<FileText className="h-5 w-5 text-primary" />
 												Resume
+												<AiLabel />
 											</h2>
 											<Button
 												variant="ghost"
@@ -1648,6 +1650,7 @@ export default function GeneratePageClient() {
 											<h2 className="flex items-center gap-2 font-display text-xl font-[650] tracking-[-0.01em]">
 												<FileText className="h-5 w-5 text-primary" />
 												Cover Letter
+												<AiLabel />
 											</h2>
 											<Button
 												variant="ghost"

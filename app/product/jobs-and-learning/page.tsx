@@ -9,11 +9,11 @@ const PATH = "/product/jobs-and-learning";
 export const metadata: Metadata = pageMetadata(
 	PATH,
 	"Jobs and learning: matches every morning, skills they ask for | NextMilestone",
-	"NextMilestone fetches jobs from about 30 sources every morning, scores them against your profile, tailors a resume when you shortlist one, and points you to the skill your best matches ask for.",
+	"NextMilestone fetches jobs from hundreds of US employers' career pages and public job APIs every morning, scores them against your profile, tailors a resume when you shortlist one, and points you to the skill your best matches ask for.",
 );
 
 const LOOP = [
-	["Matches arrive at 7:00 AM", "Jobs from about 30 sources are fetched, de-duplicated and scored against your profile overnight."],
+	["Matches arrive at 7:00 AM", "Jobs from US employers' career pages and public job APIs are fetched, de-duplicated and scored against your profile overnight."],
 	["Shortlist the ones that fit", "Today shows the best three. Shortlist one and you get a tailored resume draft for it to review."],
 	["Learn what they ask for", "The skill that comes up most across your shortlist is picked out, with a path to learn it."],
 	["You apply, not a bot", "Nothing is sent for you. NextMilestone never applies to jobs on your behalf."],
@@ -38,7 +38,7 @@ export default function JobsAndLearningPage({ searchParams }: Readonly<{ searchP
 				lead="Every morning NextMilestone finds new roles, scores them against your profile and shows you the best three. Then it shows you what to learn to close the gap."
 				facts={[
 					["7 AM", "New matches, fetched and scored overnight"],
-					["~30", "Job sources, with duplicates merged"],
+					["100s", "US employer career pages, plus public job APIs"],
 					["4", "Learning paths at launch"],
 				]}
 				redirectQuery={redirectQuery}

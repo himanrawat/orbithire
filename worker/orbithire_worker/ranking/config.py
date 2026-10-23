@@ -55,7 +55,23 @@ class RankingConfig(BaseSettings):
 
     @property
     def digest_sender(self) -> str | None:
-        return self.digest_from_email or self.follow_up_from_email
+        return format_sender(self.digest_from_email or self.follow_up_from_email)
+
+
+DEFAULT_SENDER_NAME = "NextMilestone"
+
+
+def format_sender(value: str | None, name: str = DEFAULT_SENDER_NAME) -> str | None:
+    """Give a bare address the brand display name: a@b.c -> 'NextMilestone <a@b.c>'.
+
+    Values that already carry a display name ("Name <a@b.c>") are kept as they are.
+    """
+    address = (value or "").strip().strip('"').strip()
+    if not address:
+        return None
+    if "<" in address:
+        return address
+    return f"{name} <{address}>"
 
 
 @lru_cache

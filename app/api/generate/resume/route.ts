@@ -13,6 +13,7 @@ import { decryptApiKey } from "@/lib/encryption";
 import { createServerSupabase, createServiceSupabase } from "@/lib/supabaseServer";
 import { z } from "zod";
 import { parseJson } from "@/lib/api";
+import { logAiGenerations, type AiGenerationEntry } from "@/lib/ai/generations/log";
 
 export const runtime = "nodejs";
 // Reads the session from req.cookies, which does not opt out of Next's fetch cache:
@@ -355,6 +356,21 @@ async function withProviderTimeout<T>(promise: Promise<T>, timeoutMs = 60_000) {
 	}
 }
 
+function buildGenerationLogEntries(
+	userId: string,
+	provider: string,
+	model: string,
+	includesCoverLetter: boolean
+): AiGenerationEntry[] {
+	const entries: AiGenerationEntry[] = [
+		{ userId, feature: "resume", model, provider, itemType: "resume" },
+	];
+	if (includesCoverLetter) {
+		entries.push({ userId, feature: "cover_letter", model, provider, itemType: "cover_letter" });
+	}
+	return entries;
+}
+
 /**
  * Get AI configuration from user settings, falling back to environment variables
  */
@@ -577,9 +593,15 @@ export async function POST(req: NextRequest) {
 
 		// Fetch profile photo as base64 for embedding in resume HTML
 		const imageBase64 = await photoPromise;
+		const aiGenerationIds = await logAiGenerations(
+			supabase,
+			buildGenerationLogEntries(user.id, aiConfig.provider, model, coverLetter.length > 0)
+		);
 
 		return NextResponse.json({
 			success: true,
+			aiGenerated: true,
+			aiGenerationIds,
 			resume: {
 				extractedKeywords: resumeData.extractedKeywords || [],
 				label: resumeData.label || jobTitle,

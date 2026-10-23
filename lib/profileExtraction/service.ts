@@ -7,6 +7,7 @@ import { serverEnv } from "@/lib/config";
 import { createServerSupabase } from "@/lib/supabaseServer";
 import { enforceRateLimit } from "@/lib/requestSecurity";
 import { validateImageBuffer } from "@/lib/imageValidation";
+import { logAiGeneration } from "@/lib/ai/generations/log";
 
 type SectionBlock = { title: string; lines: string[] };
 
@@ -652,11 +653,15 @@ async function enhanceWithLlm(rawText: string, draft: ProfileDraft) {
 	if (!content) return null;
 
 	try {
-		return JSON.parse(content);
+		return { result: JSON.parse(content), model: response.model || primaryModel };
 	} catch (err) {
 		console.error("LLM parse error", err);
 		return null;
 	}
+}
+
+function getVisionModel() {
+	return process.env.VISION_MODEL || process.env.LLM_MODEL || "gpt-4o";
 }
 
 async function parseImageWithLlm(file: File) {
@@ -671,8 +676,7 @@ async function parseImageWithLlm(file: File) {
 	});
 	const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
 	const mimeType = file.type || "image/png";
-	const visionModel =
-		process.env.VISION_MODEL || process.env.LLM_MODEL || "gpt-4o";
+	const visionModel = getVisionModel();
 
 	const schema = {
 		profile: ["full_name", "email", "phone", "summary"],
@@ -825,6 +829,12 @@ export async function extractProfile(req: NextRequest) {
 		if (mimeType.startsWith("image/")) {
 			validateImageBuffer(Buffer.from(await file.arrayBuffer()), mimeType);
 			const parsed = await parseImageWithLlm(file);
+			await logAiGeneration(supabase, {
+				userId: user.id,
+				feature: "profile_extraction_vision",
+				model: getVisionModel(),
+				itemType: "profile",
+			});
 			return NextResponse.json({
 				ok: true,
 				fileName: file.name || "upload",
@@ -889,10 +899,19 @@ export async function extractProfile(req: NextRequest) {
 			customSections,
 		};
 
-		const llmResult = await enhanceWithLlm(text, draft).catch((err) => {
+		const enhanced = await enhanceWithLlm(text, draft).catch((err) => {
 			console.error("LLM enhance error", err);
 			return null;
 		});
+		const llmResult = enhanced?.result ?? null;
+		if (enhanced) {
+			await logAiGeneration(supabase, {
+				userId: user.id,
+				feature: "profile_extraction",
+				model: enhanced.model,
+				itemType: "profile",
+			});
+		}
 		// Use LLM output only; fallback to draft is disabled per request.
 		const merged: ProfileDraft = llmResult
 			? {

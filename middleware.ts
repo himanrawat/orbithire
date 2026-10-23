@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createEdgeSupabaseClient } from "@/lib/supabase-edge";
+import {
+	GPC_COOKIE,
+	GPC_COOKIE_MAX_AGE_SECONDS,
+	GPC_REQUEST_HEADER,
+	hasGpcSignal,
+} from "@/lib/privacy/gpc";
 
 const PROTECTED_PATHS = [
 	"/dashboard",
@@ -15,8 +21,30 @@ const PROTECTED_PATHS = [
 	"/templates",
 ];
 
+// Global Privacy Control: forward the signal to server components and remember it in
+// a cookie (readable by client code) so non-essential tracking stays off. See lib/privacy/gpc.ts.
+function gpcRequestInit(req: NextRequest) {
+	if (!hasGpcSignal(req.headers)) return undefined;
+	const headers = new Headers(req.headers);
+	headers.set(GPC_REQUEST_HEADER, "1");
+	return { request: { headers } };
+}
+
+function syncGpcCookie(req: NextRequest, response: NextResponse) {
+	if (hasGpcSignal(req.headers)) {
+		response.cookies.set(GPC_COOKIE, "1", {
+			path: "/",
+			sameSite: "lax",
+			maxAge: GPC_COOKIE_MAX_AGE_SECONDS,
+		});
+	} else if (req.cookies.has(GPC_COOKIE)) {
+		response.cookies.delete(GPC_COOKIE);
+	}
+}
+
 async function getAuthState(req: NextRequest) {
-	const response = NextResponse.next();
+	const response = NextResponse.next(gpcRequestInit(req));
+	syncGpcCookie(req, response);
 
 	try {
 		const supabase = createEdgeSupabaseClient(req, response);

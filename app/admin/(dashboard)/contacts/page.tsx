@@ -1,6 +1,7 @@
 import { createServiceSupabase } from "@/lib/supabaseServer";
 import { ContactsTable } from "./ContactsTable";
 import { PageHeader } from "@/components/app/page-header";
+import { contactRetentionNotice } from "@/lib/privacy/retention";
 
 async function getContacts(searchParams: { page?: string; status?: string }) {
 	const supabase = createServiceSupabase();
@@ -44,7 +45,7 @@ export default async function ContactsPage({
 
 	return (
 		<div className="space-y-6">
-			<PageHeader title="Contact messages" description="View and manage contact form submissions." className="mb-0" />
+			<PageHeader title="Contact messages" description={`View and manage contact form submissions. ${contactRetentionNotice()}`} className="mb-0" />
 
 			<ContactsTable
 				contacts={contacts}
