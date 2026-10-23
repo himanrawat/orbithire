@@ -7,7 +7,7 @@
 export type ExportTableSpec = Readonly<{
 	table: string;
 	/** Column that holds the owner's user id. */
-	ownerColumn: "id" | "user_id";
+	ownerColumn: "id" | "user_id" | "author_id" | "reporter_id" | "follower_id";
 	/** Columns never exported (credentials, encrypted values, share secrets). */
 	omit?: readonly string[];
 }>;
@@ -33,6 +33,13 @@ export const EXPORT_TABLES: readonly ExportTableSpec[] = [
 	{ table: "question_reports", ownerColumn: "user_id" },
 	{ table: "practice_attempts", ownerColumn: "user_id" },
 	{ table: "interviews", ownerColumn: "user_id" },
+	{ table: "community_members", ownerColumn: "user_id" },
+	{ table: "community_posts", ownerColumn: "author_id" },
+	{ table: "community_replies", ownerColumn: "author_id" },
+	{ table: "post_reactions", ownerColumn: "user_id" },
+	{ table: "post_saves", ownerColumn: "user_id" },
+	{ table: "user_follows", ownerColumn: "follower_id" },
+	{ table: "content_reports", ownerColumn: "reporter_id" },
 ];
 
 /** Upper bound per table, so one export request stays bounded. */
@@ -119,6 +126,13 @@ const TABLE_LABELS: Record<string, string> = {
 	job_matches: "Job matches",
 	ranking_settings: "Ranking settings",
 	ai_generations: "AI generations",
+	community_members: "Community membership",
+	community_posts: "Community posts",
+	community_replies: "Community replies",
+	post_reactions: "Helpful reactions",
+	post_saves: "Saved posts",
+	user_follows: "People you follow",
+	content_reports: "Reports you filed",
 };
 
 function tableLabel(table: string) {
