@@ -39,6 +39,7 @@ import {
 	Plug,
 	Upload as ImportIcon,
 	ShieldCheck,
+	Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/app/page-header";
@@ -57,6 +58,7 @@ import { CareerStageSettings } from "@/components/settings/CareerStageSettings";
 import { GoogleCalendarCard } from "@/components/settings/GoogleCalendarCard";
 import { TimeZoneSettings } from "@/components/settings/TimeZoneSettings";
 import { BillingSettings } from "@/components/settings/BillingSettings";
+import { NotificationSettings } from "@/components/settings/NotificationSettings";
 import { getProviderModels, type ModelInfo } from "@/lib/ai/providers/registry";
 
 type Provider = "openai" | "groq" | "anthropic" | "gemini" | "custom";
@@ -65,6 +67,7 @@ type Tab =
 	| "ai-connections"
 	| "job-search"
 	| "account"
+	| "notifications"
 	| "billing"
 	| "integrations"
 	| "import"
@@ -102,6 +105,7 @@ const tabs: {
 		icon: <Briefcase className="h-4 w-4" />,
 	},
 	{ id: "account", label: "Account", icon: <User className="h-4 w-4" /> },
+	{ id: "notifications", label: "Notifications", icon: <Bell className="h-4 w-4" /> },
 	// Hidden unless Stripe billing is switched on (NEXT_PUBLIC_BILLING_ENABLED).
 	...(BILLING_TAB_ENABLED
 		? [{ id: "billing" as const, label: "Billing", icon: <CreditCard className="h-4 w-4" /> }]
@@ -469,6 +473,9 @@ export default function SettingsPage() {
 				>
 					<Show when={activeTab === "ai-connections"}>
 						<AiConnections />
+					</Show>
+					<Show when={activeTab === "notifications"}>
+						<NotificationSettings />
 					</Show>
 					<Show when={activeTab === "import"}>
 						<ImportData />
