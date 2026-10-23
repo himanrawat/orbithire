@@ -53,6 +53,7 @@ import { AiConnections } from "@/components/settings/AiConnections";
 import { ImportData } from "@/components/settings/ImportData";
 import { PrivacyChoices } from "@/components/settings/PrivacyChoices";
 import { DataAndAccount } from "@/components/settings/DataAndAccount";
+import { CareerStageSettings } from "@/components/settings/CareerStageSettings";
 import { getProviderModels, type ModelInfo } from "@/lib/ai/providers/registry";
 
 type Provider = "openai" | "groq" | "anthropic" | "gemini" | "custom";
@@ -857,6 +858,7 @@ export default function SettingsPage() {
 					{/* Account Tab */}
 					<Show when={activeTab === "account"}>
 						<div className="grid gap-6">
+							<CareerStageSettings />
 							{/* Security */}
 							<Card>
 								<CardHeader>

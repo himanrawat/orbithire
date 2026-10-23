@@ -378,13 +378,16 @@ export function formatSalary(row: {
 		if (cur === "INR") {
 			return n >= 100000 ? `${(n / 100000).toFixed(n % 100000 ? 1 : 0)}L` : n.toLocaleString("en-IN");
 		}
-		return n >= 1000 ? `${Math.round(n / 1000)}k` : String(n);
+		const amount = n >= 1000 ? `${Math.round(n / 1000)}k` : String(n);
+		// US-first: dollars read as "$120k", other currencies keep their code prefix.
+		return cur === "USD" ? `$${amount}` : amount;
 	};
 	const range =
 		min != null && max != null && min !== max
 			? `${fmt(Number(min))}–${fmt(Number(max))}`
 			: fmt(Number(min ?? max));
-	return `${cur ? cur + " " : ""}${range}/yr`;
+	const prefix = cur && cur !== "USD" ? `${cur} ` : "";
+	return `${prefix}${range}/yr`;
 }
 
 /** Text for the companies.salary_range column. */
