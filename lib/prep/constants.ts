@@ -131,6 +131,3 @@ export type InterviewCard = {
 	checklist: ChecklistItem[];
 	notes: string | null;
 };
-
-/** Free plan cap the pricing area can enforce (PRD area 10); not enforced here. */
-export const FREE_FEEDBACK_PER_MONTH = 10;

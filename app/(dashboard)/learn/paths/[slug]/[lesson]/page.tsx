@@ -4,10 +4,11 @@ import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { LessonActions } from "@/components/learn/LessonActions";
+import { PathLockedNotice } from "@/components/learn/PathLockedNotice";
 import { Markdown } from "@/components/learn/Markdown";
 import { loadLesson } from "@/lib/learn/server";
 import { lessonHref } from "@/lib/learn/types";
-import { requirePageUser } from "../../../data";
+import { isPathLocked, requirePageUser } from "../../../data";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,14 @@ export default async function LessonPage({ params }: Readonly<{ params: { slug: 
 	const { supabase, userId } = await requirePageUser();
 	const lesson = await loadLesson(supabase, userId, params.slug, params.lesson).catch(() => null);
 	if (!lesson) notFound();
+	if (await isPathLocked(supabase, userId, lesson.path.id)) {
+		return (
+			<div className="mx-auto w-full max-w-3xl">
+				<PageHeader back={{ href: `/learn/paths/${lesson.path.slug}`, label: lesson.path.title }} title={lesson.title} />
+				<PathLockedNotice />
+			</div>
+		);
+	}
 
 	return (
 		<div className="mx-auto w-full max-w-3xl">

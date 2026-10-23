@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/app/blocks";
+import type { PrepAccess } from "@/lib/prep/access";
 import type { PracticeAttempt, PrepQuestion } from "@/lib/prep/constants";
 import { errorMessage, fetchQuestion } from "./api";
 import { PracticeSession } from "./PracticeSession";
 
-type Loaded = { question: PrepQuestion; attempts: PracticeAttempt[] };
+type Loaded = { question: PrepQuestion; attempts: PracticeAttempt[]; access?: PrepAccess };
 
 function PastAttempts({ attempts }: Readonly<{ attempts: readonly PracticeAttempt[] }>) {
 	if (attempts.length === 0) return null;
@@ -37,6 +38,8 @@ export function PracticeView({ questionId }: Readonly<{ questionId: string }>) {
 			<PracticeSession
 				key={round}
 				question={data.question}
+				access={data.access}
+				onAccessChange={(access) => setData((current) => (current ? { ...current, access } : current))}
 				reviewAction={
 					<div className="flex flex-wrap gap-2">
 						<Button type="button" variant="outline" onClick={() => setRound((r) => r + 1)}>

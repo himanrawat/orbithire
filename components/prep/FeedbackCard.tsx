@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { BookOpen, Flag, ThumbsUp, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AiLabel } from "@/components/AiLabel";
+import { UpgradeLink } from "@/components/billing/UpgradePrompt";
 import type { PracticeAttempt, PrepFeedback } from "@/lib/prep/constants";
 import { errorMessage, flagAttempt } from "./api";
 
@@ -71,15 +72,18 @@ function FlagButton({ attempt, onFlagged }: Readonly<{ attempt: PracticeAttempt;
 type FeedbackCardProps = Readonly<{
 	attempt: PracticeAttempt;
 	feedbackError: string | null;
+	/** The answer was saved without feedback because the Free monthly reviews ran out. */
+	limitReached?: boolean;
 	onFlagged: (attempt: PracticeAttempt) => void;
 }>;
 
 /** Step 3: review. Exactly one strength, one gap and one next read, labeled as AI. */
-export function FeedbackCard({ attempt, feedbackError, onFlagged }: FeedbackCardProps) {
+export function FeedbackCard({ attempt, feedbackError, limitReached = false, onFlagged }: FeedbackCardProps) {
 	if (!attempt.feedback) {
 		return (
 			<section aria-label="Feedback" className="rounded-[var(--radius-md)] border bg-card p-5">
 				<p className="text-sm text-muted-foreground">{feedbackError ?? "Your answer is saved."}</p>
+				{limitReached && <UpgradeLink className="mt-2 inline-block text-sm" />}
 			</section>
 		);
 	}

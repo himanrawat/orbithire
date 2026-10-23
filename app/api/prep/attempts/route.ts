@@ -4,16 +4,20 @@ import { parseJson } from "@/lib/api";
 import { requireUser } from "@/lib/jobs/server";
 import { logAiGeneration } from "@/lib/ai/generations/log";
 import { ProviderError } from "@/lib/ai/providers/baseProvider";
+import { afterReview, feedbackLimitReachedText, planRequiredBody } from "@/lib/billing/gates";
+import { blockedAttemptFeature, type PrepAccess } from "@/lib/prep/access";
 import { generateFeedback, loadAiConfig, type FeedbackResult } from "@/lib/prep/ai";
 import type { PrepQuestion } from "@/lib/prep/constants";
 import { attemptCreateSchema, type AttemptCreate } from "@/lib/prep/schema";
-import { getQuestion, insertAttempt } from "@/lib/prep/server";
+import { getQuestion, insertAttempt, loadPrepAccess } from "@/lib/prep/server";
 import { notFound, serverError } from "@/lib/prep/http";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type FeedbackOutcome = { result: FeedbackResult; error?: undefined } | { result: null; error: string };
+type FeedbackOutcome =
+	| { result: FeedbackResult; error?: undefined; limitReached?: undefined }
+	| { result: null; error: string; limitReached?: boolean };
 
 const NO_AI_MESSAGE = "Your answer is saved. Add an AI provider in Settings to get feedback.";
 const AI_FAILED_MESSAGE = "Your answer is saved, but feedback isn't available right now. Try again in a minute.";
@@ -35,6 +39,20 @@ async function requestFeedback(
 	}
 }
 
+/** Free users past their monthly reviews still get the answer saved, without AI feedback. */
+async function feedbackFor(
+	supabase: SupabaseClient,
+	userId: string,
+	access: PrepAccess,
+	question: PrepQuestion,
+	answer: string
+): Promise<FeedbackOutcome> {
+	if (access.feedback && access.feedback.remaining <= 0) {
+		return { result: null, error: feedbackLimitReachedText(access.feedback.limit), limitReached: true };
+	}
+	return requestFeedback(supabase, userId, question, answer);
+}
+
 function transcriptFor(body: AttemptCreate): string | null {
 	return body.inputMode === "voice" && body.transcript ? body.transcript : null;
 }
@@ -48,10 +66,15 @@ export async function POST(req: NextRequest) {
 	const body = parsed.data;
 	const { supabase, user } = auth;
 
-	const question = await getQuestion(supabase, body.questionId);
+	const [question, access] = await Promise.all([
+		getQuestion(supabase, body.questionId),
+		loadPrepAccess(supabase, user.id),
+	]);
 	if (!question) return notFound("Question");
+	const blocked = blockedAttemptFeature(access, body);
+	if (blocked) return NextResponse.json(planRequiredBody(blocked), { status: 403 });
 
-	const outcome = await requestFeedback(supabase, user.id, question, body.answerText);
+	const outcome = await feedbackFor(supabase, user.id, access, question, body.answerText);
 	try {
 		const attempt = await insertAttempt(supabase, user.id, {
 			questionId: question.id,
@@ -72,7 +95,15 @@ export async function POST(req: NextRequest) {
 				itemRef: attempt.id,
 			});
 		}
-		return NextResponse.json({ attempt, feedbackError: outcome.error ?? null }, { status: 201 });
+		return NextResponse.json(
+			{
+				attempt,
+				feedbackError: outcome.error ?? null,
+				feedbackLimitReached: outcome.limitReached === true,
+				feedbackQuota: afterReview(access.feedback, Boolean(outcome.result)),
+			},
+			{ status: 201 }
+		);
 	} catch (error) {
 		return serverError("save attempt", error, "Could not save your answer");
 	}
