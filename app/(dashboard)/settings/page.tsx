@@ -54,6 +54,7 @@ import { ImportData } from "@/components/settings/ImportData";
 import { PrivacyChoices } from "@/components/settings/PrivacyChoices";
 import { DataAndAccount } from "@/components/settings/DataAndAccount";
 import { CareerStageSettings } from "@/components/settings/CareerStageSettings";
+import { GoogleCalendarCard } from "@/components/settings/GoogleCalendarCard";
 import { getProviderModels, type ModelInfo } from "@/lib/ai/providers/registry";
 
 type Provider = "openai" | "groq" | "anthropic" | "gemini" | "custom";
@@ -1088,36 +1089,11 @@ export default function SettingsPage() {
 										Calendar Integrations
 									</CardTitle>
 									<CardDescription>
-										Sync your calendar to manage interview schedules.
+										See your events beside your week in Focus and add the blocks you plan.
 									</CardDescription>
 								</CardHeader>
 								<CardContent className="space-y-4">
-									{/* Google Calendar */}
-									<div className="flex items-center justify-between rounded-lg border p-4">
-										<div className="flex items-center gap-3">
-											<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--info-soft)]">
-												<Image
-													src="/g-calendar.svg"
-													alt="Google Calendar"
-													width={24}
-													height={24}
-													className="h-6 w-6"
-												/>
-											</div>
-											<div>
-												<p className="font-medium">Google Calendar</p>
-												<p className="text-sm text-muted-foreground">
-													Sync with Google Calendar
-												</p>
-											</div>
-										</div>
-										<Button variant="outline" size="sm" disabled>
-											<span className="mr-2">Connect</span>
-											<span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-												Soon
-											</span>
-										</Button>
-									</div>
+									<GoogleCalendarCard />
 
 									{/* Outlook Calendar */}
 									<div className="flex items-center justify-between rounded-lg border p-4">
