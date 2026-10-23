@@ -21,6 +21,7 @@ _MODULES = [
     "render_pdf",
     "daily_plan",
     "billing_reminder",
+    "push_reminders",
 ]
 
 
