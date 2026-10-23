@@ -28,6 +28,8 @@ export const EXPORT_TABLES: readonly ExportTableSpec[] = [
 	{ table: "ai_generations", ownerColumn: "user_id" },
 	{ table: "daily_plans", ownerColumn: "user_id" },
 	{ table: "subscriptions", ownerColumn: "user_id" },
+	{ table: "milestones", ownerColumn: "user_id" },
+	{ table: "milestone_suggestions", ownerColumn: "user_id" },
 ];
 
 /** Upper bound per table, so one export request stays bounded. */

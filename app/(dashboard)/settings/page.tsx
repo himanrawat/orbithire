@@ -52,6 +52,7 @@ import { AiConnections } from "@/components/settings/AiConnections";
 import { ImportData } from "@/components/settings/ImportData";
 import { PrivacyChoices } from "@/components/settings/PrivacyChoices";
 import { DataAndAccount } from "@/components/settings/DataAndAccount";
+import { PublicProfileSettings } from "@/components/milestones/PublicProfileSettings";
 import { CareerStageSettings } from "@/components/settings/CareerStageSettings";
 import { GoogleCalendarCard } from "@/components/settings/GoogleCalendarCard";
 import { TimeZoneSettings } from "@/components/settings/TimeZoneSettings";
@@ -475,6 +476,7 @@ export default function SettingsPage() {
 					<Show when={activeTab === "privacy"}>
 						<div className="grid gap-6">
 							<PrivacyChoices />
+							<PublicProfileSettings />
 							<DataAndAccount />
 						</div>
 					</Show>
