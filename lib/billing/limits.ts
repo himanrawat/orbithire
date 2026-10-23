@@ -183,4 +183,3 @@ export function normalizeSubscriptionRow(raw: Record<string, unknown> | null): S
 		updated_at: text(raw.updated_at) ?? new Date(0).toISOString(),
 	};
 }
-
