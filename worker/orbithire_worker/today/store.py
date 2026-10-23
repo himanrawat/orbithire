@@ -42,11 +42,19 @@ async def load_time_zone(conn: AsyncConnection, user_id: UUID | str) -> str:
 
 
 async def _interviews(conn: AsyncConnection, user_id: UUID | str, now: datetime) -> tuple[Interview, ...]:
+    # companies.interview_at plus Prep interview cards (area 4), soonest per company.
+    end = now + INTERVIEW_WINDOW
     rows = await _all(conn, """
-        SELECT id, name, interview_at FROM companies
-         WHERE user_id = %s AND interview_at BETWEEN %s AND %s
-         ORDER BY interview_at LIMIT 5
-    """, (user_id, now, now + INTERVIEW_WINDOW))
+        SELECT DISTINCT ON (id) id, name, interview_at FROM (
+          SELECT id, name, interview_at FROM companies
+           WHERE user_id = %s AND interview_at BETWEEN %s AND %s
+          UNION ALL
+          SELECT c.id, c.name, i.scheduled_at FROM interviews i JOIN companies c ON c.id = i.company_id
+           WHERE i.user_id = %s AND i.scheduled_at BETWEEN %s AND %s
+        ) s
+         ORDER BY id, interview_at
+    """, (user_id, now, end, user_id, now, end))
+    rows = sorted(rows, key=lambda r: r["interview_at"])[:5]
     return tuple(Interview(str(r["id"]), r["name"] or "a company", r["interview_at"]) for r in rows)
 
 

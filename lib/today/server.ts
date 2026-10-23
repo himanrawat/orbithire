@@ -57,12 +57,12 @@ export async function loadProfileBasics(
 	};
 }
 
-async function loadInterviewSignals(
+async function loadCompanyInterviewSignals(
 	supabase: SupabaseClient,
 	userId: string,
-	now: Date
+	now: Date,
+	end: Date
 ): Promise<InterviewSignal[]> {
-	const end = new Date(now.getTime() + INTERVIEW_WINDOW_HOURS * HOUR_MS);
 	const { data } = await supabase
 		.from("companies")
 		.select("id, name, interview_at")
@@ -76,6 +76,56 @@ async function loadInterviewSignals(
 		companyName: str(r.name) ?? "a company",
 		interviewAt: String(r.interview_at),
 	}));
+}
+
+/** Interview cards from Prep (area 4). Fails soft if the table is not there yet. */
+async function loadPrepInterviewSignals(
+	supabase: SupabaseClient,
+	userId: string,
+	now: Date,
+	end: Date
+): Promise<InterviewSignal[]> {
+	const { data, error } = await supabase
+		.from("interviews")
+		.select("company_id, scheduled_at, companies(name)")
+		.eq("user_id", userId)
+		.gte("scheduled_at", now.toISOString())
+		.lte("scheduled_at", end.toISOString())
+		.order("scheduled_at", { ascending: true })
+		.limit(5);
+	if (error) return [];
+	return ((data ?? []) as Row[]).map((r) => ({
+		companyId: String(r.company_id),
+		companyName: relatedName(r.companies),
+		interviewAt: String(r.scheduled_at),
+	}));
+}
+
+/** Soonest interview per company, from companies.interview_at and Prep interview cards. */
+export function mergeInterviewSignals(lists: readonly (readonly InterviewSignal[])[]): InterviewSignal[] {
+	const byCompany = new Map<string, InterviewSignal>();
+	for (const signal of lists.flat()) {
+		const seen = byCompany.get(signal.companyId);
+		if (!seen || new Date(signal.interviewAt) < new Date(seen.interviewAt)) {
+			byCompany.set(signal.companyId, signal);
+		}
+	}
+	return [...byCompany.values()].sort(
+		(a, b) => new Date(a.interviewAt).getTime() - new Date(b.interviewAt).getTime()
+	);
+}
+
+async function loadInterviewSignals(
+	supabase: SupabaseClient,
+	userId: string,
+	now: Date
+): Promise<InterviewSignal[]> {
+	const end = new Date(now.getTime() + INTERVIEW_WINDOW_HOURS * HOUR_MS);
+	const lists = await Promise.all([
+		loadCompanyInterviewSignals(supabase, userId, now, end),
+		loadPrepInterviewSignals(supabase, userId, now, end),
+	]);
+	return mergeInterviewSignals(lists).slice(0, 5);
 }
 
 async function loadFollowUpSignals(
@@ -161,7 +211,7 @@ export async function loadTopMatches(
 	}));
 }
 
-async function nextInterview(
+async function nextCompanyInterview(
 	supabase: SupabaseClient,
 	userId: string,
 	now: Date
@@ -183,6 +233,43 @@ async function nextInterview(
 		at: String(row.interview_at),
 		href: `/companies/${String(row.id)}`,
 	};
+}
+
+async function nextPrepInterview(
+	supabase: SupabaseClient,
+	userId: string,
+	now: Date
+): Promise<ComingUpItem | null> {
+	const { data, error } = await supabase
+		.from("interviews")
+		.select("id, company_id, scheduled_at, companies(name)")
+		.eq("user_id", userId)
+		.gte("scheduled_at", now.toISOString())
+		.order("scheduled_at", { ascending: true })
+		.limit(1)
+		.maybeSingle();
+	const row = data as Row | null;
+	if (error || !row) return null;
+	return {
+		id: `interview_card:${String(row.id)}`,
+		kind: "interview",
+		title: `Interview with ${relatedName(row.companies)}`,
+		at: String(row.scheduled_at),
+		href: `/prep?company=${String(row.company_id)}`,
+	};
+}
+
+async function nextInterview(
+	supabase: SupabaseClient,
+	userId: string,
+	now: Date
+): Promise<ComingUpItem | null> {
+	const [fromCompany, fromPrep] = await Promise.all([
+		nextCompanyInterview(supabase, userId, now),
+		nextPrepInterview(supabase, userId, now),
+	]);
+	if (!fromCompany || !fromPrep) return fromCompany ?? fromPrep;
+	return new Date(fromPrep.at) < new Date(fromCompany.at) ? fromPrep : fromCompany;
 }
 
 async function nextFollowUp(

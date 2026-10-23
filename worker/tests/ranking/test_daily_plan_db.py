@@ -60,7 +60,7 @@ async def test_generate_plan_writes_once(conn: psycopg.AsyncConnection, user_id:
         items, source = await cur.fetchone()
         assert source == "worker"
         assert [i["kind"] for i in items] == ["interview_prep", "review_matches", "focus_block"]
-        assert items[0]["href"] == f"/companies/{company_id}"
+        assert items[0]["href"] == f"/prep?company={company_id}"
 
         again = await generate_plan(conn, user_id, requested_date="2026-10-23", now=now)
         assert again["created"] is False

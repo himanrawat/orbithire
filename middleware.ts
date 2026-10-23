@@ -22,6 +22,7 @@ const PROTECTED_PATHS = [
 	"/learn",
 	"/onboarding",
 	"/focus",
+	"/prep",
 ];
 
 // Global Privacy Control: forward the signal to server components and remember it in

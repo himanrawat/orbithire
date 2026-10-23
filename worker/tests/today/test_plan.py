@@ -41,7 +41,7 @@ def test_interview_within_three_days_wins() -> None:
     s = signals(interviews=(interview(48),), follow_ups=(follow_up(NOW),), lesson=LESSON, strong_match_count=3)
     step = pick_next_step(s)
     assert step["kind"] == "interview_prep"
-    assert step["href"] == "/companies/c1"
+    assert step["href"] == "/prep?company=c1"
     assert "Acme" in step["title"]
 
 

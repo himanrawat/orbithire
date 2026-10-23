@@ -49,7 +49,7 @@ describe("pickNextStep", () => {
 			})
 		);
 		expect(step.kind).toBe("interview_prep");
-		expect(step.href).toBe("/companies/c1");
+		expect(step.href).toBe("/prep?company=c1");
 		expect(step.title).toContain("Acme");
 	});
 
