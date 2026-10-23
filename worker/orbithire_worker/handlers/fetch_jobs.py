@@ -141,6 +141,8 @@ async def fetch_jobs(task: Task, ctx: TaskContext) -> dict[str, Any]:
                 return {**result, "skipped": "search has no keywords or sources"}
             result["country"] = spec.country
         else:
+            if not await jobs_db.per_user_watchlist_enabled(conn):
+                return {**result, "kind": "watchlist", "skipped": "watchlist covered by fetch_watchlist fan-out"}
             companies = await jobs_db.load_watchlist(conn, user_id)
             include, exclude = await jobs_db.load_title_filters(conn, user_id)
             result.update(kind="watchlist", companies_total=len(companies))

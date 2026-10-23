@@ -239,3 +239,33 @@ def parse_score(text: str) -> ScoreResult:
         return ScoreResult.model_validate(data)
     except ValidationError as exc:
         raise ScoreParseError(f"invalid score JSON: {exc.errors()[0].get('msg')} at {exc.errors()[0].get('loc')}") from exc
+
+
+# --------------------------------------------------------------------------- explanation
+
+DIMENSION_LABELS = {
+    "skills_fit": "Skills fit",
+    "seniority_fit": "Seniority fit",
+    "compensation": "Compensation",
+    "freshness": "Freshness",
+    "location_eligibility": "Location and eligibility",
+}
+HELPED_MIN = 70
+MISSING_MAX = 50
+
+
+def _line(dim: str, d: Dimension) -> str:
+    label = DIMENSION_LABELS[dim]
+    return f"{label}: {d.note}" if d.note else label
+
+
+def explain(result: ScoreResult) -> dict[str, list[str]]:
+    """What helped / what's missing for a match score (PRD area 9 "Should"):
+    strong dimensions (>= 70) helped, weak ones (< 50) and red flags are missing.
+    Ordered by rubric weight so the most important reasons come first."""
+    order = sorted(DIMENSIONS, key=lambda d: -WEIGHTS[d])
+    dims = {d: getattr(result.reasons, d) for d in order}
+    helped = [_line(d, v) for d, v in dims.items() if v.score >= HELPED_MIN]
+    missing = [_line(d, v) for d, v in dims.items() if v.score < MISSING_MAX]
+    missing += [f"Red flag: {f}" for f in result.red_flags]
+    return {"helped": helped[:4], "missing": missing[:5]}

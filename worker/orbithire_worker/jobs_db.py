@@ -63,6 +63,16 @@ async def load_watchlist(conn: AsyncConnection, user_id: str) -> list[WatchedCom
     return out
 
 
+async def per_user_watchlist_enabled(conn: AsyncConnection) -> bool:
+    """job_supply_settings.per_user_watchlist (default TRUE: the legacy per-user
+    watchlist fetch keeps running until fetch-once fan-out is proven)."""
+    cur = await conn.execute(
+        "SELECT per_user_watchlist FROM job_supply_settings WHERE id = 1"
+    )
+    row = await cur.fetchone()
+    return True if row is None else bool(row[0])
+
+
 async def load_title_filters(conn: AsyncConnection, user_id: str) -> tuple[list[str], list[str]]:
     """Union of include/exclude title keywords over the user's enabled searches
     (used to filter watchlist boards, which return every open job)."""
@@ -87,15 +97,19 @@ async def load_title_filters(conn: AsyncConnection, user_id: str) -> tuple[list[
 UPSERT_POSTING_SQL = """
 INSERT INTO job_postings AS jp (
     dedupe_key, source, external_id, url, title, company, location, is_remote,
-    salary_min, salary_max, currency, salary_interval, description, posted_at, raw
+    salary_min, salary_max, currency, salary_interval, description, posted_at, raw,
+    attribution
 ) VALUES (
     %(dedupe_key)s, %(source)s, %(external_id)s, %(url)s, %(title)s, %(company)s,
     %(location)s, %(is_remote)s, %(salary_min)s, %(salary_max)s, %(currency)s,
-    %(salary_interval)s, %(description)s, %(posted_at)s, %(raw)s
+    %(salary_interval)s, %(description)s, %(posted_at)s, %(raw)s, %(attribution)s
 )
 ON CONFLICT (dedupe_key) DO UPDATE SET
     last_seen_at    = now(),
     is_active       = TRUE,
+    -- the record keeps its first source's url, so keep that source's credit link too
+    attribution     = CASE WHEN jp.source = EXCLUDED.source THEN COALESCE(EXCLUDED.attribution, jp.attribution)
+                           ELSE jp.attribution END,
     description     = CASE WHEN COALESCE(jp.description, '') = '' THEN EXCLUDED.description
                            ELSE jp.description END,
     salary_min      = CASE WHEN jp.salary_min IS NULL AND jp.salary_max IS NULL THEN EXCLUDED.salary_min
@@ -157,6 +171,7 @@ def _posting_params(p: NormalizedPosting) -> dict[str, Any]:
         "description": (p.description or None),
         "posted_at": p.posted_at,
         "raw": Jsonb(p.raw or {}),
+        "attribution": Jsonb(p.attribution) if p.attribution else None,
     }
 
 

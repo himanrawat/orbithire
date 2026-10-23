@@ -2,6 +2,7 @@
 
 export const TASK_TYPES = [
 	"fetch_jobs",
+	"fetch_watchlist",
 	"rank_jobs",
 	"render_pdf",
 	"thumbnail",
