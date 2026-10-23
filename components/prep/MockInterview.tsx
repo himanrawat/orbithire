@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Loader2, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AiLabel } from "@/components/AiLabel";
+import { UpgradePrompt } from "@/components/billing/UpgradePrompt";
+import { gateMessage } from "@/lib/billing/gates";
 import type { PracticeAttempt, PrepQuestion } from "@/lib/prep/constants";
 import { MOCK_DURATION_MINUTES, formatClock, summarizeMock, type MockSummary } from "@/lib/prep/mock";
 import { errorMessage, startMock } from "./api";
@@ -72,8 +74,8 @@ function nextLabel(index: number, total: number): string {
 	return index + 1 < total ? "Next question" : "Finish and see summary";
 }
 
-/** Timed 30-minute mock: 3-4 questions, then a summary. */
-export function MockInterview() {
+/** Timed 30-minute mock: 3-4 questions, then a summary. Pro (`allowed` false shows an upgrade note). */
+export function MockInterview({ allowed = true }: Readonly<{ allowed?: boolean }>) {
 	const [running, setRunning] = useState<Running | null>(null);
 	const [index, setIndex] = useState(0);
 	const [attempts, setAttempts] = useState<PracticeAttempt[]>([]);
@@ -103,6 +105,9 @@ export function MockInterview() {
 		}
 	}
 
+	if (!allowed) {
+		return <UpgradePrompt title="Mock interviews are part of Pro" message={gateMessage("mock_interviews")} />;
+	}
 	if (!running) return <MockIntro onStart={() => void begin()} starting={starting} error={error} />;
 	if (finished || index >= running.questions.length) {
 		return <MockSummaryView summary={summarizeMock(running.questions.length, attempts)} timedOut={timedOut} />;

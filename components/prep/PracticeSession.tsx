@@ -4,6 +4,8 @@ import { useState, type ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { feedbackRemainingText } from "@/lib/billing/gates";
+import type { PrepAccess } from "@/lib/prep/access";
 import type { InputMode, PracticeAttempt, PrepQuestion } from "@/lib/prep/constants";
 import { errorMessage, submitAttempt } from "./api";
 import { AnswerInput } from "./AnswerInput";
@@ -47,6 +49,9 @@ type PracticeSessionProps = Readonly<{
 	onAttempt?: (attempt: PracticeAttempt) => void;
 	/** Shown in the review step (e.g. "Next question" in a mock). */
 	reviewAction?: ReactNode;
+	/** Plan gates; omitted means nothing is gated in the UI (the API still checks). */
+	access?: PrepAccess;
+	onAccessChange?: (access: PrepAccess) => void;
 }>;
 
 function attemptBody(question: PrepQuestion, answer: string, mode: InputMode, transcript: string, mockId?: string) {
@@ -62,11 +67,13 @@ function attemptBody(question: PrepQuestion, answer: string, mode: InputMode, tr
 function ReviewStep({
 	attempt,
 	feedbackError,
+	limitReached,
 	onFlagged,
 	action,
 }: Readonly<{
 	attempt: PracticeAttempt;
 	feedbackError: string | null;
+	limitReached: boolean;
 	onFlagged: (attempt: PracticeAttempt) => void;
 	action?: ReactNode;
 }>) {
@@ -76,14 +83,20 @@ function ReviewStep({
 				<summary className="cursor-pointer text-sm font-semibold">Your answer</summary>
 				<p className="mt-2 whitespace-pre-wrap text-sm leading-6">{attempt.answerText}</p>
 			</details>
-			<FeedbackCard attempt={attempt} feedbackError={feedbackError} onFlagged={onFlagged} />
+			<FeedbackCard attempt={attempt} feedbackError={feedbackError} limitReached={limitReached} onFlagged={onFlagged} />
 			{action}
 		</div>
 	);
 }
 
+function QuotaNote({ access }: Readonly<{ access?: PrepAccess }>) {
+	const text = access ? feedbackRemainingText(access.feedback) : null;
+	if (!text) return null;
+	return <p className="text-sm text-muted-foreground">{text} Your answer is always saved.</p>;
+}
+
 /** Think → answer → review for one question. */
-export function PracticeSession({ question, mockId, onAttempt, reviewAction }: PracticeSessionProps) {
+export function PracticeSession({ question, mockId, onAttempt, reviewAction, access, onAccessChange }: PracticeSessionProps) {
 	const [step, setStep] = useState<Step>("think");
 	const [answer, setAnswer] = useState("");
 	const [mode, setMode] = useState<InputMode>("text");
@@ -91,6 +104,7 @@ export function PracticeSession({ question, mockId, onAttempt, reviewAction }: P
 	const [error, setError] = useState<string | null>(null);
 	const [attempt, setAttempt] = useState<PracticeAttempt | null>(null);
 	const [feedbackError, setFeedbackError] = useState<string | null>(null);
+	const [limitReached, setLimitReached] = useState(false);
 	const voice = useVoiceInput();
 
 	async function submit() {
@@ -101,6 +115,8 @@ export function PracticeSession({ question, mockId, onAttempt, reviewAction }: P
 			const res = await submitAttempt(attemptBody(question, answer, mode, voice.transcript, mockId));
 			setAttempt(res.attempt);
 			setFeedbackError(res.feedbackError);
+			setLimitReached(res.feedbackLimitReached === true);
+			if (access && res.feedbackQuota !== undefined) onAccessChange?.({ ...access, feedback: res.feedbackQuota });
 			setStep("review");
 			onAttempt?.(res.attempt);
 		} catch (e) {
@@ -132,6 +148,7 @@ export function PracticeSession({ question, mockId, onAttempt, reviewAction }: P
 						mode={mode}
 						onModeChange={setMode}
 						voice={voice}
+						voiceAllowed={access?.voice ?? true}
 						disabled={submitting}
 					/>
 					<div className="flex flex-wrap items-center gap-3">
@@ -141,10 +158,17 @@ export function PracticeSession({ question, mockId, onAttempt, reviewAction }: P
 						</Button>
 						{error && <output className="text-sm text-[var(--danger)]">{error}</output>}
 					</div>
+					<QuotaNote access={access} />
 				</div>
 			)}
 			{step === "review" && attempt && (
-				<ReviewStep attempt={attempt} feedbackError={feedbackError} onFlagged={setAttempt} action={reviewAction} />
+				<ReviewStep
+					attempt={attempt}
+					feedbackError={feedbackError}
+					limitReached={limitReached}
+					onFlagged={setAttempt}
+					action={reviewAction}
+				/>
 			)}
 		</div>
 	);

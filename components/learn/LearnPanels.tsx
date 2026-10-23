@@ -19,7 +19,7 @@ function progressLabel(path: PathSummary) {
 	return `${path.doneCount} of ${path.lessonCount} done`;
 }
 
-function PathCard({ path }: Readonly<{ path: PathSummary }>) {
+function PathCard({ path, locked }: Readonly<{ path: PathSummary; locked: boolean }>) {
 	const stage = stageLabel(path.stage);
 	const percent = path.lessonCount > 0 ? Math.round((path.doneCount / path.lessonCount) * 100) : 0;
 	return (
@@ -31,6 +31,7 @@ function PathCard({ path }: Readonly<{ path: PathSummary }>) {
 				<div className="flex items-center gap-2">
 					<Badge variant="learn">{progressLabel(path)}</Badge>
 					{stage && <Badge variant="outline">{stage}</Badge>}
+					{locked && <Badge variant="outline">Pro</Badge>}
 				</div>
 				<h3 className="mt-3 font-display text-lg font-[650] leading-6">{path.title}</h3>
 				<p className="mt-1 flex-1 text-sm leading-5 text-muted-foreground">{path.summary}</p>
@@ -56,14 +57,15 @@ function PathCard({ path }: Readonly<{ path: PathSummary }>) {
 	);
 }
 
-export function PathsGrid({ paths }: Readonly<{ paths: PathSummary[] }>) {
+/** `locked`: path ids the plan doesn't open (shown with a Pro badge; the path page explains). */
+export function PathsGrid({ paths, locked }: Readonly<{ paths: PathSummary[]; locked?: ReadonlySet<string> }>) {
 	if (paths.length === 0) {
 		return <EmptyState icon={<BookOpen />} title="Paths are on their way" description="Learning paths will show up here soon." />;
 	}
 	return (
 		<ul className="grid gap-4 sm:grid-cols-2">
 			{paths.map((path) => (
-				<PathCard key={path.id} path={path} />
+				<PathCard key={path.id} path={path} locked={locked?.has(path.id) ?? false} />
 			))}
 		</ul>
 	);

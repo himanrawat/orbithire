@@ -7,6 +7,8 @@ import "server-only";
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabase } from "@/lib/supabaseServer";
+import { getPlan, limitFor } from "@/lib/billing/plan";
+import { buildPathAccess, startedPathOrder, type PathAccess } from "./access";
 import { computeSkillGaps, type LessonRef } from "./skills";
 import {
 	LEARN_LIMITS,
@@ -87,6 +89,22 @@ export async function loadPaths(supabase: SupabaseClient, userId: string): Promi
 	return ((paths.data ?? []) as Row[]).map((path) => summarizePath(path, lessonRows, progress));
 }
 
+/** Which paths the user's plan opens (Free: the first path they started). */
+export async function loadPathAccess(supabase: SupabaseClient, userId: string): Promise<PathAccess> {
+	const ctx = await getPlan(userId, supabase);
+	if (limitFor(ctx, "learning_paths") === null) return buildPathAccess(ctx, []);
+	const { data, error } = await supabase
+		.from("path_progress")
+		.select("started_at, path_lessons(path_id)")
+		.eq("user_id", userId);
+	if (error) throw new Error(error.message);
+	const rows = ((data ?? []) as Row[]).flatMap((row) => {
+		const pathId = one(row.path_lessons)?.path_id;
+		return pathId ? [{ pathId: String(pathId), startedAt: String(row.started_at ?? "") }] : [];
+	});
+	return buildPathAccess(ctx, startedPathOrder(rows));
+}
+
 export type PathDetail = Readonly<{ path: PathSummary; lessons: LessonSummary[] }>;
 
 export async function loadPath(supabase: SupabaseClient, userId: string, slug: string): Promise<PathDetail | null> {
@@ -134,7 +152,7 @@ export async function loadLesson(
 	return {
 		...lesson,
 		body_md: String(data?.body_md ?? ""),
-		path: { slug: detail.path.slug, title: detail.path.title },
+		path: { id: detail.path.id, slug: detail.path.slug, title: detail.path.title },
 		previous: neighbor(detail.lessons, index - 1),
 		next: neighbor(detail.lessons, index + 1),
 	};

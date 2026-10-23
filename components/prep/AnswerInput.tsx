@@ -4,6 +4,8 @@ import { Mic, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { tabClass, tabListClass } from "@/components/app/blocks";
+import { UpgradePrompt } from "@/components/billing/UpgradePrompt";
+import { gateMessage } from "@/lib/billing/gates";
 import type { InputMode } from "@/lib/prep/constants";
 import type { VoiceInput } from "./useVoiceInput";
 
@@ -13,10 +15,12 @@ type AnswerInputProps = Readonly<{
 	mode: InputMode;
 	onModeChange: (mode: InputMode) => void;
 	voice: VoiceInput;
+	/** False on Free when billing is on: voice answers are Pro. */
+	voiceAllowed?: boolean;
 	disabled?: boolean;
 }>;
 
-function VoiceControls({ value, onChange, voice, disabled }: Readonly<Omit<AnswerInputProps, "mode" | "onModeChange">>) {
+function VoiceControls({ value, onChange, voice, disabled }: Readonly<Omit<AnswerInputProps, "mode" | "onModeChange" | "voiceAllowed">>) {
 	if (voice.listening) {
 		return (
 			<Button type="button" variant="destructive" onClick={voice.stop}>
@@ -61,12 +65,13 @@ function ModeToggle({ mode, onModeChange, voiceSupported }: Readonly<{
 }
 
 /** Step 2: answer by typing, or by voice with an editable transcript. */
-export function AnswerInput({ value, onChange, mode, onModeChange, voice, disabled }: AnswerInputProps) {
-	const voiceSupported = voice.supported === true;
+export function AnswerInput({ value, onChange, mode, onModeChange, voice, voiceAllowed = true, disabled }: AnswerInputProps) {
+	const voiceSupported = voice.supported === true && voiceAllowed;
 	return (
 		<div className="space-y-3">
 			<ModeToggle mode={mode} onModeChange={onModeChange} voiceSupported={voiceSupported} />
-			{voice.supported === false && (
+			{!voiceAllowed && <UpgradePrompt variant="inline" message={gateMessage("voice_answers")} />}
+			{voiceAllowed && voice.supported === false && (
 				<p className="text-xs text-muted-foreground">
 					Voice answers need a browser with speech recognition (such as Chrome, Edge or Safari). You can type instead.
 				</p>

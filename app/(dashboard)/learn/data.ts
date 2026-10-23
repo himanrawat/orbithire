@@ -3,7 +3,8 @@ import "server-only";
 import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabase } from "@/lib/supabaseServer";
-import { loadEntries, loadLibrary, loadPaths, loadSkillGaps } from "@/lib/learn/server";
+import { isPathUnlocked } from "@/lib/learn/access";
+import { loadEntries, loadLibrary, loadPathAccess, loadPaths, loadSkillGaps } from "@/lib/learn/server";
 import type { LearningEntry, LibraryItem, PathSummary, SkillGap } from "@/lib/learn/types";
 
 export type LearnPageData = Readonly<{
@@ -25,6 +26,15 @@ export async function requirePageUser(): Promise<{ supabase: SupabaseClient; use
 	} = await supabase.auth.getUser();
 	if (!user) redirect("/signin?redirect=/learn");
 	return { supabase, userId: user.id };
+}
+
+/** True when the user's plan doesn't open this path (Free: a path other than the first one started). */
+export async function isPathLocked(supabase: SupabaseClient, userId: string, pathId: string): Promise<boolean> {
+	const access = await loadPathAccess(supabase, userId).catch((error: unknown) => {
+		console.error("[learn] path access failed:", error);
+		return null;
+	});
+	return access !== null && !isPathUnlocked(access, pathId);
 }
 
 async function loadSkillSection(supabase: SupabaseClient, userId: string, library: LibraryItem[]) {

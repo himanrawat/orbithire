@@ -13,7 +13,11 @@
  *   in `BYO_KEY_UNLIMITED` are uncapped for them. Pro-only features stay Pro-only.
  * - Tailored resumes on Free stay metered by the existing generation credits
  *   (`reserve_generation_credit`); Pro and own-key users are unlimited there too.
- * - When billing is off (no Stripe env), everyone gets Free rules.
+ * - When billing is off (no Stripe env, the default), `plan` reads "free" but no limit
+ *   applies: `limitFor`/`canUse` use `effectivePlan()`, which is Pro rules. Nobody can
+ *   upgrade then, so a gate would only remove features that work today.
+ * - API routes answer a closed gate with a 403 whose body is `planRequiredBody(feature)`
+ *   from "@/lib/billing/gates" (client-safe; it also holds the UI copy and UPGRADE_HREF).
  *
  * Client components import the pure rules from "@/lib/billing/limits" (re-exported here).
  */

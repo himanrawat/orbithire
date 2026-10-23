@@ -3,9 +3,10 @@ import { notFound } from "next/navigation";
 import { CheckCircle2, Circle, CircleDot, Clock } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
+import { PathLockedNotice } from "@/components/learn/PathLockedNotice";
 import { loadPath } from "@/lib/learn/server";
 import { lessonHref, type LessonSummary, type ProgressStatus } from "@/lib/learn/types";
-import { requirePageUser } from "../../data";
+import { isPathLocked, requirePageUser } from "../../data";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +55,14 @@ export default async function PathPage({ params }: Readonly<{ params: { slug: st
 	const detail = await loadPath(supabase, userId, params.slug).catch(() => null);
 	if (!detail) notFound();
 	const { path, lessons } = detail;
+	if (await isPathLocked(supabase, userId, path.id)) {
+		return (
+			<div className="mx-auto w-full max-w-3xl">
+				<PageHeader back={{ href: "/learn?tab=paths", label: "Learn" }} title={path.title} description={path.summary} />
+				<PathLockedNotice />
+			</div>
+		);
+	}
 	const resume = nextLessonSlug(lessons);
 
 	return (
