@@ -133,11 +133,19 @@ export function buildPlanContext(
 	};
 }
 
-type LimitContext = Pick<PlanContext, "plan" | "hasOwnAiKey">;
+type LimitContext = Pick<PlanContext, "plan" | "hasOwnAiKey" | "billingEnabled">;
+
+/**
+ * The plan whose limits apply. With billing off nobody can upgrade, so gating would only
+ * take features away: every limit is lifted (Pro rules) while `plan` still reports "free".
+ */
+export function effectivePlan(ctx: Pick<PlanContext, "plan" | "billingEnabled">): PlanId {
+	return ctx.billingEnabled ? ctx.plan : "pro";
+}
 
 /** The cap for a feature in this context: null = unlimited, 0 = not included. */
 export function limitFor(ctx: LimitContext, feature: Feature): Limit {
-	const limit = PLAN_LIMITS[ctx.plan][feature];
+	const limit = PLAN_LIMITS[effectivePlan(ctx)][feature];
 	if (limit !== null && limit > 0 && ctx.hasOwnAiKey && BYO_KEY_UNLIMITED.has(feature)) return null;
 	return limit;
 }

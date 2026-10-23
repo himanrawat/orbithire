@@ -12,6 +12,8 @@ import type {
 	PrepQuestion,
 	InputMode,
 } from "./constants";
+import { getPlan } from "@/lib/billing/plan";
+import { buildPrepAccess, feedbackIsMetered, type PrepAccess } from "./access";
 import { defaultChecklist } from "./interviews";
 import {
 	parseStoredChecklist,
@@ -208,8 +210,8 @@ export function startOfMonthUtc(now: Date): Date {
 }
 
 /**
- * Practice answers that received AI feedback this calendar month (UTC). The pricing area
- * caps Free at FREE_FEEDBACK_PER_MONTH using this; it is not enforced here yet.
+ * Practice answers that received AI feedback this calendar month (UTC). Free is capped at
+ * PLAN_LIMITS.free.ai_feedback using this (see loadPrepAccess).
  */
 export async function countFeedbackThisMonth(
 	userId: string,
@@ -224,6 +226,13 @@ export async function countFeedbackThisMonth(
 		.gte("created_at", startOfMonthUtc(now).toISOString());
 	if (error) throw new Error(error.message);
 	return count ?? 0;
+}
+
+/** The user's prep plan gates. The review count is only read when feedback is metered. */
+export async function loadPrepAccess(supabase: SupabaseClient, userId: string): Promise<PrepAccess> {
+	const ctx = await getPlan(userId, supabase);
+	const used = feedbackIsMetered(ctx) ? await countFeedbackThisMonth(userId, supabase) : 0;
+	return buildPrepAccess(ctx, used);
 }
 
 // ==================== INTERVIEWS ====================

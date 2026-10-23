@@ -55,7 +55,7 @@ export type LessonSummary = Readonly<{
 export type LessonDetail = LessonSummary &
 	Readonly<{
 		body_md: string;
-		path: Readonly<{ slug: string; title: string }>;
+		path: Readonly<{ id: string; slug: string; title: string }>;
 		previous: Readonly<{ slug: string; title: string }> | null;
 		next: Readonly<{ slug: string; title: string }> | null;
 	}>;
