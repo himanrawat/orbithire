@@ -175,10 +175,15 @@ CREATE POLICY company_watchlist_read ON company_watchlist FOR SELECT TO authenti
 -- job_observations, source_runs, job_supply_settings: no policies (service role / worker only).
 
 -- ==================== TASK TYPE ====================
--- Other migrations may extend the same CHECK, so rebuild it from the current list
--- plus 'fetch_watchlist' instead of hard-coding the full list.
+-- Other migrations extend the same CHECK, so they all go through this helper instead of
+-- hard-coding the full list. It reads both forms Postgres prints the constraint in:
+-- ARRAY['a'::text, ...] (as first created) and '{a,b}'::text[] (after a rebuild here).
 
-DO $$
+CREATE OR REPLACE FUNCTION public.extend_task_types(p_new TEXT[])
+RETURNS VOID
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $$
 DECLARE
   v_def TEXT;
   v_types TEXT[];
@@ -189,12 +194,16 @@ BEGIN
   IF v_def IS NULL THEN
     RETURN;  -- no CHECK on tasks.type: nothing to extend
   END IF;
-  SELECT array_agg(DISTINCT m[1]) INTO v_types
-    FROM regexp_matches(v_def, '''([a-z_]+)''', 'g') AS m;
-  IF 'fetch_watchlist' = ANY (v_types) THEN
-    RETURN;
-  END IF;
-  v_types := v_types || 'fetch_watchlist'::TEXT;
+  SELECT array_agg(DISTINCT t ORDER BY t) INTO v_types
+    FROM (
+      SELECT m[1] AS t FROM regexp_matches(v_def, '''([a-z_]+)''', 'g') AS m
+      UNION
+      SELECT unnest(string_to_array(m[1], ','))
+        FROM regexp_matches(v_def, '''\{([a-z_,]*)\}''', 'g') AS m
+      UNION
+      SELECT unnest(p_new)
+    ) s
+   WHERE t <> '';
   EXECUTE 'ALTER TABLE public.tasks DROP CONSTRAINT tasks_type_check';
   EXECUTE format(
     'ALTER TABLE public.tasks ADD CONSTRAINT tasks_type_check CHECK (type = ANY (%L::TEXT[]))',
@@ -202,6 +211,10 @@ BEGIN
   );
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.extend_task_types(TEXT[]) FROM PUBLIC, anon, authenticated;
+
+SELECT public.extend_task_types(ARRAY['fetch_watchlist']);
 
 -- ==================== SCHEDULE ====================
 

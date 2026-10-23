@@ -71,38 +71,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON daily_plans TO authenticated;
 GRANT ALL ON daily_plans TO service_role;
 
 -- ==================== TASK TYPE ====================
--- Append 'generate_daily_plan' to whatever the current tasks.type CHECK allows, so this
--- migration composes with other migrations that add task types.
+-- Append 'generate_daily_plan' via the shared helper from 20261024000200_us_job_supply.sql,
+-- so migrations that add task types compose.
 
-DO $$
-DECLARE
-  v_name TEXT;
-  v_def TEXT;
-  v_types TEXT[];
-BEGIN
-  SELECT c.conname, pg_get_constraintdef(c.oid)
-    INTO v_name, v_def
-    FROM pg_constraint c
-   WHERE c.conrelid = 'public.tasks'::regclass
-     AND c.contype = 'c'
-     AND c.conkey = ARRAY[(
-           SELECT a.attnum FROM pg_attribute a
-            WHERE a.attrelid = 'public.tasks'::regclass AND a.attname = 'type'
-         )]
-   LIMIT 1;
-
-  IF v_def IS NULL OR v_def LIKE '%generate_daily_plan%' THEN
-    RETURN;
-  END IF;
-
-  SELECT array_agg(DISTINCT m[1]) INTO v_types
-    FROM regexp_matches(v_def, '''([a-z_]+)''', 'g') AS m;
-  v_types := array_append(v_types, 'generate_daily_plan');
-
-  EXECUTE format('ALTER TABLE tasks DROP CONSTRAINT %I', v_name);
-  EXECUTE format('ALTER TABLE tasks ADD CONSTRAINT %I CHECK (type = ANY (%L::text[]))', v_name, v_types);
-END;
-$$;
+SELECT public.extend_task_types(ARRAY['generate_daily_plan']);
 
 -- ==================== DAILY ENQUEUE (cron) ====================
 -- Users whose local time is between 06:30 and 08:30 (a catch-up window for missed ticks),
