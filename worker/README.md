@@ -234,6 +234,34 @@ uv run python -m orbithire_worker.import_legacy pdfs \
 Use the `R2_*` env of the target environment. For tests, point them at MinIO
 (`R2_ENDPOINT=http://127.0.0.1:9000 …`); never import test data into the real bucket.
 
+## Web push (`push_reminders`, morning plan)
+
+PRD area 8. Pushes are signed with VAPID and sent with `pywebpush`; with no keys set every
+push path is a no-op.
+
+- **Morning plan**: after `generate_daily_plan` creates a plan, `push/morning.py` pushes it to
+  every device (switch: `notification_preferences.morning_plan`). If no device got it and
+  `email_fallback` is on, the plan is emailed through Resend instead (R9).
+- **Follow-ups and interviews**: pg_cron runs `enqueue_push_reminders()` every 15 minutes;
+  the `push_reminders` task finds follow-ups that just came due and interviews within 24 hours,
+  claims each in `notification_deliveries` (sent once), and sends one push per person, only
+  between 8 AM and 9 PM local time.
+- Endpoints answering 404/410 are deleted; other failures bump `failed_count` (dropped at 10).
+
+Keys (same values in the app's env, see `.env.example`):
+
+```bash
+npx web-push generate-vapid-keys
+# or, without Node:
+uv run python -c "from py_vapid import Vapid01 as V; from py_vapid.utils import b64urlencode; \
+from cryptography.hazmat.primitives import serialization as s; v=V(); v.generate_keys(); \
+print('VAPID_PUBLIC_KEY=' + b64urlencode(v.public_key.public_bytes(s.Encoding.X962, s.PublicFormat.UncompressedPoint))); \
+print('VAPID_PRIVATE_KEY=' + b64urlencode(v.private_key.private_numbers().private_value.to_bytes(32, 'big')))"
+```
+
+Set `VAPID_PUBLIC_KEY`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (same value), `VAPID_PRIVATE_KEY` and
+`VAPID_SUBJECT=mailto:info@…`. Rotating the private key invalidates existing subscriptions.
+
 ## Enqueue a test task
 
 ```sql

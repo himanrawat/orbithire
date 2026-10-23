@@ -28,6 +28,7 @@ import {
 	X,
 } from "lucide-react";
 import { Lockup, Mark } from "@/components/marketing/logo";
+import { clearOfflinePages } from "@/lib/pwa/client";
 
 type SidebarContextType = {
 	isExpanded: boolean;
@@ -168,6 +169,7 @@ export function Sidebar() {
 
 	const handleLogout = async () => {
 		await fetch("/api/auth/logout", { method: "POST" });
+		clearOfflinePages();
 		router.push("/signin");
 		router.refresh();
 	};

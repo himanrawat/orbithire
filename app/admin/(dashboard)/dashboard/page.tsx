@@ -3,6 +3,7 @@ import { requireAdminPage } from "@/lib/adminAuth";
 import { Users, FileText, MessageSquare, TrendingUp } from "lucide-react";
 import { createServiceSupabase } from "@/lib/supabaseServer";
 import { PageHeader } from "@/components/app/page-header";
+import { PushOptOutStats } from "@/components/admin/PushOptOutStats";
 
 async function getStats() {
 	const supabase = createServiceSupabase();
@@ -184,6 +185,8 @@ export default async function AdminDashboardPage() {
 					</CardContent>
 				</Card>
 			</div>
+
+			<PushOptOutStats />
 		</div>
 	);
 }

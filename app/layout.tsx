@@ -1,7 +1,7 @@
 import "./globals.css";
 import "@/components/marketing/nextmilestone.css";
 import type { ReactNode } from "react";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { brandFonts } from "@/app/fonts";
 
@@ -14,6 +14,8 @@ export const metadata: Metadata = {
 	title: { default: TITLE, template: "%s | NextMilestone" },
 	description: DESCRIPTION,
 	applicationName: "NextMilestone",
+	// iOS Home Screen app (PRD area 8): standalone, so web push can be offered (iOS 16.4+).
+	appleWebApp: { capable: true, title: "NextMilestone", statusBarStyle: "black-translucent" },
 	keywords: ["career plan", "interview prep", "job search", "learning path", "focus timer", "AI resume"],
 	openGraph: {
 		title: TITLE,
@@ -30,6 +32,14 @@ export const metadata: Metadata = {
 		],
 		apple: "/brand/apple-touch-icon.png",
 	},
+};
+
+// viewport-fit=cover exposes the safe-area insets the phone tab bar pads for.
+export const viewport: Viewport = {
+	themeColor: "#101216",
+	viewportFit: "cover",
+	width: "device-width",
+	initialScale: 1,
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Lockup } from "@/components/marketing/logo";
 import { ProfileDataProvider, useProfileData } from "@/components/app/ProfileDataProvider";
+import { MobileTabBar } from "@/components/pwa/MobileTabBar";
+import { PwaRuntime } from "@/components/pwa/PwaRuntime";
 
 type Me = { name: string | null; email: string | null; avatarUrl: string | null };
 
@@ -136,7 +138,10 @@ function AppShellContent({ children }: Readonly<{ children: ReactNode }>) {
 					<AccountMenu me={me} />
 				</header>
 
-				{children}
+				{/* room for the phone tab bar and the home indicator */}
+				<div className="pb-[calc(64px+env(safe-area-inset-bottom))] md:pb-0">{children}</div>
+				<MobileTabBar />
+				<PwaRuntime />
 			</SidebarLayout>
 		</SidebarProvider>
 	);

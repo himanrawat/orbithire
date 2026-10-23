@@ -47,16 +47,22 @@ WITH eligible AS (
    WHERE f.status = 'active' AND COALESCE(np.follow_ups, TRUE)
      AND f.next_reminder_at <= %(now)s AND f.next_reminder_at > %(now)s - interval '1 day'
   UNION ALL
-  SELECT c.user_id, 'interview'::text,
-         c.id::text || '@' || to_char(c.interview_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI'),
-         c.id, c.name, c.interview_at, e.timezone
-    FROM companies c
-    JOIN eligible e ON e.user_id = c.user_id
-    LEFT JOIN notification_preferences np ON np.user_id = c.user_id
+  SELECT s.user_id, 'interview'::text,
+         s.company_id::text || '@' || to_char(s.at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI'),
+         s.company_id, s.company, s.at, e.timezone
+    FROM (
+      -- companies.interview_at plus Prep interview cards (area 4), like Today's rule 1
+      SELECT c.user_id, c.id AS company_id, c.name AS company, c.interview_at AS at FROM companies c
+      UNION ALL
+      SELECT i.user_id, c.id, c.name, i.scheduled_at FROM interviews i JOIN companies c ON c.id = i.company_id
+    ) s
+    JOIN eligible e ON e.user_id = s.user_id
+    LEFT JOIN notification_preferences np ON np.user_id = s.user_id
    WHERE COALESCE(np.interviews, TRUE)
-     AND c.interview_at > %(now)s AND c.interview_at <= %(now)s + interval '24 hours'
+     AND s.at > %(now)s AND s.at <= %(now)s + interval '24 hours'
 ), picked AS (
-  SELECT * FROM due ORDER BY at LIMIT %(limit)s
+  SELECT * FROM (SELECT DISTINCT ON (user_id, kind, ref) * FROM due ORDER BY user_id, kind, ref) d
+   ORDER BY at LIMIT %(limit)s
 ), claimed AS (
   INSERT INTO notification_deliveries (user_id, kind, ref, channel)
   SELECT user_id, kind, ref, 'push' FROM picked

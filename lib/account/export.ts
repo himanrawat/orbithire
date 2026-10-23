@@ -33,6 +33,11 @@ export const EXPORT_TABLES: readonly ExportTableSpec[] = [
 	{ table: "question_reports", ownerColumn: "user_id" },
 	{ table: "practice_attempts", ownerColumn: "user_id" },
 	{ table: "interviews", ownerColumn: "user_id" },
+	// PWA push (area 8): endpoint keys are device secrets, so they are left out.
+	{ table: "push_subscriptions", ownerColumn: "user_id", omit: ["p256dh", "auth"] },
+	{ table: "notification_preferences", ownerColumn: "user_id" },
+	{ table: "push_events", ownerColumn: "user_id" },
+	{ table: "notification_deliveries", ownerColumn: "user_id" },
 ];
 
 /** Upper bound per table, so one export request stays bounded. */
@@ -119,6 +124,10 @@ const TABLE_LABELS: Record<string, string> = {
 	job_matches: "Job matches",
 	ranking_settings: "Ranking settings",
 	ai_generations: "AI generations",
+	push_subscriptions: "Push notification devices",
+	notification_preferences: "Notification settings",
+	push_events: "Push notification choices",
+	notification_deliveries: "Notifications sent",
 };
 
 function tableLabel(table: string) {

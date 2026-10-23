@@ -12,7 +12,7 @@ from functools import lru_cache
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-DEFAULT_SUBJECT = "mailto:info@nextmilestone.app"
+DEFAULT_SUBJECT = "mailto:info@himanshurawat.in"
 
 
 class PushConfig(BaseSettings):
