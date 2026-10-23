@@ -35,6 +35,7 @@ import {
 	Wand2,
 	Loader2,
 } from "lucide-react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/app/page-header";
 import { tabClass, tabListClass } from "@/components/app/blocks";
@@ -880,6 +881,11 @@ const handleAddCustomEntry = (sectionId: string) => {
 					icon={<User />}
 					title="Profile"
 					description="Your details, experience and skills. Every resume and cover letter is drafted from this, and only this."
+					actions={
+						<Button asChild variant="outline">
+							<Link href="/profile/milestones">Milestones and public profile</Link>
+						</Button>
+					}
 				/>
 
 				{/* Tab Navigation */}
