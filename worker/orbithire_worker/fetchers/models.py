@@ -127,6 +127,8 @@ class NormalizedPosting(BaseModel):
     description: str | None = None  # plain text / markdown
     posted_at: datetime | None = None
     raw: dict[str, Any] = Field(default_factory=dict)
+    # {"name", "url", "home_url"} for aggregators whose terms require a credit link
+    attribution: dict[str, str] | None = None
 
     def dedupe_key(self) -> str:
         parts = (

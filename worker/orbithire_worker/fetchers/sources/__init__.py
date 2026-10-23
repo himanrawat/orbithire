@@ -39,6 +39,7 @@ from . import (
     usajobs,
     wellfound,
 )
+from ..source_registry import POLICY_ENV, attribution_for, policy_block
 from ._scraper import SCRAPER_ENV, ScraperHalt, scraper_disabled
 from .base import SourceDef, SourceOutput, SourceQuery, remote_eligible
 
@@ -67,7 +68,7 @@ API_SOURCES: dict[str, SourceDef] = {
 
 # Every env var any source reads (for .env loading in the handler).
 API_SOURCE_ENV: tuple[str, ...] = tuple(
-    sorted({e for s in API_SOURCES.values() for e in s.env} | set(SCRAPER_ENV))
+    sorted({e for s in API_SOURCES.values() for e in s.env} | set(SCRAPER_ENV) | set(POLICY_ENV))
 )
 
 MISSING_KEY = "missing API key"
@@ -100,6 +101,7 @@ async def _run_one(
             return src.id, None, msg[:1000]
     for p in out.postings:
         p.raw.setdefault("orbithire_country", q.country.code)
+        p.attribution = attribution_for(src.id, p.url)
     return src.id, out, ("; ".join(out.errors)[:1000] if out.errors else None)
 
 
@@ -123,6 +125,8 @@ async def fetch_api_sources(
             res.skipped[sid] = f"not available for {q.country.name}"
         elif src.blocked:
             res.skipped[sid] = src.blocked
+        elif why := policy_block(sid, env):
+            res.skipped[sid] = why
         elif src.scraper and (why := scraper_disabled(sid, env)):
             res.skipped[sid] = why
         elif src.remote_only and not spec.remote_ok:
