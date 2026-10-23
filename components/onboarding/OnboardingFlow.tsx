@@ -101,7 +101,10 @@ function useOnboardingFlow() {
 
 	useEffect(() => {
 		markSetupShown();
-		void fetchOnboarding().then((profile) => setDraft(draftFrom(profile)));
+		// Don't overwrite anything the person picked before the saved profile arrived.
+		void fetchOnboarding().then((profile) =>
+			setDraft((current) => (current === EMPTY_DRAFT ? draftFrom(profile) : current))
+		);
 	}, []);
 
 	const update = useCallback((patch: Partial<OnboardingDraft>) => setDraft((current) => ({ ...current, ...patch })), []);

@@ -55,6 +55,7 @@ import { PrivacyChoices } from "@/components/settings/PrivacyChoices";
 import { DataAndAccount } from "@/components/settings/DataAndAccount";
 import { CareerStageSettings } from "@/components/settings/CareerStageSettings";
 import { GoogleCalendarCard } from "@/components/settings/GoogleCalendarCard";
+import { TimeZoneSettings } from "@/components/settings/TimeZoneSettings";
 import { getProviderModels, type ModelInfo } from "@/lib/ai/providers/registry";
 
 type Provider = "openai" | "groq" | "anthropic" | "gemini" | "custom";
@@ -860,6 +861,7 @@ export default function SettingsPage() {
 					<Show when={activeTab === "account"}>
 						<div className="grid gap-6">
 							<CareerStageSettings />
+							<TimeZoneSettings />
 							{/* Security */}
 							<Card>
 								<CardHeader>

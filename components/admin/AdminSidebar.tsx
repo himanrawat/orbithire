@@ -54,6 +54,16 @@ function visibleNavigation(role: AdminRole, mustChangePassword: boolean) {
 	return baseNavigation.filter((item) => canAccessAdminPath(role, item.href));
 }
 
+// Revokes the session, then leaves for the sign-in page even if the request failed.
+async function signOutAdmin() {
+	try {
+		await fetch("/api/auth/admin/logout", { method: "POST" });
+	} catch (error) {
+		console.error("Admin sign-out failed:", error);
+	}
+	window.location.href = "/admin/signin";
+}
+
 export function AdminSidebar({
 	adminName = "Admin",
 	adminEmail,
@@ -66,11 +76,6 @@ export function AdminSidebar({
 
 	// close the sheet when the route changes
 	useEffect(() => setMobileOpen(false), [pathname]);
-
-	const handleLogout = async () => {
-		await fetch("/api/auth/admin/logout", { method: "POST" });
-		window.location.href = "/admin/signin";
-	};
 
 	const panel = (mobile: boolean) => (
 		<div className="flex h-full flex-col text-[var(--night-ink)]" style={{ "--ink": "var(--night-ink)" } as React.CSSProperties}>
@@ -117,7 +122,7 @@ export function AdminSidebar({
 					{adminEmail && <p className="truncate text-xs text-[var(--night-muted)]">{adminEmail}</p>}
 					<p className="mt-1 font-mono text-[11px] text-[var(--night-muted)]">{adminRoleLabel(role)}</p>
 				</div>
-				<button type="button" onClick={handleLogout} className={cn(rowBase, rowIdle, "w-full")}>
+				<button type="button" onClick={() => void signOutAdmin()} className={cn(rowBase, rowIdle, "w-full")}>
 					<LogOut className="h-5 w-5 shrink-0" />
 					Sign out
 				</button>

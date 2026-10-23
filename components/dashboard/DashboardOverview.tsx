@@ -835,18 +835,20 @@ export function DashboardOverview() {
 													)}
 													<div className="mt-2 flex gap-2">
 														<Button
+															type="button"
 															size="sm"
 															variant="outline"
 															className="h-7 text-xs"
-															onClick={() => handleSnooze(followUp.id)}
+															onClick={() => void handleSnooze(followUp.id)}
 														>
 															Snooze
 														</Button>
 														<Button
+															type="button"
 															size="sm"
 															variant="outline"
 															className="h-7 text-xs"
-															onClick={() => handleMarkComplete(followUp.id)}
+															onClick={() => void handleMarkComplete(followUp.id)}
 														>
 															Mark Complete
 														</Button>

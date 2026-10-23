@@ -2,13 +2,18 @@
 import { z } from "zod";
 import { PLAN_ITEM_KINDS, type PlanItem } from "./nextStep";
 
+/** Plan links stay inside the app: a same-origin path, never "//host" or "javascript:". */
+export function isInternalHref(href: string): boolean {
+	return href.startsWith("/") && !href.startsWith("//") && !href.includes("\\");
+}
+
 export const planItemSchema = z
 	.object({
 		id: z.string().min(1).max(120),
 		kind: z.enum(PLAN_ITEM_KINDS),
 		title: z.string().min(1).max(200),
 		reason: z.string().max(400),
-		href: z.string().max(300),
+		href: z.string().max(300).refine(isInternalHref, "href must be an in-app path"),
 		done: z.boolean(),
 	})
 	.strict();

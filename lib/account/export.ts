@@ -140,7 +140,8 @@ function renderListSection(
 			const cells = columns.map(([key]) =>
 				key.endsWith("_at") ? formatUsDate(row[key]) : escapeHtml(row[key])
 			);
-			return `<tr>${cells.map((cell) => `<td>${cell}</td>`).join("")}</tr>`;
+			const tds = cells.map((cell) => `<td>${cell}</td>`).join("");
+			return `<tr>${tds}</tr>`;
 		})
 		.join("");
 	return `<h2>${escapeHtml(title)}</h2><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
