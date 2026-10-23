@@ -113,7 +113,8 @@ const SECTIONS: LegalSection[] = [
 		body: (
 			<>
 				<p>
-					NextMilestone is free today. If we introduce a paid plan (such as Pro) and you subscribe, these terms apply:
+					NextMilestone has a Free plan and a paid Pro plan, with current prices on the{" "}
+					<Link href="/pricing">pricing page</Link>. If you subscribe to Pro, these terms apply:
 				</p>
 				<ul>
 					<li>
