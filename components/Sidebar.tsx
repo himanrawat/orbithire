@@ -21,6 +21,7 @@ import {
 	LogOut,
 	Briefcase,
 	Settings,
+	Timer,
 	X,
 } from "lucide-react";
 import { Lockup, Mark } from "@/components/marketing/logo";
@@ -66,6 +67,7 @@ type NavItem = {
 
 const mainNavItems: NavItem[] = [
 	{ label: "Today", href: "/dashboard", icon: LayoutDashboard, tone: "var(--cap)" },
+	{ label: "Focus", href: "/focus", icon: Timer, tone: "var(--kind-focus)" },
 	{ label: "Generate Resume", href: "/generate", icon: Sparkles, tone: "var(--kind-prep)" },
 	{ label: "Job Inbox", href: "/jobs", icon: Briefcase, tone: "var(--kind-jobs)" },
 	{ label: "Companies", href: "/companies", icon: Building2, tone: "var(--kind-interview)" },

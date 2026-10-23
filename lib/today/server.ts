@@ -20,6 +20,8 @@ import {
 } from "./nextStep";
 import { parseStoredItems } from "./schema";
 import type { ComingUpItem, TodayMatch, TodayPlan, WeeklyFocus } from "./types";
+import { getNextFocusBlock } from "@/lib/focus/server";
+import { SESSION_MINUTES_COLUMNS, totalSessionMinutes, type SessionMinutesRow } from "@/lib/focus/totals";
 
 const HOUR_MS = 60 * 60 * 1000;
 const FOLLOW_UP_LOOKAHEAD_HOURS = 48;
@@ -231,7 +233,19 @@ async function nextFollowUp(
 	};
 }
 
-/** Next interview and next follow-up, soonest first. Focus blocks join with area 5. */
+async function nextFocus(supabase: SupabaseClient, userId: string, now: Date): Promise<ComingUpItem | null> {
+	const block = await getNextFocusBlock(userId, supabase, now);
+	if (!block) return null;
+	return {
+		id: `focus:${block.id}`,
+		kind: "focus",
+		title: block.title,
+		at: block.starts_at,
+		href: `/focus?task=${encodeURIComponent(block.title)}`,
+	};
+}
+
+/** Next interview, follow-up and focus block, soonest first. */
 export async function loadComingUp(
 	supabase: SupabaseClient,
 	userId: string,
@@ -240,6 +254,7 @@ export async function loadComingUp(
 	const items = await Promise.all([
 		nextInterview(supabase, userId, now),
 		nextFollowUp(supabase, userId, now),
+		nextFocus(supabase, userId, now),
 	]);
 	return items
 		.filter((i): i is ComingUpItem => i !== null)
@@ -265,15 +280,12 @@ async function loadFocusMinutes(
 	const since = new Date(now.getTime() - 7 * 24 * HOUR_MS);
 	const { data, error } = await supabase
 		.from("focus_sessions")
-		.select("duration_minutes")
+		.select(SESSION_MINUTES_COLUMNS)
 		.eq("user_id", userId)
 		.gte("started_at", since.toISOString())
 		.limit(500);
 	if (error || !data) return 0;
-	return (data as Row[]).reduce((sum, r) => {
-		const m = r.duration_minutes;
-		return sum + (typeof m === "number" ? m : 0);
-	}, 0);
+	return totalSessionMinutes(data as SessionMinutesRow[]);
 }
 
 /** Weekly focus total vs goal; null when there is neither a goal nor any logged time. */

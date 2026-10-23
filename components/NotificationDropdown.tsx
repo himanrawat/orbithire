@@ -23,6 +23,12 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAdaptivePolling } from "@/lib/useAdaptivePolling";
+import { useFocusActive } from "@/lib/focus/useFocusActive";
+
+function triggerLabel(count: number, focusActive: boolean) {
+	if (focusActive) return "Notifications, on hold during focus";
+	return count > 0 ? `Notifications, ${count} unread` : "Notifications";
+}
 
 type Notification = {
 	id: string;
@@ -136,6 +142,9 @@ export function NotificationDropdown() {
 	const [unreadCount, setUnreadCount] = useState(0);
 	const [loading, setLoading] = useState(true);
 	const [open, setOpen] = useState(false);
+	// Hold the badge during a focus session; the list is still there if they open it.
+	const focusActive = useFocusActive();
+	const badgeCount = focusActive ? 0 : unreadCount;
 
 	const fetchNotifications = useCallback(async () => {
 		try {
@@ -214,11 +223,11 @@ export function NotificationDropdown() {
 	return (
 		<DropdownMenu open={open} onOpenChange={setOpen}>
 			<DropdownMenuTrigger asChild>
-				<Button variant="ghost" size="icon" className="relative" aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}>
+				<Button variant="ghost" size="icon" className="relative" aria-label={triggerLabel(badgeCount, focusActive)}>
 					<Bell className="h-5 w-5" />
-					{unreadCount > 0 && (
+					{badgeCount > 0 && (
 						<span className="nm-mono absolute right-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[var(--cap)] px-1 text-[10px] font-semibold text-[var(--on-cap)]" aria-hidden="true">
-							{unreadCount > 9 ? "9+" : unreadCount}
+							{badgeCount > 9 ? "9+" : badgeCount}
 						</span>
 					)}
 				</Button>

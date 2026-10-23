@@ -6,6 +6,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabase } from "@/lib/supabaseServer";
 import type { FocusSessionInput, ScheduleBlock } from "./schemas";
+import { SESSION_MINUTES_COLUMNS, totalSessionMinutes, type SessionMinutesRow } from "./totals";
 
 export const BLOCK_COLUMNS = "id, kind, title, starts_at, ends_at, google_event_id";
 
@@ -39,14 +40,6 @@ export async function getNextFocusBlock(
 	return data as ScheduleBlock;
 }
 
-type SessionMinutesRow = { focused_seconds: number | null; planned_minutes: number; completed: boolean };
-
-/** Minutes a session counts for: time actually focused, or the plan for older completed rows. */
-export function sessionMinutes(row: SessionMinutesRow) {
-	if (typeof row.focused_seconds === "number") return Math.round(row.focused_seconds / 60);
-	return row.completed ? row.planned_minutes : 0;
-}
-
 /** Monday 00:00 of the week containing `now`, in UTC (the server has no user time zone). */
 export function utcWeekStart(now: Date) {
 	const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
@@ -76,7 +69,7 @@ export async function getWeeklyFocusSummary(
 	const [sessions, profile] = await Promise.all([
 		supabase
 			.from("focus_sessions")
-			.select("focused_seconds, planned_minutes, completed")
+			.select(SESSION_MINUTES_COLUMNS)
 			.eq("user_id", userId)
 			.gte("started_at", weekStart.toISOString())
 			.limit(1000),
@@ -85,7 +78,7 @@ export async function getWeeklyFocusSummary(
 	const rows = (sessions.data ?? []) as SessionMinutesRow[];
 	const hours = profile.data?.weekly_focus_hours as number | null | undefined;
 	return {
-		minutes: rows.reduce((total, row) => total + sessionMinutes(row), 0),
+		minutes: totalSessionMinutes(rows),
 		sessions: rows.length,
 		completedSessions: rows.filter((row) => row.completed).length,
 		goalMinutes: typeof hours === "number" && hours > 0 ? hours * 60 : null,

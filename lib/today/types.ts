@@ -12,14 +12,14 @@ export type TodayMatch = {
 
 export type ComingUpItem = {
 	id: string;
-	kind: "interview" | "follow_up";
+	kind: "interview" | "follow_up" | "focus";
 	title: string;
 	at: string;
 	href: string;
 };
 
 export type WeeklyFocus = {
-	/** Focus minutes logged in the last 7 days (0 until focus sessions exist). */
+	/** Focus minutes logged in the last 7 days (lib/focus/totals.ts). */
 	minutes: number;
 	goalHours: number | null;
 };
