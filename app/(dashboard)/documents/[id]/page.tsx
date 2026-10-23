@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PdfStatusBadge, type PdfStatusInfo } from "@/components/PdfStatusBadge";
 import { TypstPreview } from "@/components/TypstPreview";
 import { VersionHistory } from "@/components/documents/VersionHistory";
+import { AiLabel } from "@/components/AiLabel";
+import { aiLabelForSource } from "@/lib/ai/generations/labels";
 import {
 	DEFAULT_TYPST_COVER,
 	DEFAULT_TYPST_RESUME,
@@ -92,6 +94,11 @@ function EntryList({
 			))}
 		</div>
 	);
+}
+
+function DocumentAiLabel({ source }: Readonly<{ source: unknown }>) {
+	const label = aiLabelForSource(typeof source === "string" ? source : null);
+	return label ? <AiLabel label={label} /> : null;
 }
 
 function letterFromRow(row: Json): Json {
@@ -241,6 +248,7 @@ export default function DocumentEditorPage() {
 					)}
 					<h1 className="font-display text-[26px] font-[680] leading-8 tracking-[-0.02em] md:text-[30px] md:leading-9">{row.title}</h1>
 					<div className="mt-2 flex items-center gap-3">
+						<DocumentAiLabel source={row.source} />
 						<PdfStatusBadge
 							documentId={row.id}
 							documentType={type}

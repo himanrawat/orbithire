@@ -235,8 +235,8 @@ export function FeatureAreas() {
 							<h3 className="sr-only">Jobs fetched every morning and ranked against your profile</h3>
 							<MatchList />
 							<p className="px-6 pb-6 text-center text-[15px] text-[var(--ink-muted)]">
-								<b className="font-semibold text-[var(--ink)]">Jobs, ranked for you.</b> About 30 sources, a tailored resume
-								when you shortlist one.
+								<b className="font-semibold text-[var(--ink)]">Jobs, ranked for you.</b> From US employers&apos; career pages and
+								public job APIs, with a tailored resume when you shortlist one.
 							</p>
 						</Card>
 						<Card className="pb-7">
