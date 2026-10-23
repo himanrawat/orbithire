@@ -6,6 +6,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { adminRoleLabel, canAccessAdminPath, ADMIN_SETTINGS_PATH, type AdminRole } from "@/lib/adminRoles";
 import { cn } from "@/lib/utils";
 import {
 	LayoutDashboard,
@@ -18,6 +19,7 @@ import {
 	Menu,
 	UserCheck,
 	ListChecks,
+	Flag,
 	X,
 } from "lucide-react";
 import { Lockup } from "@/components/marketing/logo";
@@ -27,6 +29,7 @@ const baseNavigation = [
 	{ name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
 	{ name: "Users", href: "/admin/users", icon: Users },
 	{ name: "Admins", href: "/admin/admins", icon: UserCheck },
+	{ name: "Moderation", href: "/admin/moderation", icon: Flag },
 	{ name: "Contact messages", href: "/admin/contacts", icon: MessageSquare },
 	{ name: "Credits & access", href: "/admin/credits", icon: CreditCard },
 	{ name: "Access codes", href: "/admin/access-codes", icon: Shield },
@@ -41,27 +44,25 @@ const rowIdle = "text-[var(--night-muted)] hover:bg-white/[0.06] hover:text-[var
 type AdminSidebarProps = Readonly<{
 	adminName?: string;
 	adminEmail?: string;
+	role: AdminRole;
+	mustChangePassword?: boolean;
 }>;
 
-export function AdminSidebar({ adminName = "Admin", adminEmail }: AdminSidebarProps) {
+// Moderators see only their pages; an admin on a temporary password sees only Settings.
+function visibleNavigation(role: AdminRole, mustChangePassword: boolean) {
+	if (mustChangePassword) return baseNavigation.filter((item) => item.href === ADMIN_SETTINGS_PATH);
+	return baseNavigation.filter((item) => canAccessAdminPath(role, item.href));
+}
+
+export function AdminSidebar({
+	adminName = "Admin",
+	adminEmail,
+	role,
+	mustChangePassword = false,
+}: AdminSidebarProps) {
 	const pathname = usePathname();
 	const [mobileOpen, setMobileOpen] = useState(false);
-	const [role, setRole] = useState<"admin" | "super_admin" | null>(null);
-
-	useEffect(() => {
-		const fetchRole = async () => {
-			try {
-				const res = await fetch("/api/auth/admin/verify", { cache: "no-store" });
-				if (res.ok) {
-					const data = await res.json();
-					setRole(data.role);
-				}
-			} catch {
-				setRole(null);
-			}
-		};
-		void fetchRole();
-	}, []);
+	const navigation = visibleNavigation(role, mustChangePassword);
 
 	// close the sheet when the route changes
 	useEffect(() => setMobileOpen(false), [pathname]);
@@ -91,31 +92,30 @@ export function AdminSidebar({ adminName = "Admin", adminEmail }: AdminSidebarPr
 			</div>
 
 			<nav aria-label="Admin" className="flex-1 space-y-1 px-2 pt-3">
-				{baseNavigation
-					.filter((item) => item.name !== "Admins" || role === "super_admin")
-					.map((item) => {
-						const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-						return (
-							<Link
-								key={item.name}
-								href={item.href}
-								aria-current={isActive ? "page" : undefined}
-								className={cn(rowBase, isActive ? "bg-[var(--night-raised)] text-[var(--night-ink)]" : rowIdle)}
-							>
-								{isActive && (
-									<span aria-hidden="true" className="absolute -left-2 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-[var(--cap)]" />
-								)}
-								<item.icon className="h-5 w-5 shrink-0" />
-								<span>{item.name}</span>
-							</Link>
-						);
-					})}
+				{navigation.map((item) => {
+					const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+					return (
+						<Link
+							key={item.name}
+							href={item.href}
+							aria-current={isActive ? "page" : undefined}
+							className={cn(rowBase, isActive ? "bg-[var(--night-raised)] text-[var(--night-ink)]" : rowIdle)}
+						>
+							{isActive && (
+								<span aria-hidden="true" className="absolute -left-2 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-[var(--cap)]" />
+							)}
+							<item.icon className="h-5 w-5 shrink-0" />
+							<span>{item.name}</span>
+						</Link>
+					);
+				})}
 			</nav>
 
 			<div className="border-t border-[var(--night-line)] p-2">
 				<div className="px-3 py-2">
 					<p className="truncate text-sm font-semibold">{adminName}</p>
 					{adminEmail && <p className="truncate text-xs text-[var(--night-muted)]">{adminEmail}</p>}
+					<p className="mt-1 font-mono text-[11px] text-[var(--night-muted)]">{adminRoleLabel(role)}</p>
 				</div>
 				<button type="button" onClick={handleLogout} className={cn(rowBase, rowIdle, "w-full")}>
 					<LogOut className="h-5 w-5 shrink-0" />

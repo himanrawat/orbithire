@@ -1,4 +1,5 @@
 import { createServiceSupabase } from "@/lib/supabaseServer";
+import { requireAdminPage } from "@/lib/adminAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CreditCard, Infinity, Users, TrendingUp } from "lucide-react";
@@ -64,6 +65,7 @@ async function getCreditsStats() {
 }
 
 export default async function CreditsPage() {
+	await requireAdminPage("admin");
 	const stats = await getCreditsStats();
 
 	return (

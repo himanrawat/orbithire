@@ -1,4 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { requireAdminPage } from "@/lib/adminAuth";
 import { Users, FileText, MessageSquare, TrendingUp } from "lucide-react";
 import { createServiceSupabase } from "@/lib/supabaseServer";
 import { PageHeader } from "@/components/app/page-header";
@@ -55,6 +56,7 @@ async function getStats() {
 }
 
 export default async function AdminDashboardPage() {
+	await requireAdminPage("admin");
 	const stats = await getStats();
 
 	return (

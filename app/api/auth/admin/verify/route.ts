@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
 	try {
 		// Reading the request keeps this handler dynamic alongside the exported flag.
 		void req.url;
-		const admin = await requireAdmin();
+		const admin = await requireAdmin({ minRole: "moderator", allowPasswordChangePending: true });
 		if (!admin) {
 			return NextResponse.json(
 				{ error: "Invalid or expired admin session" },
@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
 			email: admin.email,
 			name: admin.name,
 			role: admin.role,
+			mustChangePassword: admin.must_change_password,
 		});
 	} catch (error) {
 		console.error("Admin verify error:", error);

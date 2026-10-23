@@ -1,8 +1,7 @@
 import { createServiceSupabase } from "@/lib/supabaseServer";
 import { AdminsPanel, CreateAdminButton } from "../users/AdminsPanel";
-import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/app/page-header";
-import { getAdminSession } from "@/lib/adminAuth";
+import { requireAdminPage } from "@/lib/adminAuth";
 
 async function getAdmins() {
 	const supabase = createServiceSupabase();
@@ -20,10 +19,7 @@ async function getAdmins() {
 }
 
 export default async function AdminsPage() {
-	const self = await getAdminSession("super_admin");
-	if (!self) {
-		redirect("/admin/dashboard");
-	}
+	const owner = await requireAdminPage("super_admin");
 
 	const admins = await getAdmins();
 
@@ -31,12 +27,12 @@ export default async function AdminsPage() {
 		<div className="space-y-6">
 			<PageHeader
 				title="Admins"
-				description="The owner can create or remove admins. Badges show each role."
+				description="Create admins and moderators, change their roles, or remove them. Only the owner sees this page."
 				actions={<CreateAdminButton />}
 				className="mb-0"
 			/>
 
-			<AdminsPanel admins={admins} />
+			<AdminsPanel admins={admins} ownerId={owner.id} />
 		</div>
 	);
 }

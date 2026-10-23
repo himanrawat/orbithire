@@ -18,7 +18,8 @@
 		"db:reset": "supabase db reset",
 		"db:migrate": "supabase migration up --local",
 		"mcp:smoke": "ts-node --transpile-only --project tsconfig.scripts.json scripts/mcp-smoke.ts",
-		"oauth:smoke": "ts-node --transpile-only --project tsconfig.scripts.json scripts/oauth-smoke.ts"
+		"owner:set-temp-password": "ts-node --transpile-only --project tsconfig.scripts.json scripts/set-owner-password.ts",
+		"oauth:smoke":"ts-node --transpile-only --project tsconfig.scripts.json scripts/oauth-smoke.ts"
 	},
 	"dependencies": {
 		"@anthropic-ai/sdk": "^0.32.1",

@@ -1,4 +1,5 @@
 import { createServiceSupabase } from "@/lib/supabaseServer";
+import { requireAdminPage } from "@/lib/adminAuth";
 import { ContactsTable } from "./ContactsTable";
 import { PageHeader } from "@/components/app/page-header";
 
@@ -39,6 +40,7 @@ export default async function ContactsPage({
 	}: Readonly<{
 	searchParams: { page?: string; status?: string };
 	}>) {
+	await requireAdminPage("moderator");
 	const { contacts, total, page, pageSize } = await getContacts(searchParams);
 	const totalPages = Math.ceil(total / pageSize);
 
