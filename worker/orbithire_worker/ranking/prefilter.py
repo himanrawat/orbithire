@@ -153,7 +153,15 @@ COUNTRY_HINTS: dict[str, tuple[str, ...]] = {
     "India": ("india", "bengaluru", "bangalore", "mumbai", "delhi", "new delhi", "gurgaon", "gurugram",
               "noida", "hyderabad", "chennai", "pune", "kolkata", "ahmedabad", "jaipur", "kochi",
               "chandigarh", "indore", "ncr", "remote - in", ", in"),
+    "United States": ("united states", "usa", "u.s.", "remote - us", "remote (us)", "us remote"),
 }
+
+# "Austin, TX" / "New York, NY 10001": a trailing two-letter state (or DC) code.
+_US_STATE = re.compile(
+    r",\s*(?:A[KLRZ]|C[AOT]|D[CE]|FL|GA|HI|I[ADLN]|K[SY]|LA|M[ADEINOST]|N[CDEHJMVY]|O[HKR]|PA|RI|S[CD]|"
+    r"T[NX]|UT|V[AT]|W[AIVY])(?:\s+\d{5})?\s*(?:,\s*(?:US|USA|United States))?\s*$"
+)
+_US_ALIASES = {"united states", "usa", "us", "united states of america"}
 
 
 def is_in_country(location: str | None, country: str) -> bool | None:
@@ -161,8 +169,11 @@ def is_in_country(location: str | None, country: str) -> bool | None:
     if not location or not location.strip():
         return None
     loc = location.lower()
-    hints = COUNTRY_HINTS.get(country, (country.lower(),))
+    is_us = country.strip().lower() in _US_ALIASES
+    hints = COUNTRY_HINTS["United States"] if is_us else COUNTRY_HINTS.get(country, (country.lower(),))
     if any(h in loc for h in hints) or country.lower() in loc:
+        return True
+    if is_us and _US_STATE.search(location.strip()):
         return True
     generic = {"remote", "anywhere", "worldwide", "global", "multiple locations", "hybrid", "remote, remote"}
     if loc.strip(" ,") in generic:
@@ -175,10 +186,10 @@ def is_in_country(location: str | None, country: str) -> bool | None:
 
 @dataclass(slots=True)
 class Rules:
-    min_salary: float = 1_200_000
-    min_salary_currency: str = "INR"
-    home_country: str = "India"
-    known_languages: list[str] = field(default_factory=lambda: ["English", "Hindi"])
+    min_salary: float = 0
+    min_salary_currency: str = "USD"
+    home_country: str = "United States"
+    known_languages: list[str] = field(default_factory=lambda: ["English"])
     needs_visa_sponsorship_abroad: bool = True
     excluded_locations: list[str] = field(default_factory=list)
     excluded_companies: list[str] = field(default_factory=list)
@@ -194,8 +205,8 @@ class Rules:
         r = cls()
         if s.get("min_salary") is not None:
             r.min_salary = float(s["min_salary"])
-        r.min_salary_currency = normalize_currency(s.get("min_salary_currency")) or "INR"
-        r.home_country = s.get("home_country") or "India"
+        r.min_salary_currency = normalize_currency(s.get("min_salary_currency")) or "USD"
+        r.home_country = s.get("home_country") or "United States"
         if s.get("known_languages") is not None:
             r.known_languages = list(s["known_languages"])
         if s.get("needs_visa_sponsorship_abroad") is not None:

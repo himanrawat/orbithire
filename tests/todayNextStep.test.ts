@@ -130,6 +130,14 @@ describe("Today schemas", () => {
 		expect(parseStoredItems("nope")).toEqual([]);
 	});
 
+	it("only keeps in-app links in stored items", () => {
+		const [item] = buildDailyPlan(signals());
+		for (const href of ["javascript:alert(1)", "https://evil.test", "//evil.test", "/\\evil.test"]) {
+			expect(parseStoredItems([{ ...item, href }])).toEqual([]);
+		}
+		expect(parseStoredItems([{ ...item, href: "/jobs" }])).toHaveLength(1);
+	});
+
 	it("validates PATCH bodies", () => {
 		expect(planPatchSchema.safeParse({ action: "toggle", itemId: "focus_block", done: true }).success).toBe(true);
 		expect(planPatchSchema.safeParse({ action: "dismiss_next_step" }).success).toBe(true);

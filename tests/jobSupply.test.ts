@@ -35,6 +35,7 @@ describe("job source registry", () => {
 		});
 		expect(sourceAttribution("himalayas", null)).toEqual({ label: "Himalayas", href: "https://himalayas.app" });
 		expect(sourceAttribution("jobicy", "https://jobicy.com/jobs/1")?.label).toBe("Jobicy");
+		expect(sourceAttribution("himalayas", "javascript:alert(1)")?.href).toBe("https://himalayas.app");
 		expect(sourceAttribution("greenhouse", "https://boards.greenhouse.io/acme/jobs/1")).toBeNull();
 		expect(sourceLabel("usajobs")).toBe("USAJOBS");
 		expect(sourceLabel("something-new")).toBe("something-new");

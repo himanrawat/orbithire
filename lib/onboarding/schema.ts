@@ -2,8 +2,22 @@
 
 import { z } from "zod";
 import { CAREER_STAGES, ONBOARDING_LIMITS as L, normalizeList, type CareerStage } from "./stages";
+import { canonicalTimeZone } from "@/lib/timeZones";
 
 const shortText = (max: number) => z.string().trim().min(1).max(max);
+
+/** An IANA zone, stored in its canonical spelling (profiles.timezone also has a CHECK). */
+const timeZone = z
+	.string()
+	.max(64)
+	.transform((value, ctx) => {
+		const zone = canonicalTimeZone(value);
+		if (!zone) {
+			ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Choose a time zone from the list" });
+			return z.NEVER;
+		}
+		return zone;
+	});
 
 export const onboardingSchema = z
 	.object({
@@ -12,6 +26,8 @@ export const onboardingSchema = z
 		target_role: z.string().trim().max(L.targetRoleLength).nullable().optional(),
 		target_locations: z.array(shortText(L.locationLength)).max(L.locations).optional(),
 		weekly_focus_hours: z.number().int().min(0).max(L.maxFocusHours).nullable().optional(),
+		/** IANA zone for the 6:30 AM Today plan (profiles.timezone) */
+		timezone: timeZone.optional(),
 		/** true when the person finishes or skips the whole setup */
 		complete: z.boolean().optional(),
 	})
@@ -26,10 +42,12 @@ export type OnboardingProfile = {
 	target_locations: string[];
 	weekly_focus_hours: number | null;
 	onboarded_at: string | null;
+	/** null before the Today migration has run */
+	timezone: string | null;
 };
 
 export const ONBOARDING_COLUMNS =
-	"career_stage, goals, target_role, target_locations, weekly_focus_hours, onboarded_at";
+	"career_stage, goals, target_role, target_locations, weekly_focus_hours, onboarded_at, timezone";
 
 /** Columns to write for a validated request. Only fields that were sent are touched. */
 export function buildOnboardingUpdate(input: OnboardingInput, now: Date): Record<string, unknown> {
@@ -41,6 +59,7 @@ export function buildOnboardingUpdate(input: OnboardingInput, now: Date): Record
 		update.target_locations = normalizeList(input.target_locations, L.locations, L.locationLength);
 	}
 	if (input.weekly_focus_hours !== undefined) update.weekly_focus_hours = input.weekly_focus_hours;
+	if (input.timezone !== undefined) update.timezone = input.timezone;
 	if (input.complete) update.onboarded_at = now.toISOString();
 	return update;
 }
@@ -56,5 +75,6 @@ export function toOnboardingProfile(row: Record<string, unknown> | null | undefi
 		target_locations: strings(row?.target_locations),
 		weekly_focus_hours: typeof row?.weekly_focus_hours === "number" ? row.weekly_focus_hours : null,
 		onboarded_at: typeof row?.onboarded_at === "string" ? row.onboarded_at : null,
+		timezone: typeof row?.timezone === "string" ? row.timezone : null,
 	};
 }

@@ -19,6 +19,16 @@ async def _cleanup(conn, user_id):
     await cleanup_postings(conn, user_id)
 
 
+async def india_settings(conn, user_id):
+    """These cases were written for a person in India (the defaults are US-first now)."""
+    await conn.execute(
+        "INSERT INTO ranking_settings (user_id, min_salary, min_salary_currency, home_country, known_languages) "
+        "VALUES (%s, 1200000, 'INR', 'India', '{English,Hindi}') ON CONFLICT (user_id) DO UPDATE SET "
+        "min_salary = EXCLUDED.min_salary, min_salary_currency = EXCLUDED.min_salary_currency, "
+        "home_country = EXCLUDED.home_country, known_languages = EXCLUDED.known_languages",
+        (user_id,))
+
+
 async def match(conn, mid):
     cur = await conn.execute(
         "SELECT prefilter_pass, deal_breakers, similarity, llm_score, llm_reasons FROM job_matches WHERE id = %s", (mid,))
@@ -26,6 +36,7 @@ async def match(conn, mid):
 
 
 async def test_prefilter_hides_deal_breakers_with_reason(conn, user_id):
+    await india_settings(conn, user_id)
     cur = await conn.execute(
         "INSERT INTO job_searches (user_id, keywords, exclude_keywords) VALUES (%s, %s, %s) RETURNING id",
         (user_id, ["frontend"], ["Intern"]))
@@ -187,6 +198,7 @@ async def test_bad_llm_output_recorded_and_retried_once(conn, user_id):
 
 
 async def test_only_new_active_matches_are_scored(conn, user_id):
+    await india_settings(conn, user_id)
     await add_posting(conn, user_id, status="skipped")
     await add_posting(conn, user_id, status="shortlisted")
     _, mid = await add_posting(conn, user_id)

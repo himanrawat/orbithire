@@ -30,18 +30,21 @@ export interface RankingSettings {
 	timezone: string;
 }
 
+// US-first defaults for people who haven't saved ranking settings yet (the column
+// defaults in 20261024000550_us_ranking_defaults.sql match). Saved values always win.
+// No salary floor by default: we don't guess one for someone.
 const DEFAULTS: RankingSettings = {
-	minSalary: 1200000,
-	minSalaryCurrency: "INR",
-	homeCountry: "India",
-	knownLanguages: ["English", "Hindi"],
+	minSalary: 0,
+	minSalaryCurrency: "USD",
+	homeCountry: "United States",
+	knownLanguages: ["English"],
 	needsVisaSponsorshipAbroad: true,
 	excludedLocations: [],
 	excludedCompanies: [],
 	dailyLlmLimit: 15,
 	digestEnabled: true,
 	digestHour: 8,
-	timezone: "Asia/Kolkata",
+	timezone: "America/New_York",
 };
 
 const COLUMNS: Record<keyof RankingSettings, string> = {

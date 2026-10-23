@@ -104,6 +104,17 @@ describe("onboarding schema", () => {
 		expect(onboardingSchema.safeParse({ career_stage: "student", goals: ["Learn"], complete: true }).success).toBe(true);
 	});
 
+	it("accepts IANA time zones in canonical form and rejects the rest", () => {
+		const parse = (timezone: string) => onboardingSchema.safeParse({ timezone });
+		const ok = parse("america/chicago");
+		expect(ok.success && ok.data.timezone).toBe("America/Chicago");
+		expect(parse("UTC").success).toBe(true);
+		for (const bad of ["", "Mars/Olympus", "+05:30", "x".repeat(65)]) {
+			expect(parse(bad).success).toBe(false);
+		}
+		expect(buildOnboardingUpdate({ timezone: "America/Denver" }, new Date())).toEqual({ timezone: "America/Denver" });
+	});
+
 	it("builds an update with only the sent fields", () => {
 		const now = new Date("2026-10-24T12:00:00Z");
 		expect(buildOnboardingUpdate({}, now)).toEqual({});
@@ -121,6 +132,7 @@ describe("onboarding schema", () => {
 			target_locations: [],
 			weekly_focus_hours: null,
 			onboarded_at: null,
+			timezone: null,
 		});
 		expect(toOnboardingProfile({ career_stage: "bogus", goals: ["a", 1], weekly_focus_hours: 4 }).goals).toEqual(["a"]);
 	});

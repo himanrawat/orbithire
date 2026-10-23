@@ -128,13 +128,24 @@ export function sourceEnabledByDefault(id: string): boolean {
 	return !policy || (!policy.tosRestricted && !policy.indiaOnly);
 }
 
+// Posting URLs come from third-party feeds: only http(s) links are rendered.
+function isHttpUrl(value: string | null | undefined): value is string {
+	if (!value) return false;
+	try {
+		const { protocol } = new URL(value);
+		return protocol === "https:" || protocol === "http:";
+	} catch {
+		return false;
+	}
+}
+
 export type SourceAttribution = Readonly<{ label: string; href: string }>;
 
 /** "via <source>" credit link for aggregator postings whose terms require it; null otherwise. */
 export function sourceAttribution(source: string, url: string | null | undefined): SourceAttribution | null {
 	const policy = sourcePolicy(source);
 	if (!policy?.attributionRequired) return null;
-	return { label: policy.label, href: url || policy.homeUrl };
+	return { label: policy.label, href: isHttpUrl(url) ? url : policy.homeUrl };
 }
 
 /** Display name of a source id (falls back to the id). */

@@ -59,7 +59,10 @@ export async function PATCH(req: NextRequest) {
 	if (auth.error) return auth.error;
 	const body = await parseJson(req, planPatchSchema);
 	if (!body.success) return body.response;
-	const result = await applyPatch(auth.supabase, auth.user.id, body.data);
+	const result = await applyPatch(auth.supabase, auth.user.id, body.data).catch((error: unknown) => {
+		console.error("[today] plan patch failed:", error);
+		return { error: "Could not update your plan", status: 500 } as const;
+	});
 	if ("error" in result) {
 		return NextResponse.json({ error: result.error }, { status: result.status });
 	}
@@ -71,9 +74,13 @@ export async function POST() {
 	const auth = await requireUser();
 	if (auth.error) return auth.error;
 	const { supabase, user } = auth;
-	const { timeZone } = await loadProfileBasics(supabase, user.id);
-	const signals = await loadSignals(supabase, user.id, new Date(), timeZone);
-	const plan = await regeneratePlan(supabase, user.id, signals);
-	if (!plan) return NextResponse.json({ error: "Could not regenerate your plan" }, { status: 500 });
-	return NextResponse.json({ plan });
+	try {
+		const { timeZone } = await loadProfileBasics(supabase, user.id);
+		const signals = await loadSignals(supabase, user.id, new Date(), timeZone);
+		const plan = await regeneratePlan(supabase, user.id, signals);
+		if (plan) return NextResponse.json({ plan });
+	} catch (error) {
+		console.error("[today] regenerate failed:", error);
+	}
+	return NextResponse.json({ error: "Could not regenerate your plan" }, { status: 500 });
 }

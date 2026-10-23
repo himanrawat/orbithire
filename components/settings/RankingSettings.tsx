@@ -356,7 +356,7 @@ export function RankingSettings({ className }: Readonly<{ className?: string }>)
 								disabled={!data.digestEnabled}
 								value={data.timezone}
 								onChange={(e) => update("timezone", e.target.value)}
-								placeholder="Asia/Kolkata"
+								placeholder="America/New_York"
 							/>
 						</div>
 					</div>

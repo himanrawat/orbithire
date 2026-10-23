@@ -182,7 +182,7 @@ async def run_similarity(conn: AsyncConnection, user_id: UUID | str, settings: d
 
 
 def _preferences(settings: dict[str, Any], profile: dict[str, Any]) -> dict[str, Any]:
-    cur = settings.get("min_salary_currency") or "INR"
+    cur = settings.get("min_salary_currency") or "USD"
     ms = float(settings.get("min_salary") or 0)
     return {
         "Minimum compensation": prefilter.format_amount(ms, cur) if ms else None,
