@@ -65,7 +65,7 @@ type NavItem = {
 };
 
 const mainNavItems: NavItem[] = [
-	{ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, tone: "var(--cap)" },
+	{ label: "Today", href: "/dashboard", icon: LayoutDashboard, tone: "var(--cap)" },
 	{ label: "Generate Resume", href: "/generate", icon: Sparkles, tone: "var(--kind-prep)" },
 	{ label: "Job Inbox", href: "/jobs", icon: Briefcase, tone: "var(--kind-jobs)" },
 	{ label: "Companies", href: "/companies", icon: Building2, tone: "var(--kind-interview)" },

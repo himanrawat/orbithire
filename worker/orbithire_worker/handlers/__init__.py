@@ -18,6 +18,7 @@ _MODULES = [
     "rank_jobs",
     "digest",
     "render_pdf",
+    "daily_plan",
 ]
 
 
