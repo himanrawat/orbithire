@@ -7,6 +7,7 @@ export const TASK_TYPES = [
 	"render_pdf",
 	"thumbnail",
 	"digest",
+	"generate_daily_plan",
 	"noop",
 ] as const;
 export type TaskType = (typeof TASK_TYPES)[number];

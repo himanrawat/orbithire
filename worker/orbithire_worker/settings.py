@@ -22,6 +22,7 @@ DEFAULT_CONCURRENCY: dict[str, int] = {
     "rank_jobs": 1,
     "thumbnail": 1,
     "digest": 1,
+    "generate_daily_plan": 1,
     "noop": 2,
 }
 DEFAULT_TIMEOUTS: dict[str, float] = {
@@ -31,6 +32,7 @@ DEFAULT_TIMEOUTS: dict[str, float] = {
     "rank_jobs": 300,
     "thumbnail": 30,
     "digest": 120,
+    "generate_daily_plan": 60,
     "noop": 30,
 }
 
