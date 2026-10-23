@@ -47,10 +47,12 @@ export default function SettingsPage() {
 				return;
 			}
 
-			setSuccess("Password changed successfully");
+			// The server revokes every session on a password change, so sign in again.
+			setSuccess("Password changed. Taking you to sign in with your new password…");
 			setCurrentPassword("");
 			setNewPassword("");
 			setConfirmPassword("");
+			window.location.assign("/admin/signin");
 		} catch {
 			setError("Something went wrong");
 		} finally {

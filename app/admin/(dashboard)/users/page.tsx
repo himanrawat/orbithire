@@ -1,4 +1,5 @@
 import { createServiceSupabase } from "@/lib/supabaseServer";
+import { requireAdminPage } from "@/lib/adminAuth";
 import { UsersTable } from "./UsersTable";
 import { PageHeader } from "@/components/app/page-header";
 
@@ -39,6 +40,7 @@ export default async function UsersPage({
 	}: Readonly<{
 	searchParams: { page?: string; search?: string };
 	}>) {
+	await requireAdminPage("admin");
 	const { users, total, page, pageSize } = await getUsers(searchParams);
 	const totalPages = Math.ceil(total / pageSize);
 

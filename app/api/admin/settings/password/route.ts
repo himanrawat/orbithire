@@ -1,13 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceSupabase } from "@/lib/supabaseServer";
-import { clearAdminSessionCookie, requireAdmin, revokeAdminSessions } from "@/lib/adminAuth";
+import {
+	clearAdminSessionCookie,
+	logAdminActivity,
+	requireAdmin,
+	revokeAdminSessions,
+} from "@/lib/adminAuth";
 import bcrypt from "bcryptjs";
 import { parseJson } from "@/lib/api";
 import { passwordChangeSchema } from "@/lib/schemas/admin";
 
+// Saves the new hash and clears the forced-change flag set for temporary passwords.
+async function savePassword(adminId: string, newPassword: string) {
+	const now = new Date().toISOString();
+	const { error } = await createServiceSupabase()
+		.from("admin_users")
+		.update({
+			password_hash: await bcrypt.hash(newPassword, 12),
+			must_change_password: false,
+			password_changed_at: now,
+			updated_at: now,
+		})
+		.eq("id", adminId);
+	return error;
+}
+
 export async function POST(req: NextRequest) {
 	try {
-		const admin = await requireAdmin();
+		// Every role, including an admin still on a temporary password, can change their own.
+		const admin = await requireAdmin({ minRole: "moderator", allowPasswordChangePending: true });
 		if (!admin) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
@@ -16,21 +37,6 @@ export async function POST(req: NextRequest) {
 		if (!parsed.success) return parsed.response;
 		const { currentPassword, newPassword } = parsed.data;
 
-		if (!currentPassword || !newPassword) {
-			return NextResponse.json(
-				{ error: "Current and new passwords are required" },
-				{ status: 400 }
-			);
-		}
-
-		if (newPassword.length < 8) {
-			return NextResponse.json(
-				{ error: "Password must be at least 8 characters" },
-				{ status: 400 }
-			);
-		}
-
-		// Verify current password
 		const isValidPassword = await bcrypt.compare(currentPassword, admin.password_hash);
 		if (!isValidPassword) {
 			return NextResponse.json(
@@ -39,19 +45,14 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
-		// Hash new password
-		const newPasswordHash = await bcrypt.hash(newPassword, 12);
+		if (currentPassword === newPassword) {
+			return NextResponse.json(
+				{ error: "Choose a password you haven't used here before" },
+				{ status: 400 }
+			);
+		}
 
-		const supabase = createServiceSupabase();
-
-		const { error } = await supabase
-			.from("admin_users")
-			.update({
-				password_hash: newPasswordHash,
-				updated_at: new Date().toISOString(),
-			})
-			.eq("id", admin.id);
-
+		const error = await savePassword(admin.id, newPassword);
 		if (error) {
 			console.error("Error updating password:", error);
 			return NextResponse.json(
@@ -60,12 +61,8 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
-		// Log admin activity
-		await supabase.from("admin_activity_log").insert({
-			admin_id: admin.id,
-			action: "change_password",
-			target_type: "admin",
-			target_id: admin.id,
+		await logAdminActivity(admin.id, "change_password", {
+			details: { was_temporary: admin.must_change_password },
 		});
 
 		// A password change revokes every existing device session.

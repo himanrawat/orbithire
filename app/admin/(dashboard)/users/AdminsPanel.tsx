@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+// Owner-only admin management: list, re-role, remove and create admins and moderators.
+// The page that renders this is gated to the owner; the API checks again.
+
+import { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,131 +17,183 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { nativeSelectClass } from "@/components/app/blocks";
 import { Loader2, Trash } from "lucide-react";
+import {
+	ASSIGNABLE_ADMIN_ROLES,
+	adminRoleLabel,
+	type AdminRole,
+	type AssignableAdminRole,
+} from "@/lib/adminRoles";
 
 type Admin = {
 	id: string;
 	email: string;
 	name: string;
-	role: "admin" | "super_admin";
+	role: AdminRole;
 	is_active: boolean;
 	created_at: string;
 };
 
-export function AdminsPanel({ admins }: Readonly<{ admins: Admin[] }>) {
-	const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-	const [deleteOpen, setDeleteOpen] = useState(false);
+type AdminActionBody =
+	| { action: "create"; name: string; email: string; password: string; role: AssignableAdminRole }
+	| { action: "delete"; adminId: string }
+	| { action: "set_role"; adminId: string; role: AssignableAdminRole };
+
+async function postAdminAction(body: AdminActionBody) {
+	const res = await fetch("/api/admin/admins", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(body),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => ({}));
+		throw new Error(data.error || "That didn't work. Try again.");
+	}
+}
+
+async function runAndReload(body: AdminActionBody) {
+	try {
+		await postAdminAction(body);
+		window.location.reload();
+		return true;
+	} catch (err) {
+		alert(err instanceof Error ? err.message : "That didn't work. Try again.");
+		return false;
+	}
+}
+
+function roleBadgeVariant(role: AdminRole) {
+	if (role === "super_admin") return "destructive";
+	if (role === "moderator") return "outline";
+	return "secondary";
+}
+
+function RoleSelect({
+	id,
+	value,
+	disabled,
+	onChange,
+	label,
+}: Readonly<{
+	id: string;
+	value: AssignableAdminRole;
+	disabled?: boolean;
+	onChange: (role: AssignableAdminRole) => void;
+	label: string;
+}>) {
+	return (
+		<select
+			id={id}
+			aria-label={label}
+			className={nativeSelectClass}
+			value={value}
+			disabled={disabled}
+			onChange={(e) => onChange(e.target.value as AssignableAdminRole)}
+		>
+			{ASSIGNABLE_ADMIN_ROLES.map((role) => (
+				<option key={role} value={role}>
+					{adminRoleLabel(role)}
+				</option>
+			))}
+		</select>
+	);
+}
+
+function AdminRow({
+	admin,
+	canManage,
+	onDelete,
+}: Readonly<{ admin: Admin; canManage: boolean; onDelete: (admin: Admin) => void }>) {
+	const [saving, setSaving] = useState(false);
+
+	const changeRole = async (role: AssignableAdminRole) => {
+		setSaving(true);
+		const ok = await runAndReload({ action: "set_role", adminId: admin.id, role });
+		if (!ok) setSaving(false);
+	};
+
+	return (
+		<li className="flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2">
+			<div className="min-w-0">
+				<div className="flex items-center gap-2">
+					<span className="font-medium">{admin.name}</span>
+					<Badge variant={roleBadgeVariant(admin.role)}>{adminRoleLabel(admin.role)}</Badge>
+				</div>
+				<p className="text-sm text-muted-foreground">{admin.email}</p>
+			</div>
+			{canManage && admin.role !== "super_admin" && (
+				<div className="flex items-center gap-2">
+					<RoleSelect
+						id={`role-${admin.id}`}
+						label={`Role for ${admin.name}`}
+						value={admin.role as AssignableAdminRole}
+						disabled={saving}
+						onChange={(role) => void changeRole(role)}
+					/>
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						aria-label={`Remove ${admin.name}`}
+						onClick={() => onDelete(admin)}
+					>
+						<Trash className="h-4 w-4 text-destructive" />
+					</Button>
+				</div>
+			)}
+		</li>
+	);
+}
+
+export function AdminsPanel({ admins, ownerId }: Readonly<{ admins: Admin[]; ownerId: string }>) {
 	const [targetAdmin, setTargetAdmin] = useState<Admin | null>(null);
 	const [loading, setLoading] = useState(false);
-
-	useEffect(() => {
-		// Determine if current admin is super_admin
-		const fetchRole = async () => {
-			try {
-				const res = await fetch("/api/auth/admin/verify", { cache: "no-store" });
-				if (res.ok) {
-					const data = await res.json();
-					setIsSuperAdmin(data.role === "super_admin");
-				}
-			} catch (err) {
-				console.error("Failed to verify admin role", err);
-			}
-		};
-		fetchRole();
-	}, []);
 
 	const handleDelete = async () => {
 		if (!targetAdmin) return;
 		setLoading(true);
-		try {
-			const res = await fetch("/api/admin/admins", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					action: "delete",
-					adminId: targetAdmin.id,
-				}),
-			});
-			if (!res.ok) {
-				const data = await res.json().catch(() => ({}));
-				throw new Error(data.error || "Failed to delete admin");
-			}
-			setDeleteOpen(false);
-			setTargetAdmin(null);
-			window.location.reload();
-		} catch (err) {
-			console.error(err);
-			alert(err instanceof Error ? err.message : "Failed to delete admin");
-		} finally {
-			setLoading(false);
-		}
+		const ok = await runAndReload({ action: "delete", adminId: targetAdmin.id });
+		if (!ok) setLoading(false);
 	};
 
 	return (
 		<Card className="border-border/60">
-			<CardHeader className="hidden" />
-			<CardContent className="space-y-3 pt-0 px-0 pb-6">
+			<CardContent className="space-y-3 px-0 pb-6 pt-0">
 				{admins.length === 0 ? (
 					<p className="text-sm text-muted-foreground">No admins yet.</p>
 				) : (
-					<div className="space-y-2">
+					<ul className="space-y-2" aria-label="Admins">
 						{admins.map((admin) => (
-							<div
+							<AdminRow
 								key={admin.id}
-								className="flex items-center justify-between rounded-md border px-3 py-2"
-							>
-								<div>
-									<div className="flex items-center gap-2">
-										<span className="font-medium">{admin.name}</span>
-										<Badge variant={admin.role === "super_admin" ? "destructive" : "secondary"}>
-											{admin.role === "super_admin" ? "Super Admin" : "Admin"}
-										</Badge>
-									</div>
-									<p className="text-sm text-muted-foreground">{admin.email}</p>
-								</div>
-								{isSuperAdmin && admin.role !== "super_admin" && (
-									<Button
-										variant="ghost"
-										size="icon"
-										onClick={() => {
-											setTargetAdmin(admin);
-											setDeleteOpen(true);
-										}}
-									>
-										<Trash className="h-4 w-4 text-destructive" />
-									</Button>
-								)}
-							</div>
+								admin={admin}
+								canManage={admin.id !== ownerId}
+								onDelete={setTargetAdmin}
+							/>
 						))}
-					</div>
+					</ul>
 				)}
 			</CardContent>
 
-			{/* Delete Admin Modal */}
-			<Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+			<Dialog open={targetAdmin !== null} onOpenChange={(open) => !open && setTargetAdmin(null)}>
 				<DialogContent>
 					<DialogHeader>
-						<DialogTitle>Delete Admin</DialogTitle>
+						<DialogTitle>Remove admin</DialogTitle>
 						<DialogDescription>
-							This removes the admin's access. Super admin cannot be deleted.
+							This removes their access and signs them out everywhere. The owner can&apos;t be removed.
 						</DialogDescription>
 					</DialogHeader>
-					<div className="space-y-1 py-2">
-						<p className="text-sm">
-							{targetAdmin?.name} ({targetAdmin?.email})
-						</p>
-					</div>
+					<p className="py-2 text-sm">
+						{targetAdmin?.name} ({targetAdmin?.email})
+					</p>
 					<DialogFooter>
-						<Button variant="outline" onClick={() => setDeleteOpen(false)}>
+						<Button type="button" variant="outline" onClick={() => setTargetAdmin(null)}>
 							Cancel
 						</Button>
-						<Button
-							variant="destructive"
-							onClick={handleDelete}
-							disabled={loading || !isSuperAdmin}
-						>
+						<Button type="button" variant="destructive" onClick={() => void handleDelete()} disabled={loading}>
 							{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-							Delete Admin
+							Remove admin
 						</Button>
 					</DialogFooter>
 				</DialogContent>
@@ -147,64 +202,36 @@ export function AdminsPanel({ admins }: Readonly<{ admins: Admin[] }>) {
 	);
 }
 
-export function CreateAdminButton() {
-	const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-	const [open, setOpen] = useState(false);
-	const [form, setForm] = useState({ name: "", email: "", password: "" });
-	const [loading, setLoading] = useState(false);
+const EMPTY_FORM = { name: "", email: "", password: "", role: "admin" as AssignableAdminRole };
 
-	useEffect(() => {
-		const fetchRole = async () => {
-			try {
-				const res = await fetch("/api/auth/admin/verify", { cache: "no-store" });
-				if (res.ok) {
-					const data = await res.json();
-					setIsSuperAdmin(data.role === "super_admin");
-				}
-			} catch (err) {
-				console.error("Failed to verify admin role", err);
-			}
-		};
-		fetchRole();
-	}, []);
+export function CreateAdminButton() {
+	const [open, setOpen] = useState(false);
+	const [form, setForm] = useState(EMPTY_FORM);
+	const [loading, setLoading] = useState(false);
 
 	const handleCreate = async () => {
 		setLoading(true);
-		try {
-			const res = await fetch("/api/admin/admins", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					action: "create",
-					...form,
-				}),
-			});
-			if (!res.ok) {
-				const data = await res.json().catch(() => ({}));
-				throw new Error(data.error || "Failed to create admin");
-			}
+		const ok = await runAndReload({ action: "create", ...form });
+		if (ok) {
 			setOpen(false);
-			setForm({ name: "", email: "", password: "" });
-			window.location.reload();
-		} catch (err) {
-			console.error(err);
-			alert(err instanceof Error ? err.message : "Failed to create admin");
-		} finally {
-			setLoading(false);
+			setForm(EMPTY_FORM);
 		}
+		setLoading(false);
 	};
 
 	return (
 		<>
-			<Button onClick={() => setOpen(true)} disabled={!isSuperAdmin}>
-				Create Admin
+			<Button type="button" onClick={() => setOpen(true)}>
+				Add admin
 			</Button>
 
 			<Dialog open={open} onOpenChange={setOpen}>
 				<DialogContent>
 					<DialogHeader>
-						<DialogTitle>Create Admin</DialogTitle>
-						<DialogDescription>Only super admin can create admins.</DialogDescription>
+						<DialogTitle>Add admin</DialogTitle>
+						<DialogDescription>
+							Share the temporary password privately. They&apos;ll set their own at first sign-in.
+						</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-3 py-2">
 						<div className="space-y-2">
@@ -213,7 +240,7 @@ export function CreateAdminButton() {
 								id="name"
 								value={form.name}
 								onChange={(e) => setForm({ ...form, name: e.target.value })}
-								placeholder="Admin Name"
+								placeholder="Jordan Lee"
 							/>
 						</div>
 						<div className="space-y-2">
@@ -227,7 +254,7 @@ export function CreateAdminButton() {
 							/>
 						</div>
 						<div className="space-y-2">
-							<Label htmlFor="password">Password</Label>
+							<Label htmlFor="password">Temporary password</Label>
 							<Input
 								id="password"
 								type="password"
@@ -236,18 +263,27 @@ export function CreateAdminButton() {
 								placeholder="At least 8 characters"
 							/>
 						</div>
+						<div className="space-y-2">
+							<Label htmlFor="new-admin-role">Role</Label>
+							<RoleSelect
+								id="new-admin-role"
+								label="Role"
+								value={form.role}
+								onChange={(role) => setForm({ ...form, role })}
+							/>
+						</div>
 					</div>
 					<DialogFooter>
-						<Button variant="outline" onClick={() => setOpen(false)}>
+						<Button type="button" variant="outline" onClick={() => setOpen(false)}>
 							Cancel
 						</Button>
-						<Button onClick={handleCreate} disabled={loading || !isSuperAdmin}>
+						<Button type="button" onClick={() => void handleCreate()} disabled={loading}>
 							{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-							Create
+							Add admin
 						</Button>
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
 		</>
 	);
-};
+}

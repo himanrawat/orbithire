@@ -1,7 +1,10 @@
 import { z } from "zod";
+import { ASSIGNABLE_ADMIN_ROLES } from "@/lib/adminRoles";
 
 const uuid = z.string().uuid();
 const email = z.string().trim().email().max(254).transform((value) => value.toLowerCase());
+// The owner role is never assigned through the API: there is exactly one owner.
+const assignableRole = z.enum(ASSIGNABLE_ADMIN_ROLES);
 
 export const accessCodeSchema = z.object({
 	expiresInDays: z.number().int().min(1).max(365).nullable().optional(),
@@ -13,9 +16,13 @@ export const adminActionSchema = z.discriminatedUnion("action", [
 		name: z.string().trim().min(1).max(120),
 		email,
 		password: z.string().min(8).max(256),
+		role: assignableRole.optional(),
 	}).strict(),
 	z.object({ action: z.literal("delete"), adminId: uuid }).strict(),
+	z.object({ action: z.literal("set_role"), adminId: uuid, role: assignableRole }).strict(),
 ]);
+
+export type AdminAction = z.infer<typeof adminActionSchema>;
 
 export const contactStatusSchema = z.object({
 	contactId: uuid,

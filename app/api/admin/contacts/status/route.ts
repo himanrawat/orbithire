@@ -6,7 +6,7 @@ import { contactStatusSchema } from "@/lib/schemas/admin";
 
 export async function POST(req: NextRequest) {
 	try {
-		const admin = await requireAdmin();
+		const admin = await requireAdmin("moderator");
 		if (!admin) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}

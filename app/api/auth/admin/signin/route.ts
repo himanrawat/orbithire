@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { parseJson } from "@/lib/api";
 import { enforceRateLimit } from "@/lib/requestSecurity";
+import { adminHomePath, isAdminRole } from "@/lib/adminRoles";
 
 const schema = z.object({
 	email: z.string().trim().email().max(254).transform((value) => value.toLowerCase()),
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
 		// Find admin by email
 		const { data: admin, error } = await supabase
 			.from("admin_users")
-			.select("id, email, name, password_hash, is_active")
+			.select("id, email, name, role, password_hash, is_active, must_change_password")
 			.eq("email", email)
 			.single();
 
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
-		if (!admin.is_active) {
+		if (!admin.is_active || !isAdminRole(admin.role)) {
 			return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
 		}
 
@@ -70,7 +71,11 @@ export async function POST(req: NextRequest) {
 				id: admin.id,
 				email: admin.email,
 				name: admin.name,
+				role: admin.role,
 			},
+			mustChangePassword: admin.must_change_password === true,
+			// A temporary password sends the admin straight to the change form.
+			redirectTo: adminHomePath(admin.role, admin.must_change_password === true),
 		});
 	} catch (error) {
 		console.error("Admin signin error:", error);

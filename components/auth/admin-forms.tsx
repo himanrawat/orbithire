@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AuthHeading, AuthShell, Field, FormError, Stone, SubmitButton } from "./auth-shell";
 import { CaptchaField, captchaHeaders, resetCaptcha } from "./CaptchaField";
+import { safeAdminRedirect } from "@/lib/adminRoles";
 
 const DUTIES: [string, string][] = [
 	["Users", "Look people up, fix emails and credits."],
@@ -61,7 +62,7 @@ export function AdminSignInForm() {
 				setError(data.error || "We couldn't sign you in. Check your email and password.");
 				return;
 			}
-			router.push("/admin/dashboard");
+			router.push(safeAdminRedirect(data.redirectTo));
 			router.refresh();
 		} catch {
 			setError("We couldn't reach the server. Check your connection and try again.");

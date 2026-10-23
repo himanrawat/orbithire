@@ -1,4 +1,5 @@
 import { createServiceSupabase } from "@/lib/supabaseServer";
+import { requireAdminPage } from "@/lib/adminAuth";
 import { TASK_STATUSES, TASK_TYPES, type TaskRow } from "@/lib/tasks";
 import Link from "next/link";
 import { TasksTable } from "./TasksTable";
@@ -78,6 +79,7 @@ export default async function TasksPage({
 	}: Readonly<{
 	searchParams: { page?: string; status?: string; type?: string };
 	}>) {
+	await requireAdminPage("admin");
 	const { tasks, total, page, counts, failedByType, error } = await getTasks(searchParams);
 	const totalPages = Math.max(Math.ceil(total / PAGE_SIZE), 1);
 
