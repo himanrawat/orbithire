@@ -11,7 +11,8 @@ export type AiGenerationItemType =
 	| "resume"
 	| "cover_letter"
 	| "profile"
-	| "document";
+	| "document"
+	| "practice_attempt";
 
 export type AiGenerationEntry = Readonly<{
 	userId: string;

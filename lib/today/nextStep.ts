@@ -138,7 +138,7 @@ export function interviewPrepItem(i: InterviewSignal, timeZone: string): PlanIte
 		kind: "interview_prep",
 		title: `Prep for your ${i.companyName} interview`,
 		reason: `Your interview is ${formatInterviewTime(i.interviewAt, timeZone)}. Practice one likely question.`,
-		href: `/companies/${i.companyId}`,
+		href: `/prep?company=${i.companyId}`,
 		done: false,
 	};
 }

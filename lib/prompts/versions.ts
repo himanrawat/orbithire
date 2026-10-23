@@ -10,6 +10,7 @@ export const PROMPT_VERSIONS = {
 	cover_letter: "cover_letter@2026-10-23.1",
 	profile_extraction: "profile_extraction@2026-10-23.1",
 	profile_extraction_vision: "profile_extraction_vision@2026-10-23.1",
+	prep_feedback: "prep_feedback@2026-10-24.1",
 } as const;
 
 export type PromptFeature = keyof typeof PROMPT_VERSIONS;

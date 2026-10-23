@@ -21,6 +21,7 @@ import {
 	LogOut,
 	Briefcase,
 	Settings,
+	MessagesSquare,
 	X,
 } from "lucide-react";
 import { Lockup, Mark } from "@/components/marketing/logo";
@@ -69,6 +70,7 @@ const mainNavItems: NavItem[] = [
 	{ label: "Generate Resume", href: "/generate", icon: Sparkles, tone: "var(--kind-prep)" },
 	{ label: "Job Inbox", href: "/jobs", icon: Briefcase, tone: "var(--kind-jobs)" },
 	{ label: "Companies", href: "/companies", icon: Building2, tone: "var(--kind-interview)" },
+	{ label: "Prep", href: "/prep", icon: MessagesSquare, tone: "var(--kind-prep)" },
 	{ label: "My Resumes", href: "/resumes", icon: FileText, tone: "var(--kind-learn)" },
 	{ label: "Templates", href: "/templates", icon: LayoutTemplate, tone: "var(--kind-focus)" },
 ];

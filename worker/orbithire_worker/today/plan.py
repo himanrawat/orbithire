@@ -95,7 +95,7 @@ def interview_prep_item(i: Interview, tz: str) -> PlanItem:
         f"interview_prep:{i.company_id}", "interview_prep",
         f"Prep for your {i.company_name} interview",
         f"Your interview is {_interview_time(i.interview_at, tz)}. Practice one likely question.",
-        f"/companies/{i.company_id}",
+        f"/prep?company={i.company_id}",
     )
 
 
