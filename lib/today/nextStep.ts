@@ -180,9 +180,9 @@ export function focusBlockItem(): PlanItem {
 	return {
 		id: "focus_block",
 		kind: "focus_block",
-		title: "Block 45 minutes of focus time",
+		title: "Start a 50-minute focus session",
 		reason: "Nothing urgent today. Use the time to build a skill or polish a project.",
-		href: "/dashboard#plan",
+		href: "/focus?task=Focus%20block&ref=focus_block",
 		done: false,
 	};
 }

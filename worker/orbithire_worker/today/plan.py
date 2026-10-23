@@ -130,9 +130,9 @@ def review_matches_item(count: int) -> PlanItem:
 def focus_block_item() -> PlanItem:
     return _item(
         "focus_block", "focus_block",
-        "Block 45 minutes of focus time",
+        "Start a 50-minute focus session",
         "Nothing urgent today. Use the time to build a skill or polish a project.",
-        "/dashboard#plan",
+        "/focus?task=Focus%20block&ref=focus_block",
     )
 
 

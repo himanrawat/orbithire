@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bell, CalendarClock } from "lucide-react";
+import { Bell, CalendarClock, Timer } from "lucide-react";
 import { SectionHeader } from "@/components/app/blocks";
 import { safeTimeZone } from "@/lib/today/nextStep";
 import type { ComingUpItem } from "@/lib/today/types";
@@ -18,6 +18,9 @@ function formatWhen(iso: string, timeZone: string): string {
 function KindIcon({ kind }: Readonly<{ kind: ComingUpItem["kind"] }>) {
 	if (kind === "interview") {
 		return <CalendarClock className="h-4 w-4 text-[var(--kind-interview)]" aria-hidden="true" />;
+	}
+	if (kind === "focus") {
+		return <Timer className="h-4 w-4 text-[var(--kind-focus)]" aria-hidden="true" />;
 	}
 	return <Bell className="h-4 w-4 text-[var(--kind-prep)]" aria-hidden="true" />;
 }
