@@ -34,7 +34,6 @@ import {
 	Mail,
 	Trash2,
 	Calendar,
-	Receipt,
 	Zap,
 	Briefcase,
 	Plug,
@@ -54,6 +53,7 @@ import { ImportData } from "@/components/settings/ImportData";
 import { PrivacyChoices } from "@/components/settings/PrivacyChoices";
 import { DataAndAccount } from "@/components/settings/DataAndAccount";
 import { CareerStageSettings } from "@/components/settings/CareerStageSettings";
+import { BillingSettings } from "@/components/settings/BillingSettings";
 import { getProviderModels, type ModelInfo } from "@/lib/ai/providers/registry";
 
 type Provider = "openai" | "groq" | "anthropic" | "gemini" | "custom";
@@ -74,6 +74,8 @@ const PROVIDER_LABELS: Record<Provider, string> = {
 	gemini: "Google Gemini",
 	custom: "your provider",
 };
+
+const BILLING_TAB_ENABLED = process.env.NEXT_PUBLIC_BILLING_ENABLED === "true";
 
 const tabs: {
 	id: Tab;
@@ -97,7 +99,10 @@ const tabs: {
 		icon: <Briefcase className="h-4 w-4" />,
 	},
 	{ id: "account", label: "Account", icon: <User className="h-4 w-4" /> },
-	{ id: "billing", label: "Billing", icon: <CreditCard className="h-4 w-4" /> },
+	// Hidden unless Stripe billing is switched on (NEXT_PUBLIC_BILLING_ENABLED).
+	...(BILLING_TAB_ENABLED
+		? [{ id: "billing" as const, label: "Billing", icon: <CreditCard className="h-4 w-4" /> }]
+		: []),
 	{
 		id: "integrations",
 		label: "Integrations",
@@ -981,100 +986,7 @@ export default function SettingsPage() {
 
 					{/* Billing Tab */}
 					<Show when={activeTab === "billing"}>
-						<div className="grid gap-6">
-							{/* Current Plan */}
-							<Card>
-								<CardHeader>
-									<CardTitle className="flex items-center gap-2 text-lg">
-										<Zap className="h-5 w-5" />
-										Current Plan
-										<span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-											Soon
-										</span>
-									</CardTitle>
-									<CardDescription>
-										Manage your subscription and plan details.
-									</CardDescription>
-								</CardHeader>
-								<CardContent>
-									<div className="rounded-lg border p-4">
-										<div className="flex items-center justify-between">
-											<div>
-												<p className="text-lg font-semibold">Free Plan</p>
-												<p className="text-sm text-muted-foreground">
-													Basic features for getting started
-												</p>
-											</div>
-											<Button disabled>
-												<span className="mr-2">Upgrade</span>
-												<span className="rounded bg-primary-foreground/20 px-1.5 py-0.5 text-[10px] font-medium">
-													Soon
-												</span>
-											</Button>
-										</div>
-									</div>
-								</CardContent>
-							</Card>
-
-							{/* Payment Method */}
-							<Card>
-								<CardHeader>
-									<CardTitle className="flex items-center gap-2 text-lg">
-										<CreditCard className="h-5 w-5" />
-										Payment Method
-										<span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-											Soon
-										</span>
-									</CardTitle>
-									<CardDescription>
-										Manage your payment details.
-									</CardDescription>
-								</CardHeader>
-								<CardContent>
-									<div className="rounded-lg border border-dashed p-6 text-center">
-										<CreditCard className="mx-auto h-8 w-8 text-muted-foreground" />
-										<p className="mt-2 text-sm text-muted-foreground">
-											No payment method added
-										</p>
-										<Button
-											variant="outline"
-											size="sm"
-											className="mt-3"
-											disabled
-										>
-											<span className="mr-2">Add Payment Method</span>
-											<span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-												Soon
-											</span>
-										</Button>
-									</div>
-								</CardContent>
-							</Card>
-
-							{/* Billing History */}
-							<Card>
-								<CardHeader>
-									<CardTitle className="flex items-center gap-2 text-lg">
-										<Receipt className="h-5 w-5" />
-										Billing History
-										<span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-											Soon
-										</span>
-									</CardTitle>
-									<CardDescription>
-										View your past invoices and payments.
-									</CardDescription>
-								</CardHeader>
-								<CardContent>
-									<div className="rounded-lg border border-dashed p-6 text-center">
-										<Receipt className="mx-auto h-8 w-8 text-muted-foreground" />
-										<p className="mt-2 text-sm text-muted-foreground">
-											No billing history
-										</p>
-									</div>
-								</CardContent>
-							</Card>
-						</div>
+						<BillingSettings />
 					</Show>
 
 					{/* Integrations Tab */}

@@ -20,6 +20,7 @@ _MODULES = [
     "digest",
     "render_pdf",
     "daily_plan",
+    "billing_reminder",
 ]
 
 

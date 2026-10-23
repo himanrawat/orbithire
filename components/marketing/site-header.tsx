@@ -36,6 +36,7 @@ const navItems: NavItem[] = [
 	{ label: "Product", panelId: "product" },
 	{ label: "Today", href: "/product/today" },
 	{ label: "Community", href: "/community" },
+	{ label: "Pricing", href: "/pricing" },
 	{ label: "Questions", href: "/faq" },
 	{ label: "Company", panelId: "company" },
 ];
