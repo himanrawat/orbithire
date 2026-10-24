@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Bell, CalendarClock, Timer } from "lucide-react";
-import { SectionHeader } from "@/components/app/blocks";
 import { safeTimeZone } from "@/lib/today/nextStep";
 import type { ComingUpItem } from "@/lib/today/types";
 
@@ -25,16 +24,20 @@ function KindIcon({ kind }: Readonly<{ kind: ComingUpItem["kind"] }>) {
 	return <Bell className="h-4 w-4 text-[var(--kind-prep)]" aria-hidden="true" />;
 }
 
-/** The next interview and follow-up. Focus blocks join here with the focus timer. */
+const MAX_ITEMS = 3;
+
+/** The next interview, follow-up or focus block; at most three. */
 export function ComingUp({ items, timeZone }: Readonly<{ items: readonly ComingUpItem[]; timeZone: string }>) {
 	return (
-		<section aria-labelledby="coming-up-heading" className="rounded-[var(--radius-md)] border bg-card p-5">
-			<SectionHeader title={<span id="coming-up-heading">Coming up</span>} />
+		<section aria-labelledby="coming-up-heading" className="rounded-[var(--radius-md)] border bg-card p-4">
+			<h2 id="coming-up-heading" className="mb-2 text-[15px] font-semibold">
+				Coming up
+			</h2>
 			{items.length === 0 ? (
 				<p className="text-sm text-muted-foreground">Nothing scheduled. Add an interview date to an application to see it here.</p>
 			) : (
-				<ul className="space-y-2">
-					{items.map((item) => (
+				<ul className="-mx-2 space-y-1">
+					{items.slice(0, MAX_ITEMS).map((item) => (
 						<li key={item.id}>
 							<Link
 								href={item.href}

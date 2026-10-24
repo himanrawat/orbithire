@@ -11,7 +11,7 @@ import { SectionHeader } from "@/components/app/blocks";
 import { errorMessage, updateRelation } from "@/lib/community/client";
 import { careerStageLabel, type PersonAhead } from "@/lib/community/types";
 
-function PersonRow({ person }: Readonly<{ person: PersonAhead }>) {
+export function PersonRow({ person }: Readonly<{ person: PersonAhead }>) {
 	const [following, setFollowing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 

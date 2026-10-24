@@ -1,7 +1,4 @@
 import Link from "next/link";
-import { Briefcase, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { SectionHeader } from "@/components/app/blocks";
 import type { TodayMatch } from "@/lib/today/types";
 
 function matchMeta(match: TodayMatch): string {
@@ -10,11 +7,11 @@ function matchMeta(match: TodayMatch): string {
 
 function ScoreBadge({ score }: Readonly<{ score: number | null }>) {
 	if (score === null) {
-		return <span className="text-xs text-muted-foreground">Not scored yet</span>;
+		return <span className="w-9 flex-none text-center text-xs text-muted-foreground">New</span>;
 	}
 	return (
 		<span
-			className="rounded-full bg-[var(--kind-jobs-soft)] px-2 py-0.5 font-mono text-sm font-semibold tabular-nums text-[var(--kind-jobs)]"
+			className="w-9 flex-none rounded-full bg-[var(--kind-jobs-soft)] py-0.5 text-center font-mono text-sm font-semibold tabular-nums text-[var(--kind-jobs)]"
 			aria-label={`Match score ${score} out of 100`}
 		>
 			{score}
@@ -22,40 +19,33 @@ function ScoreBadge({ score }: Readonly<{ score: number | null }>) {
 	);
 }
 
-/** Top 3 new matches from the Job Inbox, with their scores. */
+/** Up to 3 new matches from the Job Inbox, for the Today side column. */
 export function TopMatches({ matches }: Readonly<{ matches: readonly TodayMatch[] }>) {
 	return (
-		<section aria-labelledby="matches-heading" className="rounded-[var(--radius-md)] border bg-card p-5">
-			<SectionHeader
-				icon={<Briefcase aria-hidden="true" />}
-				title={<span id="matches-heading">New matches</span>}
-				description="The best new roles in your Job Inbox."
-				action={
-					<Button variant="outline" size="sm" asChild>
-						<Link href="/jobs">
-							Job Inbox
-							<ChevronRight className="h-4 w-4" aria-hidden="true" />
-						</Link>
-					</Button>
-				}
-			/>
+		<section aria-labelledby="matches-heading" className="rounded-[var(--radius-md)] border bg-card p-4">
+			<div className="mb-2 flex items-baseline justify-between gap-3">
+				<h2 id="matches-heading" className="text-[15px] font-semibold">
+					New jobs for you
+				</h2>
+				<Link href="/jobs" className="text-[13px] font-medium text-[var(--info)] underline-offset-2 hover:underline">
+					See all
+				</Link>
+			</div>
 			{matches.length === 0 ? (
-				<p className="text-sm text-muted-foreground">
-					No new matches yet. New roles arrive each morning once your job search is set up.
-				</p>
+				<p className="text-sm text-muted-foreground">New roles arrive each morning once your job search is set up.</p>
 			) : (
-				<ul className="space-y-2">
-					{matches.map((m) => (
+				<ul>
+					{matches.slice(0, 3).map((m) => (
 						<li key={m.id}>
 							<Link
 								href={`/jobs/${m.id}`}
-								className="flex items-center justify-between gap-3 rounded-[var(--radius-sm)] border bg-background/50 p-3 transition-colors hover:bg-muted/50"
+								className="-mx-2 flex min-h-11 items-center gap-3 rounded-[var(--radius-sm)] px-2 py-1.5 hover:bg-muted/50"
 							>
-								<div className="min-w-0">
-									<p className="truncate font-medium">{m.title}</p>
-									<p className="truncate text-sm text-muted-foreground">{matchMeta(m)}</p>
-								</div>
 								<ScoreBadge score={m.score} />
+								<span className="min-w-0">
+									<span className="block truncate text-sm font-semibold">{m.title}</span>
+									<span className="block truncate text-[13px] text-muted-foreground">{matchMeta(m)}</span>
+								</span>
 							</Link>
 						</li>
 					))}

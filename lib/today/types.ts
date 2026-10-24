@@ -30,6 +30,35 @@ export type TodayPlan = {
 	generatedAt: string;
 };
 
+export type WeekDay = {
+	date: string;
+	label: string;
+	/** active: a plan item was done that day; open: a past day without one. */
+	state: "active" | "today" | "open" | "upcoming";
+};
+
+export type TodayPost = {
+	id: string;
+	type: string;
+	title: string;
+	authorName: string;
+	helpfulCount: number;
+	replyCount: number;
+};
+
+export type TodayPerson = {
+	userId: string;
+	displayName: string;
+	headline: string | null;
+	careerStage: string | null;
+};
+
+/** Community preview for members; null when the person isn't an active member. */
+export type TodayCommunity = {
+	posts: TodayPost[];
+	people: TodayPerson[];
+};
+
 export type TodayData = {
 	firstName: string | null;
 	timeZone: string;
@@ -40,5 +69,6 @@ export type TodayData = {
 	matches: TodayMatch[];
 	comingUp: ComingUpItem[];
 	weeklyFocus: WeeklyFocus | null;
-	learningLogAvailable: boolean;
+	week: WeekDay[];
+	community: TodayCommunity | null;
 };

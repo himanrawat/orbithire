@@ -19,7 +19,8 @@ import {
 } from "./nextStep";
 import { getActiveLesson } from "@/lib/learn/server";
 import { parseStoredItems } from "./schema";
-import type { ComingUpItem, TodayMatch, TodayPlan, WeeklyFocus } from "./types";
+import type { ComingUpItem, TodayMatch, TodayPlan, WeekDay, WeeklyFocus } from "./types";
+import { buildWeek, weekStartKey } from "./week";
 import { getNextFocusBlock } from "@/lib/focus/server";
 import { SESSION_MINUTES_COLUMNS, totalSessionMinutes, type SessionMinutesRow } from "@/lib/focus/totals";
 
@@ -366,15 +367,6 @@ export async function loadWeeklyFocus(
 	return { goalHours, minutes };
 }
 
-/** True once the learning log table (area 3) exists. */
-export async function hasLearningLog(supabase: SupabaseClient): Promise<boolean> {
-	const { error } = await supabase
-		.from("learning_entries")
-		.select("id", { count: "exact", head: true })
-		.limit(1);
-	return !error;
-}
-
 export type StoredPlan = TodayPlan & { nextStepDismissed: boolean };
 
 function toStoredPlan(row: Row): StoredPlan {
@@ -400,6 +392,23 @@ export async function loadPlan(
 		.eq("date", date)
 		.maybeSingle();
 	return data ? toStoredPlan(data as Row) : null;
+}
+
+/** This week's days, marked active where at least one plan item was checked off. */
+export async function loadWeek(supabase: SupabaseClient, userId: string, todayKey: string): Promise<WeekDay[]> {
+	const { data, error } = await supabase
+		.from("daily_plans")
+		.select("date, items")
+		.eq("user_id", userId)
+		.gte("date", weekStartKey(todayKey))
+		.lte("date", todayKey);
+	const active = new Set<string>();
+	if (!error && data) {
+		for (const row of data as Row[]) {
+			if (parseStoredItems(row.items).some((item) => item.done)) active.add(String(row.date));
+		}
+	}
+	return buildWeek(todayKey, active);
 }
 
 /** Creates today's plan from the rules unless the worker (or a race) already did. */

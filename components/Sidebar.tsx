@@ -70,19 +70,52 @@ type NavItem = {
 	badge?: number;
 };
 
-const mainNavItems: NavItem[] = [
-	{ label: "Today", href: "/dashboard", icon: LayoutDashboard, tone: "var(--cap)" },
-	{ label: "Focus", href: "/focus", icon: Timer, tone: "var(--kind-focus)" },
-	{ label: "Generate Resume", href: "/generate", icon: Sparkles, tone: "var(--kind-prep)" },
-	{ label: "Job Inbox", href: "/jobs", icon: Briefcase, tone: "var(--kind-jobs)" },
-	{ label: "Learn", href: "/learn", icon: GraduationCap, tone: "var(--kind-learn)" },
-	{ label: "Milestones", href: "/profile/milestones", icon: Flag, tone: "var(--cap)" },
-	{ label: "Companies", href: "/companies", icon: Building2, tone: "var(--kind-interview)" },
-	{ label: "Prep", href: "/prep", icon: MessagesSquare, tone: "var(--kind-prep)" },
-	{ label: "Community", href: "/feed", icon: Users, tone: "var(--kind-interview)" },
-	{ label: "My Resumes", href: "/resumes", icon: FileText, tone: "var(--kind-learn)" },
-	{ label: "Templates", href: "/templates", icon: LayoutTemplate, tone: "var(--kind-focus)" },
+type NavGroup = { label: string | null; items: NavItem[] };
+
+// Grouped by what the person is doing (PRD v3 area 13, UI). Today stays pinned on top;
+// group order is fixed so it's learned once.
+const navGroups: NavGroup[] = [
+	{ label: null, items: [{ label: "Today", href: "/dashboard", icon: LayoutDashboard, tone: "var(--cap)" }] },
+	{
+		label: "Grow",
+		items: [
+			{ label: "Learn", href: "/learn", icon: GraduationCap, tone: "var(--kind-learn)" },
+			{ label: "Interview prep", href: "/prep", icon: MessagesSquare, tone: "var(--kind-prep)" },
+			{ label: "Focus", href: "/focus", icon: Timer, tone: "var(--kind-focus)" },
+		],
+	},
+	{
+		label: "Job search",
+		items: [
+			{ label: "Job inbox", href: "/jobs", icon: Briefcase, tone: "var(--kind-jobs)" },
+			{ label: "Applications", href: "/companies", icon: Building2, tone: "var(--kind-jobs)" },
+		],
+	},
+	{
+		label: "Documents",
+		items: [
+			{ label: "Resume builder", href: "/generate", icon: Sparkles, tone: "var(--kind-interview)" },
+			{ label: "My resumes", href: "/resumes", icon: FileText, tone: "var(--kind-interview)" },
+			{ label: "Templates", href: "/templates", icon: LayoutTemplate, tone: "var(--kind-interview)" },
+		],
+	},
+	{
+		label: "People",
+		items: [
+			{ label: "Community", href: "/feed", icon: Users, tone: "var(--kind-prep)" },
+			{ label: "Milestones", href: "/profile/milestones", icon: Flag, tone: "var(--cap)" },
+		],
+	},
 ];
+
+function GroupLabel({ label, isExpanded }: Readonly<{ label: string; isExpanded: boolean }>) {
+	if (!isExpanded) return <hr aria-hidden="true" className="mx-3 my-2 border-[var(--night-line)]" />;
+	return (
+		<h2 className="nm-mono px-3 pb-1 pt-4 text-[11px] font-medium uppercase tracking-[0.1em] text-[var(--night-muted)]">
+			{label}
+		</h2>
+	);
+}
 
 const settingsItem: NavItem = { label: "Settings", href: "/settings", icon: Settings, tone: "var(--night-ink)" };
 
@@ -211,14 +244,19 @@ export function Sidebar() {
 			</div>
 
 			{/* Main Nav */}
-			<nav aria-label="Main" className="flex-1 space-y-1 px-2 pt-3">
-				{mainNavItems.map((item) => (
-					<NavLink
-						key={item.href}
-						item={item}
-						isExpanded={expanded}
-						onClick={() => setIsMobileOpen(false)}
-					/>
+			<nav aria-label="Main" className="flex-1 overflow-y-auto px-2 pt-3">
+				{navGroups.map((group) => (
+					<div key={group.label ?? "pinned"} className="space-y-1">
+						{group.label && <GroupLabel label={group.label} isExpanded={expanded} />}
+						{group.items.map((item) => (
+							<NavLink
+								key={item.href}
+								item={item}
+								isExpanded={expanded}
+								onClick={() => setIsMobileOpen(false)}
+							/>
+						))}
+					</div>
 				))}
 			</nav>
 

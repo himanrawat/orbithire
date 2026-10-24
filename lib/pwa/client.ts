@@ -28,6 +28,26 @@ export async function registerServiceWorker(): Promise<void> {
 	}
 }
 
+/**
+ * Development only: removes a worker left by an earlier production build or a push test.
+ * In `next dev` script names aren't content-hashed, so a cache-first worker would keep
+ * serving old code and break hydration.
+ */
+export async function unregisterServiceWorkers(): Promise<void> {
+	if (!("serviceWorker" in navigator)) return;
+	try {
+		const registrations = await navigator.serviceWorker.getRegistrations();
+		await Promise.all(registrations.map((registration) => registration.unregister()));
+		if ("caches" in globalThis) {
+			const keys = await caches.keys();
+			await Promise.all(keys.filter((key) => key.startsWith("nm-")).map((key) => caches.delete(key)));
+		}
+		if (registrations.length > 0) console.info("Removed a stale service worker; reload to load the latest code.");
+	} catch (error) {
+		console.warn("Service worker cleanup failed", error);
+	}
+}
+
 /** Drops the cached page shells (called on sign-out). */
 export function clearOfflinePages(): void {
 	if (!("serviceWorker" in navigator)) return;
